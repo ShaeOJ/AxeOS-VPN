@@ -1,5 +1,4 @@
 import { getDatabase, generateId } from './index';
-import type { MetricsSnapshot } from '@axeos-vpn/shared-types';
 
 export interface MetricRecord {
   id: string;
@@ -12,9 +11,17 @@ export interface MetricRecord {
   created_at: number;
 }
 
-export function saveMetrics(deviceId: string, metrics: MetricsSnapshot): void {
+export interface SimpleMetrics {
+  hashrate: number | null;
+  temperature: number | null;
+  power: number | null;
+  data: string;
+}
+
+export function saveMetrics(deviceId: string, metrics: SimpleMetrics): void {
   const db = getDatabase();
   const id = generateId();
+  const timestamp = Date.now();
 
   db.prepare(`
     INSERT INTO metrics (id, device_id, timestamp, hashrate, temperature, power, data)
@@ -22,11 +29,11 @@ export function saveMetrics(deviceId: string, metrics: MetricsSnapshot): void {
   `).run(
     id,
     deviceId,
-    metrics.timestamp,
-    metrics.hashrate.current,
-    metrics.temperature.average,
-    metrics.power.total,
-    JSON.stringify(metrics)
+    timestamp,
+    metrics.hashrate,
+    metrics.temperature,
+    metrics.power,
+    metrics.data
   );
 }
 

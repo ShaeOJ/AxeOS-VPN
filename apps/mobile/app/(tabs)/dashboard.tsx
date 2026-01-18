@@ -6,12 +6,15 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDeviceStore } from '../../src/stores/deviceStore';
 import { api } from '../../src/lib/api';
 import { formatHashrate, formatTemperature, formatPower } from '@axeos-vpn/shared-utils';
 import { Colors, Spacing, FontSizes, BorderRadius } from '../../src/constants/theme';
+
+const logo = require('../../assets/logo.png');
 
 export default function DashboardScreen() {
   const { devices, isLoading, setDevices, setLoading, setError } = useDeviceStore();
@@ -58,7 +61,7 @@ export default function DashboardScreen() {
         }
       >
         <View style={styles.header}>
-          <Text style={styles.title}>Dashboard</Text>
+          <Image source={logo} style={styles.logoImage} resizeMode="contain" />
           <Text style={styles.subtitle}>
             {onlineDevices.length} of {devices.length} devices online
           </Text>
@@ -176,11 +179,12 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: Spacing.lg,
+    alignItems: 'center',
   },
-  title: {
-    fontSize: FontSizes.xl,
-    fontWeight: 'bold',
-    color: Colors.textPrimary,
+  logoImage: {
+    width: 180,
+    height: 60,
+    marginBottom: Spacing.sm,
   },
   subtitle: {
     fontSize: FontSizes.sm,

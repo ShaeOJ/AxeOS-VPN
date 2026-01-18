@@ -9,6 +9,7 @@ import {
   Platform,
   Alert,
   ScrollView,
+  Image,
 } from 'react-native';
 import { Link, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,6 +17,8 @@ import { useAuthStore } from '../../src/stores/authStore';
 import { api } from '../../src/lib/api';
 import { isValidPassword } from '@axeos-vpn/shared-utils';
 import { Colors, Spacing, FontSizes, BorderRadius } from '../../src/constants/theme';
+
+const logo = require('../../assets/logo.png');
 
 export default function RegisterScreen() {
   const setAuth = useAuthStore((state) => state.setAuth);
@@ -65,9 +68,7 @@ export default function RegisterScreen() {
         >
           <View style={styles.content}>
             <View style={styles.header}>
-              <View style={styles.logo}>
-                <Text style={styles.logoText}>A</Text>
-              </View>
+              <Image source={logo} style={styles.logoImage} resizeMode="contain" />
               <Text style={styles.title}>Create account</Text>
               <Text style={styles.subtitle}>Start monitoring your mining rigs</Text>
             </View>
@@ -160,19 +161,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.xl,
   },
-  logo: {
-    width: 64,
-    height: 64,
-    borderRadius: BorderRadius.xl,
-    backgroundColor: Colors.accent + '20',
-    justifyContent: 'center',
-    alignItems: 'center',
+  logoImage: {
+    width: 150,
+    height: 80,
     marginBottom: Spacing.md,
-  },
-  logoText: {
-    fontSize: FontSizes.xxl,
-    fontWeight: 'bold',
-    color: Colors.accent,
   },
   title: {
     fontSize: FontSizes.xl,

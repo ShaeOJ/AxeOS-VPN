@@ -1,5 +1,16 @@
 import { Link } from 'react-router-dom';
 
+// ClusterAxe cluster info
+interface ClusterInfo {
+  activeSlaves: number;
+  totalHashrate: number;
+  totalPower: number;
+  totalEfficiency: number;
+  totalSharesAccepted: number;
+  totalSharesRejected: number;
+  slaves: unknown[];
+}
+
 // AxeOS system info
 interface AxeOSSystemInfo {
   power: number;
@@ -10,6 +21,8 @@ interface AxeOSSystemInfo {
   sharesRejected: number;
   ASICModel: string;
   fanspeed: number;
+  isClusterMaster?: boolean;
+  clusterInfo?: ClusterInfo;
   [key: string]: unknown;
 }
 
@@ -59,11 +72,11 @@ export function DeviceCard({ device }: DeviceCardProps) {
   return (
     <Link
       to={`/devices/${device.id}`}
-      className="block p-4 rounded-xl bg-bg-secondary border border-border hover:border-accent/50 transition-colors"
+      className="vault-card block p-4 hover:border-accent/50 hover-glitch transition-all duration-200 hover:shadow-[0_0_20px_rgba(255,176,0,0.2)]"
     >
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1 min-w-0">
-          <h3 className="font-medium text-text-primary truncate">{device.name}</h3>
+          <h3 className="font-medium text-accent truncate">{device.name}</h3>
           <p className="text-xs text-text-secondary font-mono">{device.ipAddress}</p>
         </div>
         <div
@@ -77,7 +90,14 @@ export function DeviceCard({ device }: DeviceCardProps) {
         <div className="space-y-3">
           {/* Model & Last Seen */}
           <div className="flex items-center justify-between text-xs text-text-secondary">
-            <span>{metrics.ASICModel || 'BitAxe'}</span>
+            <div className="flex items-center gap-2">
+              <span>{metrics.ASICModel || 'BitAxe'}</span>
+              {metrics.isClusterMaster && metrics.clusterInfo && (
+                <span className="px-1.5 py-0.5 text-[10px] bg-accent/20 border border-accent/40 text-accent uppercase font-bold">
+                  Cluster ({metrics.clusterInfo.activeSlaves})
+                </span>
+              )}
+            </div>
             <span>{formatRelativeTime(device.lastSeen)}</span>
           </div>
 

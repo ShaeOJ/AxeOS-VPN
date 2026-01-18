@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import * as auth from './database/auth';
 import { join } from 'path';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import { initDatabase, closeDatabase } from './database';
@@ -7,6 +8,7 @@ import * as devices from './database/devices';
 import * as metrics from './database/metrics';
 import * as settings from './database/settings';
 import * as poller from './axeos-poller';
+import * as tunnel from './cloudflare-tunnel';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -90,6 +92,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+  tunnel.stopTunnel();
   poller.stopAllPolling();
   server.stopServer();
   closeDatabase();
@@ -234,6 +237,41 @@ ipcMain.handle('get-latest-metrics', (_, deviceId: string) => {
 ipcMain.handle('get-settings', () => settings.getAllSettings());
 ipcMain.handle('set-setting', (_, key: string, value: string) => {
   settings.setSetting(key, value);
+  return { success: true };
+});
+
+// IPC Handlers - Cloudflare Tunnel
+ipcMain.handle('get-tunnel-status', () => tunnel.getTunnelStatus());
+
+ipcMain.handle('start-tunnel', async () => {
+  try {
+    const url = await tunnel.startTunnel(settings.getServerPort());
+    return { success: true, url };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to start tunnel' };
+  }
+});
+
+ipcMain.handle('stop-tunnel', () => {
+  tunnel.stopTunnel();
+  return { success: true };
+});
+
+// IPC Handlers - Utility
+ipcMain.handle('open-external', (_, url: string) => {
+  shell.openExternal(url);
+  return { success: true };
+});
+
+// IPC Handlers - Password Management
+ipcMain.handle('is-password-set', () => auth.isPasswordSet());
+
+ipcMain.handle('change-password', async (_, currentPassword: string, newPassword: string) => {
+  return auth.changePassword(currentPassword, newPassword);
+});
+
+ipcMain.handle('reset-password', () => {
+  auth.resetPassword();
   return { success: true };
 });
 

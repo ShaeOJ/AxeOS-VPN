@@ -1,19 +1,36 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=Share+Tech+Mono&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --color-bg-primary: #0f0f1a;
-  --color-bg-secondary: #1a1a2e;
-  --color-bg-tertiary: #252542;
-  --color-accent: #00d9ff;
-  --color-accent-hover: #00bfdf;
-  --color-success: #00ff9d;
-  --color-warning: #ffcc00;
-  --color-danger: #ff4757;
-  --color-text-primary: #ffffff;
-  --color-text-secondary: #a0a0b0;
-  --color-border: #3a3a5c;
+  /* Vault-Tec Theme Colors */
+  --color-bg-primary: #0a1929;
+  --color-bg-secondary: #0d2137;
+  --color-bg-tertiary: #112a45;
+  --color-bg-terminal: #001a0d;
+
+  --color-accent: #FFB000;
+  --color-accent-hover: #FFC940;
+  --color-accent-dim: #CC8C00;
+
+  --color-success: #00FF41;
+  --color-success-dim: #00CC33;
+  --color-warning: #FF8C00;
+  --color-danger: #FF3131;
+
+  --color-text-primary: #E8F4E8;
+  --color-text-secondary: #8BA88B;
+  --color-text-terminal: #00FF41;
+
+  --color-border: #1a4a5c;
+  --color-border-highlight: #00CED1;
+  --color-border-glow: #20B2AA;
+
+  --color-vault-yellow: #FFB000;
+  --color-vault-blue: #0055AA;
+  --color-pip-green: #00FF41;
 }
 
 * {
@@ -23,32 +40,143 @@
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Share Tech Mono', 'JetBrains Mono', Consolas, monospace;
   background-color: var(--color-bg-primary);
   color: var(--color-text-primary);
   overflow: hidden;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Custom scrollbar */
+/* ========================================
+   VAULT-TEC SCANLINE OVERLAY
+   ======================================== */
+
+/* Main scanlines overlay */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0px,
+      transparent 2px,
+      rgba(0, 255, 65, 0.03) 2px,
+      rgba(0, 255, 65, 0.03) 4px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0px,
+      transparent 3px,
+      rgba(0, 0, 0, 0.03) 3px,
+      rgba(0, 0, 0, 0.03) 4px
+    );
+  animation: scanline-flicker 0.05s infinite;
+}
+
+/* CRT screen curvature and vignette effect */
+body::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9998;
+  background:
+    radial-gradient(
+      ellipse at center,
+      transparent 0%,
+      transparent 50%,
+      rgba(0, 10, 20, 0.4) 100%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(0, 255, 65, 0.01) 0%,
+      transparent 50%,
+      rgba(0, 255, 65, 0.01) 100%
+    );
+}
+
+/* Animated scanline that moves down the screen */
+.scanline-animate {
+  position: relative;
+}
+
+.scanline-animate::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    rgba(0, 255, 65, 0.15),
+    transparent
+  );
+  animation: scanline-move 6s linear infinite;
+  pointer-events: none;
+  z-index: 10;
+}
+
+@keyframes scanline-move {
+  0% {
+    top: -4px;
+  }
+  100% {
+    top: 100%;
+  }
+}
+
+@keyframes scanline-flicker {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.98;
+  }
+}
+
+/* ========================================
+   VAULT-TEC CUSTOM SCROLLBAR
+   ======================================== */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
   background: var(--color-bg-secondary);
+  border-left: 1px solid var(--color-border);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: 4px;
+  background: linear-gradient(180deg, var(--color-accent) 0%, var(--color-accent-dim) 100%);
+  border-radius: 0;
+  border: 1px solid var(--color-accent);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-accent);
+  background: linear-gradient(180deg, var(--color-accent-hover) 0%, var(--color-accent) 100%);
+  box-shadow: 0 0 10px var(--color-accent);
 }
 
-/* Draggable region for window title bar */
+::-webkit-scrollbar-corner {
+  background: var(--color-bg-secondary);
+}
+
+/* ========================================
+   DRAGGABLE REGIONS
+   ======================================== */
 .draggable {
   -webkit-app-region: drag;
 }
@@ -57,29 +185,456 @@ body {
   -webkit-app-region: no-drag;
 }
 
-/* Animation utilities */
-@keyframes pulse-glow {
-  0%, 100% {
-    box-shadow: 0 0 5px var(--color-accent);
+/* ========================================
+   VAULT-TEC COMPONENT STYLES
+   ======================================== */
+
+/* Vault-Tec Card Style */
+@layer components {
+  .vault-card {
+    @apply bg-bg-secondary border-2 border-border relative overflow-hidden;
+    box-shadow:
+      0 0 10px rgba(255, 176, 0, 0.1),
+      inset 0 0 30px rgba(0, 0, 0, 0.3);
   }
-  50% {
-    box-shadow: 0 0 20px var(--color-accent);
+
+  .vault-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, var(--color-accent), transparent);
+    opacity: 0.5;
+  }
+
+  /* Vault-Tec Header Style */
+  .vault-header {
+    @apply bg-bg-tertiary border-b-2 border-accent/30 px-4 py-3;
+    background: linear-gradient(180deg, var(--color-bg-tertiary) 0%, var(--color-bg-secondary) 100%);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  /* Terminal-style text glow */
+  .terminal-glow {
+    text-shadow: 0 0 3px var(--color-pip-green);
+  }
+
+  /* Vault-Tec Button */
+  .vault-btn {
+    @apply px-4 py-2 font-bold uppercase tracking-wider transition-all duration-200;
+    background: linear-gradient(180deg, var(--color-accent) 0%, var(--color-accent-dim) 100%);
+    color: var(--color-bg-primary);
+    border: 2px solid var(--color-accent);
+    box-shadow: 0 0 10px rgba(255, 176, 0, 0.3);
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+
+  .vault-btn:hover {
+    background: linear-gradient(180deg, var(--color-accent-hover) 0%, var(--color-accent) 100%);
+    box-shadow: 0 0 20px rgba(255, 176, 0, 0.5);
+    transform: translateY(-1px);
+  }
+
+  .vault-btn:active {
+    transform: translateY(1px);
+    box-shadow: 0 0 5px rgba(255, 176, 0, 0.3);
+  }
+
+  .vault-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* Vault-Tec Input */
+  .vault-input {
+    @apply w-full px-3 py-2 bg-bg-primary border-2 border-border text-text-primary;
+    @apply focus:outline-none focus:border-accent focus:shadow-vault;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  .vault-input::placeholder {
+    color: var(--color-text-secondary);
+    opacity: 0.7;
+  }
+
+  /* Status indicators */
+  .status-online {
+    @apply bg-success;
+    box-shadow: 0 0 10px var(--color-success);
+    animation: glow-pulse 2s ease-in-out infinite;
+  }
+
+  .status-offline {
+    @apply bg-danger;
+    box-shadow: 0 0 5px var(--color-danger);
+  }
+
+  /* Pip-Boy style stat display */
+  .pip-stat {
+    @apply text-text-terminal font-mono;
+    text-shadow: 0 0 3px var(--color-pip-green);
+  }
+
+  /* Warning box */
+  .vault-warning {
+    @apply border-2 border-warning/50 bg-warning/10 p-4;
+    box-shadow: inset 0 0 20px rgba(255, 140, 0, 0.1);
+  }
+
+  /* Danger box */
+  .vault-danger {
+    @apply border-2 border-danger/50 bg-danger/10 p-4;
+    box-shadow: inset 0 0 20px rgba(255, 49, 49, 0.1);
+  }
+
+  /* Success box */
+  .vault-success {
+    @apply border-2 border-success/50 bg-success/10 p-4;
+    box-shadow: inset 0 0 20px rgba(0, 255, 65, 0.1);
   }
 }
 
-.animate-pulse-glow {
-  animation: pulse-glow 2s ease-in-out infinite;
+/* ========================================
+   ANIMATIONS
+   ======================================== */
+
+/* ========================================
+   VAULT-TEC GLITCH ANIMATIONS
+   ======================================== */
+
+/* Glitch-in animation for pages/modals */
+@keyframes glitch-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.95) translateY(-10px);
+    clip-path: inset(0 0 100% 0);
+  }
+  10% {
+    opacity: 1;
+    clip-path: inset(0 0 80% 0);
+  }
+  20% {
+    clip-path: inset(40% 0 40% 0);
+    transform: scale(1.02) translateX(-5px);
+  }
+  30% {
+    clip-path: inset(20% 0 60% 0);
+    transform: scale(0.98) translateX(5px);
+  }
+  40% {
+    clip-path: inset(60% 0 20% 0);
+  }
+  50% {
+    clip-path: inset(0 0 50% 0);
+    transform: scale(1) translateX(-3px);
+  }
+  60% {
+    clip-path: inset(30% 0 30% 0);
+    transform: scale(1.01) translateX(3px);
+  }
+  70% {
+    clip-path: inset(10% 0 10% 0);
+  }
+  80% {
+    clip-path: inset(0 0 5% 0);
+    transform: scale(1) translateX(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* Glitch-out animation */
+@keyframes glitch-out {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+    clip-path: inset(0 0 0 0);
+  }
+  20% {
+    clip-path: inset(10% 0 10% 0);
+    transform: translateX(5px);
+  }
+  40% {
+    clip-path: inset(30% 0 50% 0);
+    transform: translateX(-5px);
+  }
+  60% {
+    clip-path: inset(50% 0 30% 0);
+    opacity: 0.7;
+  }
+  80% {
+    clip-path: inset(70% 0 20% 0);
+    opacity: 0.4;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.95) translateY(-10px);
+    clip-path: inset(100% 0 0 0);
+  }
+}
+
+/* Horizontal glitch effect */
+@keyframes glitch-horizontal {
+  0%, 100% {
+    transform: translateX(0);
+    filter: none;
+  }
+  10% {
+    transform: translateX(-2px);
+    filter: hue-rotate(90deg);
+  }
+  20% {
+    transform: translateX(2px);
+    filter: none;
+  }
+  30% {
+    transform: translateX(-1px);
+    filter: saturate(2);
+  }
+  40% {
+    transform: translateX(1px);
+  }
+  50% {
+    transform: translateX(0);
+    filter: none;
+  }
+}
+
+/* RGB split glitch */
+@keyframes glitch-rgb {
+  0%, 100% {
+    text-shadow: none;
+  }
+  25% {
+    text-shadow: -2px 0 #ff0000, 2px 0 #00ffff;
+  }
+  50% {
+    text-shadow: 2px 0 #ff0000, -2px 0 #00ffff;
+  }
+  75% {
+    text-shadow: -1px 0 #ff0000, 1px 0 #00ffff;
+  }
+}
+
+/* Terminal flicker */
+@keyframes terminal-flicker {
+  0%, 100% { opacity: 1; }
+  92% { opacity: 1; }
+  93% { opacity: 0.8; }
+  94% { opacity: 1; }
+  96% { opacity: 0.9; }
+  97% { opacity: 1; }
+}
+
+/* Border glow pulse */
+@keyframes border-glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(255, 176, 0, 0.3), inset 0 0 10px rgba(255, 176, 0, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(255, 176, 0, 0.5), inset 0 0 15px rgba(255, 176, 0, 0.2);
+  }
+}
+
+/* Page slide-in with glitch */
+@keyframes page-glitch-in {
+  0% {
+    opacity: 0;
+    transform: translateX(20px);
+    filter: blur(2px);
+  }
+  20% {
+    opacity: 0.5;
+    transform: translateX(-5px);
+    filter: blur(0);
+  }
+  40% {
+    transform: translateX(3px);
+  }
+  60% {
+    transform: translateX(-2px);
+  }
+  80% {
+    transform: translateX(1px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+    filter: none;
+  }
+}
+
+/* Animation utility classes */
+.animate-glitch-in {
+  animation: glitch-in 0.4s ease-out forwards;
+}
+
+.animate-glitch-out {
+  animation: glitch-out 0.25s ease-in forwards;
+}
+
+.animate-page-glitch {
+  animation: page-glitch-in 0.35s ease-out forwards;
+}
+
+.animate-glitch-horizontal {
+  animation: glitch-horizontal 0.3s ease-out;
+}
+
+.animate-glitch-rgb {
+  animation: glitch-rgb 0.5s ease-out;
+}
+
+.animate-border-glow {
+  animation: border-glow-pulse 3s ease-in-out infinite;
+}
+
+.animate-terminal-flicker {
+  animation: terminal-flicker 4s infinite;
+}
+
+/* Glitch on hover */
+.hover-glitch:hover {
+  animation: glitch-horizontal 0.3s ease-out;
+}
+
+.hover-glitch-rgb:hover {
+  animation: glitch-rgb 0.5s ease-out;
+}
+
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 5px var(--color-accent);
+    opacity: 1;
+  }
+  50% {
+    box-shadow: 0 0 20px var(--color-accent), 0 0 30px var(--color-accent);
+    opacity: 0.8;
+  }
+}
+
+@keyframes terminal-blink {
+  0%, 50% {
+    opacity: 1;
+  }
+  51%, 100% {
+    opacity: 0;
+  }
+}
+
+@keyframes scanline {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100vh);
+  }
+}
+
+@keyframes flicker {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.95;
+  }
 }
 
 @keyframes fade-in {
   from {
     opacity: 0;
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
+    transform: translateY(0);
   }
 }
 
+.animate-pulse-glow {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
 .animate-fade-in {
-  animation: fade-in 0.3s ease-in-out;
+  animation: fade-in 0.3s ease-out;
+}
+
+.animate-terminal-blink {
+  animation: terminal-blink 1s step-end infinite;
+}
+
+/* ========================================
+   VAULT-TEC DECORATIVE ELEMENTS
+   ======================================== */
+
+/* Corner brackets decoration */
+.vault-corners {
+  position: relative;
+}
+
+.vault-corners::before,
+.vault-corners::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-color: var(--color-accent);
+  border-style: solid;
+}
+
+.vault-corners::before {
+  top: -2px;
+  left: -2px;
+  border-width: 3px 0 0 3px;
+}
+
+.vault-corners::after {
+  bottom: -2px;
+  right: -2px;
+  border-width: 0 3px 3px 0;
+}
+
+/* Hazard stripes */
+.hazard-stripes {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--color-warning),
+    var(--color-warning) 10px,
+    var(--color-bg-primary) 10px,
+    var(--color-bg-primary) 20px
+  );
+}
+
+/* Terminal cursor */
+.terminal-cursor::after {
+  content: '█';
+  animation: terminal-blink 1s step-end infinite;
+  color: var(--color-pip-green);
+}
+
+/* Vault number badge */
+.vault-badge {
+  @apply inline-flex items-center justify-center px-3 py-1 font-bold;
+  background: var(--color-vault-yellow);
+  color: var(--color-bg-primary);
+  clip-path: polygon(10% 0%, 90% 0%, 100% 50%, 90% 100%, 10% 100%, 0% 50%);
+}
+
+/* Selection styling */
+::selection {
+  background: var(--color-accent);
+  color: var(--color-bg-primary);
+}
+
+/* Focus ring styling */
+*:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }

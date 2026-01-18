@@ -33,6 +33,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSettings: () => ipcRenderer.invoke('get-settings'),
   setSetting: (key: string, value: string) => ipcRenderer.invoke('set-setting', key, value),
 
+  // Cloudflare Tunnel (Remote Access)
+  getTunnelStatus: () => ipcRenderer.invoke('get-tunnel-status'),
+  startTunnel: () => ipcRenderer.invoke('start-tunnel'),
+  stopTunnel: () => ipcRenderer.invoke('stop-tunnel'),
+
+  // Utility
+  openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
+
+  // Password Management
+  isPasswordSet: () => ipcRenderer.invoke('is-password-set'),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    ipcRenderer.invoke('change-password', currentPassword, newPassword),
+  resetPassword: () => ipcRenderer.invoke('reset-password'),
+
   // Events
   onDeviceMetrics: (callback: (data: { deviceId: string; data: AxeOSSystemInfo; isOnline: boolean }) => void) => {
     ipcRenderer.on('device-metrics', (_, data) => callback(data));
@@ -121,6 +135,18 @@ export interface TestConnectionResult {
   error?: string;
 }
 
+export interface TunnelStatus {
+  enabled: boolean;
+  url: string | null;
+  isStarting: boolean;
+}
+
+export interface TunnelResult {
+  success: boolean;
+  url?: string;
+  error?: string;
+}
+
 declare global {
   interface Window {
     electronAPI: {
@@ -146,6 +172,16 @@ declare global {
 
       getSettings: () => Promise<Record<string, string>>;
       setSetting: (key: string, value: string) => Promise<{ success: boolean }>;
+
+      getTunnelStatus: () => Promise<TunnelStatus>;
+      startTunnel: () => Promise<TunnelResult>;
+      stopTunnel: () => Promise<{ success: boolean }>;
+
+      openExternal: (url: string) => Promise<{ success: boolean }>;
+
+      isPasswordSet: () => Promise<boolean>;
+      changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
+      resetPassword: () => Promise<{ success: boolean }>;
 
       onDeviceMetrics: (callback: (data: { deviceId: string; data: AxeOSSystemInfo; isOnline: boolean }) => void) => void;
       onWindowMaximized: (callback: (isMaximized: boolean) => void) => void;

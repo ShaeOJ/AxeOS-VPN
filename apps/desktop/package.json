@@ -20,8 +20,8 @@
     "@axeos-vpn/shared-types": "workspace:*",
     "@axeos-vpn/shared-utils": "workspace:*",
     "@electron-toolkit/utils": "^3.0.0",
-    "better-sqlite3": "^9.2.2",
     "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^9.2.2",
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "jsonwebtoken": "^9.0.2",
@@ -69,15 +69,24 @@
       }
     ],
     "win": {
-      "target": ["nsis", "portable"],
+      "target": [
+        "nsis",
+        "portable"
+      ],
       "icon": "resources/icon.ico"
     },
     "mac": {
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "icon": "resources/icon.icns"
     },
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "icon": "resources/icons"
     }
   }

@@ -69,6 +69,23 @@ export function deleteAllSessions(): void {
   db.prepare('DELETE FROM sessions').run();
 }
 
+export async function changePassword(currentPassword: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
+  const isValid = await verifyPassword(currentPassword);
+  if (!isValid) {
+    return { success: false, error: 'Current password is incorrect' };
+  }
+
+  await setPassword(newPassword);
+  deleteAllSessions();
+  return { success: true };
+}
+
+export function resetPassword(): void {
+  const db = getDatabase();
+  db.prepare('DELETE FROM user WHERE id = 1').run();
+  deleteAllSessions();
+}
+
 function generateToken(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let token = '';

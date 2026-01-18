@@ -7,7 +7,7 @@ interface MetricData {
   hashrate: number | null;
   temperature: number | null;
   power: number | null;
-  data: unknown;
+  data: { bestDiff?: number; [key: string]: unknown } | null;
 }
 
 function formatHashrate(hashrate: number | null | undefined): string {
@@ -111,7 +111,7 @@ export function DeviceDetailPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 animate-page-glitch">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -177,50 +177,153 @@ export function DeviceDetailPage() {
             </div>
           </div>
 
-          {/* Main Metrics Cards */}
+          {/* ClusterAxe Banner - Show when cluster mode active */}
+          {metrics.isClusterMaster && metrics.clusterInfo && (
+            <div className="vault-card p-4 border-2 border-accent animate-glitch-in bg-gradient-to-r from-accent/10 to-transparent">
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-accent/20 border-2 border-accent rounded">
+                    <svg className="w-8 h-8 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="3"/>
+                      <circle cx="12" cy="5" r="2"/>
+                      <circle cx="19" cy="12" r="2"/>
+                      <circle cx="5" cy="12" r="2"/>
+                      <circle cx="12" cy="19" r="2"/>
+                      <line x1="12" y1="7" x2="12" y2="9"/>
+                      <line x1="17" y1="12" x2="15" y2="12"/>
+                      <line x1="7" y1="12" x2="9" y2="12"/>
+                      <line x1="12" y1="17" x2="12" y2="15"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-accent terminal-glow tracking-wider">CLUSTER MODE ACTIVE</div>
+                    <div className="text-sm text-text-secondary mt-1">
+                      <span className="text-success">{metrics.clusterInfo.activeSlaves} slaves</span> connected via {metrics.clusterInfo.transport.type.toUpperCase()}
+                      {metrics.clusterInfo.transport.encrypted && <span className="ml-2 text-pip-green">● ENCRYPTED</span>}
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs text-text-secondary uppercase">Combined Hashrate</div>
+                  <div className="text-3xl font-bold text-accent terminal-glow">{formatHashrate(metrics.clusterInfo.totalHashrate / 100)}</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Main Metrics Cards - Vault-Tec Style */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-6 rounded-xl bg-bg-secondary border border-border">
-              <div className="text-sm text-text-secondary mb-2">Current Hashrate</div>
-              <div className="text-3xl font-bold text-accent">
+            {/* Hashrate Card */}
+            <div className="vault-card p-5 hover-glitch group">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2 bg-accent/20 border border-accent/40 rounded">
+                  <svg className="w-6 h-6 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+                <div className="text-xs text-text-secondary uppercase tracking-wider">
+                  {metrics.isClusterMaster ? 'Cluster Hashrate' : 'Hashrate'}
+                </div>
+              </div>
+              <div className="text-3xl font-bold text-accent terminal-glow mb-2">
                 {formatHashrate(metrics.hashRate)}
               </div>
-              <div className="text-xs text-text-secondary mt-2">
-                1h avg: {formatHashrate(metrics.hashRate_1h)}
+              {/* Gauge Bar */}
+              <div className="h-2 bg-bg-primary border border-border overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-accent to-accent-hover transition-all duration-500"
+                  style={{ width: `${Math.min((metrics.hashRate || 0) / (metrics.expectedHashrate || metrics.hashRate || 1) * 100, 100)}%` }}
+                />
+              </div>
+              <div className="text-xs text-text-secondary mt-2 flex justify-between">
+                <span>{metrics.isClusterMaster ? `${metrics.clusterInfo?.activeSlaves || 0} devices` : `1h avg: ${formatHashrate(metrics.hashRate_1h)}`}</span>
+                <span className="text-accent">{metrics.isClusterMaster ? 'TOTAL' : `${((metrics.hashRate || 0) / (metrics.expectedHashrate || metrics.hashRate || 1) * 100).toFixed(0)}%`}</span>
               </div>
             </div>
 
-            <div className="p-6 rounded-xl bg-bg-secondary border border-border">
-              <div className="text-sm text-text-secondary mb-2">Temperature</div>
-              <div
-                className={`text-3xl font-bold ${
-                  metrics.temp > 80
-                    ? 'text-danger'
-                    : metrics.temp > 70
-                    ? 'text-warning'
-                    : 'text-success'
-                }`}
-              >
+            {/* Temperature Card */}
+            <div className="vault-card p-5 hover-glitch group">
+              <div className="flex items-center gap-3 mb-3">
+                <div className={`p-2 border rounded ${
+                  metrics.temp > 80 ? 'bg-danger/20 border-danger/40' : metrics.temp > 70 ? 'bg-warning/20 border-warning/40' : 'bg-success/20 border-success/40'
+                }`}>
+                  <svg className={`w-6 h-6 ${metrics.temp > 80 ? 'text-danger' : metrics.temp > 70 ? 'text-warning' : 'text-success'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+                <div className="text-xs text-text-secondary uppercase tracking-wider">Temperature</div>
+              </div>
+              <div className={`text-3xl font-bold mb-2 ${
+                metrics.temp > 80 ? 'text-danger' : metrics.temp > 70 ? 'text-warning' : 'text-success terminal-glow'
+              }`}>
                 {formatTemperature(metrics.temp)}
               </div>
-              <div className="text-xs text-text-secondary mt-2">
-                VR: {formatTemperature(metrics.vrTemp)}
+              {/* Temperature Gauge */}
+              <div className="h-2 bg-bg-primary border border-border overflow-hidden">
+                <div
+                  className={`h-full transition-all duration-500 ${
+                    metrics.temp > 80 ? 'bg-danger' : metrics.temp > 70 ? 'bg-warning' : 'bg-success'
+                  }`}
+                  style={{ width: `${Math.min((metrics.temp || 0) / 100 * 100, 100)}%` }}
+                />
+              </div>
+              <div className="text-xs text-text-secondary mt-2 flex justify-between">
+                <span>VR: {formatTemperature(metrics.vrTemp)}</span>
+                <span className={metrics.temp > 80 ? 'text-danger' : metrics.temp > 70 ? 'text-warning' : 'text-success'}>
+                  {metrics.temp > 80 ? 'CRITICAL' : metrics.temp > 70 ? 'WARM' : 'OPTIMAL'}
+                </span>
               </div>
             </div>
 
-            <div className="p-6 rounded-xl bg-bg-secondary border border-border">
-              <div className="text-sm text-text-secondary mb-2">Power Draw</div>
-              <div className="text-3xl font-bold text-text-primary">
+            {/* Power Card */}
+            <div className="vault-card p-5 hover-glitch group">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2 bg-border-highlight/20 border border-border-highlight/40 rounded">
+                  <svg className="w-6 h-6 text-border-highlight" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18.36 6.64A9 9 0 1 1 5.64 6.64M12 2v10" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+                <div className="text-xs text-text-secondary uppercase tracking-wider">
+                  {metrics.isClusterMaster ? 'Cluster Power' : 'Power Draw'}
+                </div>
+              </div>
+              <div className="text-3xl font-bold text-border-highlight mb-2">
                 {formatPower(metrics.power)}
+              </div>
+              {/* Power Bar */}
+              <div className="h-2 bg-bg-primary border border-border overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-border-highlight to-border-glow transition-all duration-500"
+                  style={{ width: `${Math.min((metrics.power || 0) / 20 * 100, 100)}%` }}
+                />
               </div>
               <div className="text-xs text-text-secondary mt-2">
                 {metrics.voltage?.toFixed(1)}V @ {metrics.current?.toFixed(2)}A
               </div>
             </div>
 
-            <div className="p-6 rounded-xl bg-bg-secondary border border-border">
-              <div className="text-sm text-text-secondary mb-2">Efficiency</div>
-              <div className="text-3xl font-bold text-text-primary">
-                {metrics.efficiency?.toFixed(1) || '--'} J/TH
+            {/* Efficiency Card */}
+            <div className="vault-card p-5 hover-glitch group">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2 bg-pip-green/20 border border-pip-green/40 rounded">
+                  <svg className="w-6 h-6 text-pip-green" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M12 6v6l4 2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+                <div className="text-xs text-text-secondary uppercase tracking-wider">
+                  {metrics.isClusterMaster ? 'Cluster Efficiency' : 'Efficiency'}
+                </div>
+              </div>
+              <div className="text-3xl font-bold text-pip-green terminal-glow mb-2">
+                {metrics.efficiency?.toFixed(1) || '--'} <span className="text-lg">J/TH</span>
+              </div>
+              {/* Efficiency gauge (lower is better, so invert) */}
+              <div className="h-2 bg-bg-primary border border-border overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-pip-green to-success transition-all duration-500"
+                  style={{ width: `${Math.max(100 - ((metrics.efficiency || 25) / 50 * 100), 10)}%` }}
+                />
               </div>
               <div className="text-xs text-text-secondary mt-2">
                 Target: {formatHashrate(metrics.expectedHashrate)}
@@ -228,70 +331,254 @@ export function DeviceDetailPage() {
             </div>
           </div>
 
-          {/* Secondary Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-            <div className="p-4 rounded-xl bg-bg-secondary border border-border">
-              <div className="text-xs text-text-secondary mb-1">Shares Accepted</div>
-              <div className="text-xl font-bold text-success">
+          {/* Secondary Stats - Vault-Tec Terminal Style */}
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+            <div className="vault-card p-4 hover-glitch">
+              <div className="flex items-center gap-2 mb-2">
+                <svg className="w-4 h-4 text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                <span className="text-xs text-text-secondary uppercase tracking-wide">
+                  {metrics.isClusterMaster ? 'Cluster Accepted' : 'Accepted'}
+                </span>
+              </div>
+              <div className="text-xl font-bold text-success terminal-glow">
                 {metrics.sharesAccepted?.toLocaleString() || '0'}
               </div>
             </div>
-            <div className="p-4 rounded-xl bg-bg-secondary border border-border">
-              <div className="text-xs text-text-secondary mb-1">Shares Rejected</div>
+            <div className="vault-card p-4 hover-glitch">
+              <div className="flex items-center gap-2 mb-2">
+                <svg className="w-4 h-4 text-danger" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+                <span className="text-xs text-text-secondary uppercase tracking-wide">
+                  {metrics.isClusterMaster ? 'Cluster Rejected' : 'Rejected'}
+                </span>
+              </div>
               <div className="text-xl font-bold text-danger">
                 {metrics.sharesRejected?.toLocaleString() || '0'}
               </div>
             </div>
-            <div className="p-4 rounded-xl bg-bg-secondary border border-border">
-              <div className="text-xs text-text-secondary mb-1">Best Difficulty</div>
+            <div className="vault-card p-4 hover-glitch">
+              <div className="flex items-center gap-2 mb-2">
+                <svg className="w-4 h-4 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>
+                <span className="text-xs text-text-secondary uppercase tracking-wide">Best Diff</span>
+              </div>
               <div className="text-xl font-bold text-accent">
-                {metrics.bestDiff ? metrics.bestDiff.toExponential(2) : '--'}
+                {(() => {
+                  const diff = metrics.bestDiff ?? (metrics as Record<string, unknown>).best_diff ?? (metrics as Record<string, unknown>).bestDifficulty ?? (metrics as Record<string, unknown>).best_difficulty ?? (metrics as Record<string, unknown>).difficulty;
+                  if (!diff) return '--';
+                  // Some firmware returns pre-formatted strings like "18.6G", others return numbers
+                  if (typeof diff === 'string') return diff;
+                  if (typeof diff === 'number') {
+                    if (diff >= 1e9) return (diff / 1e9).toFixed(2) + 'B';
+                    if (diff >= 1e6) return (diff / 1e6).toFixed(2) + 'M';
+                    if (diff >= 1e3) return (diff / 1e3).toFixed(2) + 'K';
+                    return diff.toLocaleString();
+                  }
+                  return String(diff);
+                })()}
               </div>
             </div>
-            <div className="p-4 rounded-xl bg-bg-secondary border border-border">
-              <div className="text-xs text-text-secondary mb-1">Fan Speed</div>
-              <div className="text-xl font-bold text-text-primary">
+            <div className="vault-card p-4 hover-glitch">
+              <div className="flex items-center gap-2 mb-2">
+                <svg className="w-4 h-4 text-border-highlight" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/>
+                </svg>
+                <span className="text-xs text-text-secondary uppercase tracking-wide">Fan</span>
+              </div>
+              <div className="text-xl font-bold text-border-highlight">
                 {metrics.fanspeed ? `${metrics.fanspeed}%` : '--'}
               </div>
             </div>
-            <div className="p-4 rounded-xl bg-bg-secondary border border-border">
-              <div className="text-xs text-text-secondary mb-1">Frequency</div>
-              <div className="text-xl font-bold text-text-primary">
-                {metrics.frequency ? `${metrics.frequency} MHz` : '--'}
+            <div className="vault-card p-4 hover-glitch">
+              <div className="flex items-center gap-2 mb-2">
+                <svg className="w-4 h-4 text-warning" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                </svg>
+                <span className="text-xs text-text-secondary uppercase tracking-wide">Frequency</span>
+              </div>
+              <div className="text-xl font-bold text-warning">
+                {metrics.frequency ? `${metrics.frequency}` : '--'} <span className="text-xs">MHz</span>
               </div>
             </div>
-            <div className="p-4 rounded-xl bg-bg-secondary border border-border">
-              <div className="text-xs text-text-secondary mb-1">Core Voltage</div>
-              <div className="text-xl font-bold text-text-primary">
-                {metrics.coreVoltage ? `${metrics.coreVoltage} mV` : '--'}
+            <div className="vault-card p-4 hover-glitch">
+              <div className="flex items-center gap-2 mb-2">
+                <svg className="w-4 h-4 text-pip-green" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>
+                </svg>
+                <span className="text-xs text-text-secondary uppercase tracking-wide">Voltage</span>
+              </div>
+              <div className="text-xl font-bold text-pip-green">
+                {metrics.coreVoltage ? `${metrics.coreVoltage}` : '--'} <span className="text-xs">mV</span>
               </div>
             </div>
           </div>
 
-          {/* Pool Info */}
-          <div className="p-4 rounded-xl bg-bg-secondary border border-border">
-            <h3 className="text-sm font-medium text-text-primary mb-3">Pool Information</h3>
+          {/* Pool Info - Vault-Tec Terminal Style */}
+          <div className="vault-card p-4">
+            <div className="flex items-center gap-2 mb-4 pb-2 border-b border-border">
+              <svg className="w-5 h-5 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+              </svg>
+              <h3 className="text-sm font-bold text-accent uppercase tracking-wider">Pool Connection</h3>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-              <div>
-                <div className="text-text-secondary mb-1">Stratum URL</div>
-                <div className="text-text-primary font-mono text-xs truncate">
+              <div className="p-3 bg-bg-primary border border-border">
+                <div className="flex items-center gap-2 mb-1">
+                  <svg className="w-3 h-3 text-text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                  </svg>
+                  <span className="text-text-secondary uppercase text-xs tracking-wide">Stratum URL</span>
+                </div>
+                <div className="text-pip-green font-mono text-xs truncate terminal-glow">
                   {metrics.stratumURL || 'Not configured'}
                 </div>
               </div>
-              <div>
-                <div className="text-text-secondary mb-1">Worker</div>
-                <div className="text-text-primary font-mono text-xs truncate">
+              <div className="p-3 bg-bg-primary border border-border">
+                <div className="flex items-center gap-2 mb-1">
+                  <svg className="w-3 h-3 text-text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                  </svg>
+                  <span className="text-text-secondary uppercase text-xs tracking-wide">Worker</span>
+                </div>
+                <div className="text-pip-green font-mono text-xs truncate terminal-glow">
                   {metrics.stratumUser || 'Not configured'}
                 </div>
               </div>
-              <div>
-                <div className="text-text-secondary mb-1">Pool Difficulty</div>
-                <div className="text-text-primary font-medium">
+              <div className="p-3 bg-bg-primary border border-border">
+                <div className="flex items-center gap-2 mb-1">
+                  <svg className="w-3 h-3 text-text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/>
+                  </svg>
+                  <span className="text-text-secondary uppercase text-xs tracking-wide">Pool Difficulty</span>
+                </div>
+                <div className="text-accent font-bold">
                   {metrics.poolDifficulty?.toLocaleString() || '--'}
                 </div>
               </div>
             </div>
           </div>
+
+          {/* ClusterAxe Cluster Info - Shows when device is a cluster master */}
+          {metrics.isClusterMaster && metrics.clusterInfo && (
+            <div className="vault-card p-4 animate-glitch-in">
+              <div className="flex items-center gap-2 mb-4 pb-2 border-b border-border">
+                <div className="p-2 bg-accent/20 border border-accent/40 rounded">
+                  <svg className="w-5 h-5 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="3"/>
+                    <circle cx="12" cy="5" r="2"/>
+                    <circle cx="19" cy="12" r="2"/>
+                    <circle cx="12" cy="19" r="2"/>
+                    <circle cx="5" cy="12" r="2"/>
+                    <line x1="12" y1="7" x2="12" y2="9"/>
+                    <line x1="17" y1="12" x2="15" y2="12"/>
+                    <line x1="12" y1="15" x2="12" y2="17"/>
+                    <line x1="7" y1="12" x2="9" y2="12"/>
+                  </svg>
+                </div>
+                <h3 className="text-sm font-bold text-accent uppercase tracking-wider">ClusterAxe Network</h3>
+                <span className="ml-auto px-2 py-1 text-xs bg-success/20 border border-success/40 text-success uppercase">
+                  {metrics.clusterInfo.activeSlaves} Slaves Active
+                </span>
+              </div>
+
+              {/* Cluster Summary */}
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+                <div className="p-3 bg-bg-primary border border-border text-center">
+                  <div className="text-xs text-text-secondary uppercase mb-1">Total Hashrate</div>
+                  <div className="text-lg font-bold text-accent terminal-glow">
+                    {formatHashrate(metrics.clusterInfo.totalHashrate / 100)}
+                  </div>
+                </div>
+                <div className="p-3 bg-bg-primary border border-border text-center">
+                  <div className="text-xs text-text-secondary uppercase mb-1">Total Power</div>
+                  <div className="text-lg font-bold text-border-highlight">
+                    {formatPower(metrics.clusterInfo.totalPower)}
+                  </div>
+                </div>
+                <div className="p-3 bg-bg-primary border border-border text-center">
+                  <div className="text-xs text-text-secondary uppercase mb-1">Efficiency</div>
+                  <div className="text-lg font-bold text-pip-green terminal-glow">
+                    {metrics.clusterInfo.totalEfficiency.toFixed(1)} J/TH
+                  </div>
+                </div>
+                <div className="p-3 bg-bg-primary border border-border text-center">
+                  <div className="text-xs text-text-secondary uppercase mb-1">Accepted</div>
+                  <div className="text-lg font-bold text-success">
+                    {metrics.clusterInfo.totalSharesAccepted.toLocaleString()}
+                  </div>
+                </div>
+                <div className="p-3 bg-bg-primary border border-border text-center">
+                  <div className="text-xs text-text-secondary uppercase mb-1">Rejected</div>
+                  <div className="text-lg font-bold text-danger">
+                    {metrics.clusterInfo.totalSharesRejected.toLocaleString()}
+                  </div>
+                </div>
+              </div>
+
+              {/* Transport Info */}
+              <div className="flex items-center gap-4 mb-4 p-2 bg-bg-primary border border-border text-xs">
+                <span className="text-text-secondary">Transport:</span>
+                <span className="text-accent uppercase">{metrics.clusterInfo.transport.type}</span>
+                <span className="text-text-secondary">Channel:</span>
+                <span className="text-text-primary">{metrics.clusterInfo.transport.channel}</span>
+                <span className="text-text-secondary">Encrypted:</span>
+                <span className={metrics.clusterInfo.transport.encrypted ? 'text-success' : 'text-warning'}>
+                  {metrics.clusterInfo.transport.encrypted ? 'Yes' : 'No'}
+                </span>
+                <span className="text-text-secondary">Peers:</span>
+                <span className="text-text-primary">{metrics.clusterInfo.transport.peerCount}</span>
+              </div>
+
+              {/* Slave Devices */}
+              <div className="text-xs text-text-secondary uppercase tracking-wider mb-2">Slave Devices</div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {metrics.clusterInfo.slaves.map((slave, index) => (
+                  <div key={slave.slaveId} className="vault-card p-3 hover-glitch">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${slave.state === 2 ? 'bg-success animate-pulse' : 'bg-warning'}`} />
+                        <span className="font-bold text-accent text-sm">{slave.hostname}</span>
+                      </div>
+                      <span className="text-xs text-text-secondary">Slot {slave.slot}</span>
+                    </div>
+                    <div className="text-xs text-text-secondary mb-2">{slave.ipAddr}</div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="text-text-secondary">Hashrate:</span>
+                        <span className="text-accent ml-1">{formatHashrate(slave.hashrate / 100)}</span>
+                      </div>
+                      <div>
+                        <span className="text-text-secondary">Temp:</span>
+                        <span className={`ml-1 ${slave.temperature > 60 ? 'text-warning' : 'text-success'}`}>
+                          {slave.temperature.toFixed(1)}°C
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-text-secondary">Power:</span>
+                        <span className="text-border-highlight ml-1">{slave.power.toFixed(1)}W</span>
+                      </div>
+                      <div>
+                        <span className="text-text-secondary">Fan:</span>
+                        <span className="text-text-primary ml-1">{slave.fanRpm} RPM</span>
+                      </div>
+                      <div>
+                        <span className="text-text-secondary">Freq:</span>
+                        <span className="text-warning ml-1">{slave.frequency} MHz</span>
+                      </div>
+                      <div>
+                        <span className="text-text-secondary">Shares:</span>
+                        <span className="text-success ml-1">{slave.sharesAccepted}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Historical Metrics Table */}
           <div className="rounded-xl bg-bg-secondary border border-border overflow-hidden">
@@ -313,6 +600,7 @@ export function DeviceDetailPage() {
                     <th className="px-4 py-3 text-left text-sm font-medium text-text-secondary">Hashrate</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-text-secondary">Temperature</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-text-secondary">Power</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-text-secondary">Best Diff</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -336,11 +624,27 @@ export function DeviceDetailPage() {
                       <td className="px-4 py-3 text-text-primary">
                         {formatPower(m.power)}
                       </td>
+                      <td className="px-4 py-3 text-accent">
+                        {(() => {
+                          // Check for various field names used by different firmware
+                          const diff = m.data?.bestDiff ?? m.data?.best_diff ?? m.data?.bestDifficulty ?? m.data?.best_difficulty ?? m.data?.difficulty;
+                          if (!diff) return '--';
+                          // Some firmware returns pre-formatted strings like "18.6G", others return numbers
+                          if (typeof diff === 'string') return diff;
+                          if (typeof diff === 'number') {
+                            if (diff >= 1e9) return (diff / 1e9).toFixed(2) + 'B';
+                            if (diff >= 1e6) return (diff / 1e6).toFixed(2) + 'M';
+                            if (diff >= 1e3) return (diff / 1e3).toFixed(2) + 'K';
+                            return diff.toLocaleString();
+                          }
+                          return String(diff);
+                        })()}
+                      </td>
                     </tr>
                   ))}
                   {historicalMetrics.length === 0 && (
                     <tr>
-                      <td colSpan={4} className="px-4 py-8 text-center text-text-secondary">
+                      <td colSpan={5} className="px-4 py-8 text-center text-text-secondary">
                         No historical metrics available
                       </td>
                     </tr>

@@ -69,11 +69,11 @@ export function DashboardPage() {
     : 0;
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 animate-page-glitch">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Dashboard</h1>
+          <h1 className="text-2xl font-bold text-accent uppercase tracking-wider hover-glitch-rgb">Dashboard</h1>
           <p className="text-text-secondary">
             {onlineDevices.length} of {devices.length} devices online
           </p>

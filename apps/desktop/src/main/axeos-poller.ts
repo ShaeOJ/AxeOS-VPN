@@ -34,8 +34,60 @@ export interface AxeOSSystemInfo {
   wifiStatus: string;
   freeHeap: number;
   smallCoreCount: number;
+  // ClusterAxe fields - added when cluster is detected
+  isClusterMaster?: boolean;
+  clusterInfo?: ClusterStatus;
   // Additional fields we might use
   [key: string]: unknown;
+}
+
+// ClusterAxe slave device info
+export interface ClusterSlave {
+  slot: number;
+  slaveId: number;
+  hostname: string;
+  ipAddr: string;
+  state: number;
+  hashrate: number;
+  temperature: number;
+  fanRpm: number;
+  sharesSubmitted: number;
+  sharesAccepted: number;
+  lastSeen: number;
+  frequency: number;
+  coreVoltage: number;
+  power: number;
+  voltageIn: number;
+}
+
+// ClusterAxe transport info
+export interface ClusterTransport {
+  type: string;
+  channel: number;
+  encrypted: boolean;
+  discoveryActive: boolean;
+  peerCount: number;
+}
+
+// ClusterAxe cluster status API response
+export interface ClusterStatus {
+  enabled: boolean;
+  mode: number;
+  modeString: string;
+  activeSlaves: number;
+  totalHashrate: number;
+  totalShares: number;
+  totalSharesAccepted: number;
+  totalSharesRejected: number;
+  primarySharesAccepted: number;
+  primarySharesRejected: number;
+  secondarySharesAccepted: number;
+  secondarySharesRejected: number;
+  totalPower: number;
+  totalEfficiency: number;
+  transport: ClusterTransport;
+  currentTime: number;
+  slaves: ClusterSlave[];
 }
 
 // Store for latest metrics by device ID
@@ -48,6 +100,36 @@ let metricsCallback: MetricsCallback | null = null;
 
 export function setMetricsCallback(callback: MetricsCallback): void {
   metricsCallback = callback;
+}
+
+// Check if firmware is ClusterAxe
+function isClusterAxeFirmware(version: string): boolean {
+  return version?.toLowerCase().includes('clusteraxe') || version?.toLowerCase().includes('cluster');
+}
+
+// Fetch cluster status from ClusterAxe API
+export async function fetchClusterStatus(ipAddress: string): Promise<ClusterStatus | null> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    const response = await fetch(`http://${ipAddress}/api/cluster/status`, {
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      console.error(`Failed to fetch cluster status from ${ipAddress}: ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json() as ClusterStatus;
+    return data;
+  } catch (error) {
+    console.error(`Error fetching cluster status from ${ipAddress}:`, error instanceof Error ? error.message : error);
+    return null;
+  }
 }
 
 export async function fetchDeviceMetrics(ipAddress: string): Promise<AxeOSSystemInfo | null> {
@@ -67,6 +149,24 @@ export async function fetchDeviceMetrics(ipAddress: string): Promise<AxeOSSystem
     }
 
     const data = await response.json() as AxeOSSystemInfo;
+
+    // Check if this is a ClusterAxe device and fetch cluster info
+    if (isClusterAxeFirmware(data.version)) {
+      const clusterStatus = await fetchClusterStatus(ipAddress);
+      if (clusterStatus && clusterStatus.enabled && clusterStatus.modeString === 'master') {
+        data.isClusterMaster = true;
+        data.clusterInfo = clusterStatus;
+        // Override metrics with cluster totals for master display
+        // ClusterAxe API returns totalHashrate in 10MH/s units, divide by 100 to get GH/s
+        data.hashRate = clusterStatus.totalHashrate / 100;
+        data.sharesAccepted = clusterStatus.totalSharesAccepted;
+        data.sharesRejected = clusterStatus.totalSharesRejected;
+        data.power = clusterStatus.totalPower;
+        data.efficiency = clusterStatus.totalEfficiency;
+        console.log(`[ClusterAxe] ${data.hostname}: ${clusterStatus.activeSlaves} slaves, total hashrate=${(clusterStatus.totalHashrate / 100).toFixed(2)} GH/s`);
+      }
+    }
+
     return data;
   } catch (error) {
     console.error(`Error fetching from ${ipAddress}:`, error instanceof Error ? error.message : error);
@@ -83,6 +183,7 @@ async function pollDevice(device: devices.Device): Promise<void> {
 
     // Store latest metrics
     latestMetrics.set(device.id, { data, timestamp: Date.now() });
+    console.log(`[Poller] ${device.name}: hashRate=${data.hashRate}, temp=${data.temp}, power=${data.power}, bestDiff=${data.bestDiff}`);
 
     // Save to database
     metrics.saveMetrics(device.id, {
