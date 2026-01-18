@@ -1,6 +1,12 @@
 {
   "name": "@axeos-vpn/desktop",
-  "version": "0.1.0",
+  "version": "1.0.1",
+  "description": "Vault-Tec Mining Operations Division - BitAxe Monitoring System",
+  "author": "Vault-Tec Industries <vault-tec@example.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ShaeOJ/AxeOS-VPN.git"
+  },
   "private": true,
   "main": "./dist/main/index.js",
   "scripts": {
@@ -57,6 +63,7 @@
   "build": {
     "appId": "com.axeos.vpn",
     "productName": "AxeOS VPN Monitor",
+    "publish": null,
     "directories": {
       "output": "release"
     },
