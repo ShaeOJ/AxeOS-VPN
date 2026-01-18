@@ -47,8 +47,27 @@ function createWindow(): void {
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL']);
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'));
+    const rendererPath = join(__dirname, '../renderer/index.html');
+    console.log('Loading renderer from:', rendererPath);
+    console.log('__dirname:', __dirname);
+    mainWindow.loadFile(rendererPath).catch(err => {
+      console.error('Failed to load renderer:', err);
+    });
   }
+
+  // Open devtools in production to debug
+  if (!is.dev) {
+    mainWindow.webContents.openDevTools();
+  }
+
+  // Log any renderer errors
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('Renderer failed to load:', errorCode, errorDescription);
+  });
+
+  mainWindow.webContents.on('console-message', (event, level, message) => {
+    console.log('Renderer console:', message);
+  });
 
   // Set up poller callback to forward metrics to renderer
   poller.setMetricsCallback((deviceId, data, isOnline) => {
