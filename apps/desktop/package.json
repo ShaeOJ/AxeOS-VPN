@@ -68,26 +68,11 @@
     "directories": {
       "output": "release"
     },
-    "files": [
-      "dist/**/*",
-      "node_modules/**/*",
-      "!node_modules/.pnpm",
-      "!node_modules/@types",
-      "!node_modules/typescript",
-      "!node_modules/electron",
-      "!node_modules/electron-*",
-      "!node_modules/@electron-toolkit",
-      "!node_modules/vite",
-      "!node_modules/@vitejs",
-      "!node_modules/tailwindcss",
-      "!node_modules/postcss",
-      "!node_modules/autoprefixer",
-      "!node_modules/eslint*",
-      "!node_modules/prettier*"
-    ],
+    "asar": true,
     "asarUnpack": [
-      "node_modules/better-sqlite3/**/*"
+      "**/*.node"
     ],
+    "nodeGypRebuild": false,
     "win": {
       "target": [
         {

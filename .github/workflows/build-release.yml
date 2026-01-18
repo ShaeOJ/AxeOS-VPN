@@ -55,19 +55,22 @@ jobs:
             ${{ runner.os }}-pnpm-store-
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --shamefully-hoist
 
       - name: Setup Python (for node-gyp)
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
+      - name: Install build dependencies (Windows)
+        if: matrix.platform == 'win'
+        run: npm install -g windows-build-tools || true
+
       - name: Rebuild native modules for Electron
         shell: bash
         run: |
           cd apps/desktop
-          pnpm add -D @electron/rebuild
-          pnpm exec electron-rebuild -f -w better-sqlite3
+          npx @electron/rebuild -f -w better-sqlite3 -v 28.3.3
 
       - name: Build shared packages
         run: |
