@@ -54,6 +54,23 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Setup Python (for node-gyp)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Windows Build Tools
+        if: matrix.platform == 'win'
+        run: |
+          npm install -g node-gyp
+
+      - name: Rebuild native modules
+        shell: bash
+        run: |
+          cd apps/desktop
+          npx @electron/rebuild -f -w better-sqlite3
+        continue-on-error: true
+
       - name: Build shared packages
         run: |
           pnpm --filter @axeos-vpn/shared-types build
