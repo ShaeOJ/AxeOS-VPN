@@ -1,0 +1,118 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  devices       Device[]
+  refreshTokens RefreshToken[]
+  pairingCodes  PairingCode[]
+
+  @@index([email])
+}
+
+model Device {
+  id          String    @id @default(cuid())
+  name        String
+  deviceToken String    @unique
+  lastSeen    DateTime?
+  isOnline    Boolean   @default(false)
+  userId      String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  metrics      MetricSnapshot[]
+  alerts       Alert[]
+  alertConfigs AlertConfig[]
+
+  @@index([userId])
+  @@index([deviceToken])
+}
+
+model MetricSnapshot {
+  id          String   @id @default(cuid())
+  deviceId    String
+  timestamp   DateTime @default(now())
+  hashrate    Float
+  temperature Float
+  power       Float
+  data        Json     // Full metrics JSON
+  createdAt   DateTime @default(now())
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId, timestamp])
+  @@index([timestamp])
+}
+
+model Alert {
+  id             String    @id @default(cuid())
+  deviceId       String
+  type           String
+  severity       String
+  message        String
+  value          Float
+  threshold      Float
+  acknowledged   Boolean   @default(false)
+  acknowledgedAt DateTime?
+  createdAt      DateTime  @default(now())
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId, createdAt])
+  @@index([acknowledged])
+}
+
+model AlertConfig {
+  id        String   @id @default(cuid())
+  deviceId  String
+  alertType String
+  enabled   Boolean  @default(true)
+  threshold Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceId, alertType])
+  @@index([deviceId])
+}
+
+model PairingCode {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  deviceId  String?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([code])
+  @@index([userId])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+}

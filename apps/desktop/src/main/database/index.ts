@@ -1,0 +1,143 @@
+import Database from 'better-sqlite3';
+import { app } from 'electron';
+import { join } from 'path';
+import { existsSync, mkdirSync } from 'fs';
+
+let db: Database.Database | null = null;
+
+export function getDatabase(): Database.Database {
+  if (!db) {
+    throw new Error('Database not initialized. Call initDatabase() first.');
+  }
+  return db;
+}
+
+export function initDatabase(): Database.Database {
+  const userDataPath = app.getPath('userData');
+  const dbDir = join(userDataPath, 'data');
+
+  if (!existsSync(dbDir)) {
+    mkdirSync(dbDir, { recursive: true });
+  }
+
+  const dbPath = join(dbDir, 'axeos.db');
+  console.log('Database path:', dbPath);
+
+  db = new Database(dbPath);
+  db.pragma('journal_mode = WAL');
+
+  // Check if we need to migrate the devices table (old schema had device_token, new has ip_address)
+  const tableInfo = db.prepare("PRAGMA table_info(devices)").all() as { name: string }[];
+  const hasOldSchema = tableInfo.some((col) => col.name === 'device_token');
+  const hasNewSchema = tableInfo.some((col) => col.name === 'ip_address');
+
+  if (hasOldSchema && !hasNewSchema) {
+    console.log('Migrating devices table to new schema...');
+    // Drop old devices table and related data (since structure changed significantly)
+    db.exec(`
+      DROP TABLE IF EXISTS metrics;
+      DROP TABLE IF EXISTS alerts;
+      DROP TABLE IF EXISTS devices;
+    `);
+    console.log('Old tables dropped, will recreate with new schema');
+  }
+
+  // Create tables
+  db.exec(`
+    -- User table (single user for this install)
+    CREATE TABLE IF NOT EXISTS user (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      password_hash TEXT NOT NULL,
+      created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
+    );
+
+    -- Sessions table for web access
+    CREATE TABLE IF NOT EXISTS sessions (
+      id TEXT PRIMARY KEY,
+      token TEXT UNIQUE NOT NULL,
+      expires_at INTEGER NOT NULL,
+      created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
+    );
+
+    -- Devices table (BitAxe devices accessed via IP)
+    CREATE TABLE IF NOT EXISTS devices (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      ip_address TEXT UNIQUE NOT NULL,
+      poll_interval INTEGER DEFAULT 5000,
+      last_seen INTEGER,
+      is_online INTEGER DEFAULT 0,
+      created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
+    );
+
+    -- Metrics snapshots table
+    CREATE TABLE IF NOT EXISTS metrics (
+      id TEXT PRIMARY KEY,
+      device_id TEXT NOT NULL,
+      timestamp INTEGER NOT NULL,
+      hashrate REAL,
+      temperature REAL,
+      power REAL,
+      data TEXT,
+      created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
+      FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE
+    );
+
+    -- Alerts table
+    CREATE TABLE IF NOT EXISTS alerts (
+      id TEXT PRIMARY KEY,
+      device_id TEXT NOT NULL,
+      type TEXT NOT NULL,
+      severity TEXT NOT NULL,
+      message TEXT NOT NULL,
+      value REAL,
+      threshold REAL,
+      acknowledged INTEGER DEFAULT 0,
+      acknowledged_at INTEGER,
+      created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
+      FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE
+    );
+
+    -- Settings table (key-value store)
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+
+    -- Indexes for performance
+    CREATE INDEX IF NOT EXISTS idx_metrics_device_timestamp ON metrics(device_id, timestamp);
+    CREATE INDEX IF NOT EXISTS idx_alerts_device ON alerts(device_id);
+    CREATE INDEX IF NOT EXISTS idx_devices_ip ON devices(ip_address);
+  `);
+
+  // Initialize default settings
+  const initSetting = db.prepare(`
+    INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)
+  `);
+
+  initSetting.run('server_port', '45678');
+  initSetting.run('connection_code', generateConnectionCode());
+
+  return db;
+}
+
+export function closeDatabase(): void {
+  if (db) {
+    db.close();
+    db = null;
+  }
+}
+
+function generateConnectionCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Excluding similar chars
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
+// Helper to generate IDs
+export function generateId(): string {
+  return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+}

@@ -1,0 +1,155 @@
+import { contextBridge, ipcRenderer } from 'electron';
+
+// Expose protected methods to renderer
+contextBridge.exposeInMainWorld('electronAPI', {
+  // App info
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+
+  // Window controls
+  minimizeWindow: () => ipcRenderer.invoke('minimize-window'),
+  maximizeWindow: () => ipcRenderer.invoke('maximize-window'),
+  closeWindow: () => ipcRenderer.invoke('close-window'),
+  isMaximized: () => ipcRenderer.invoke('is-maximized'),
+
+  // Server (for remote web access)
+  getServerStatus: () => ipcRenderer.invoke('get-server-status'),
+  restartServer: () => ipcRenderer.invoke('restart-server'),
+
+  // Devices (IP-based BitAxe devices)
+  getDevices: () => ipcRenderer.invoke('get-devices'),
+  addDevice: (ipAddress: string, name?: string) => ipcRenderer.invoke('add-device', ipAddress, name),
+  testDeviceConnection: (ipAddress: string) => ipcRenderer.invoke('test-device-connection', ipAddress),
+  deleteDevice: (id: string) => ipcRenderer.invoke('delete-device', id),
+  updateDeviceName: (id: string, name: string) => ipcRenderer.invoke('update-device-name', id, name),
+  updateDeviceIp: (id: string, ipAddress: string) => ipcRenderer.invoke('update-device-ip', id, ipAddress),
+  refreshDevice: (id: string) => ipcRenderer.invoke('refresh-device', id),
+
+  // Metrics
+  getMetrics: (deviceId: string, options?: { startTime?: number; endTime?: number; limit?: number }) =>
+    ipcRenderer.invoke('get-metrics', deviceId, options),
+  getLatestMetrics: (deviceId: string) => ipcRenderer.invoke('get-latest-metrics', deviceId),
+
+  // Settings
+  getSettings: () => ipcRenderer.invoke('get-settings'),
+  setSetting: (key: string, value: string) => ipcRenderer.invoke('set-setting', key, value),
+
+  // Events
+  onDeviceMetrics: (callback: (data: { deviceId: string; data: AxeOSSystemInfo; isOnline: boolean }) => void) => {
+    ipcRenderer.on('device-metrics', (_, data) => callback(data));
+  },
+  onWindowMaximized: (callback: (isMaximized: boolean) => void) => {
+    ipcRenderer.on('window-maximized', (_, isMaximized) => callback(isMaximized));
+  },
+
+  // Remove listeners
+  removeAllListeners: (channel: string) => {
+    ipcRenderer.removeAllListeners(channel);
+  },
+});
+
+// AxeOS API response type
+export interface AxeOSSystemInfo {
+  power: number;
+  voltage: number;
+  current: number;
+  efficiency: number;
+  temp: number;
+  temp2: number;
+  vrTemp: number;
+  hashRate: number;
+  hashRate_1m: number;
+  hashRate_10m: number;
+  hashRate_1h: number;
+  expectedHashrate: number;
+  bestDiff: number;
+  bestSessionDiff: number;
+  sharesAccepted: number;
+  sharesRejected: number;
+  uptimeSeconds: number;
+  hostname: string;
+  ipv4: string;
+  ASICModel: string;
+  version: string;
+  fanspeed: number;
+  fanrpm: number;
+  frequency: number;
+  coreVoltage: number;
+  poolDifficulty: number;
+  stratumURL: string;
+  stratumUser: string;
+  wifiStatus: string;
+  freeHeap: number;
+  smallCoreCount: number;
+  [key: string]: unknown;
+}
+
+// Type declaration for the exposed API
+export interface ServerStatus {
+  running: boolean;
+  port: number;
+  addresses: string[];
+  setupRequired: boolean;
+}
+
+export interface Device {
+  id: string;
+  name: string;
+  ipAddress: string;
+  isOnline: boolean;
+  lastSeen: number | null;
+  createdAt: number;
+  latestMetrics?: AxeOSSystemInfo | null;
+}
+
+export interface MetricData {
+  timestamp: number;
+  hashrate: number | null;
+  temperature: number | null;
+  power: number | null;
+  data: AxeOSSystemInfo | null;
+}
+
+export interface AddDeviceResult {
+  success: boolean;
+  device?: Device;
+  error?: string;
+}
+
+export interface TestConnectionResult {
+  success: boolean;
+  data?: AxeOSSystemInfo;
+  error?: string;
+}
+
+declare global {
+  interface Window {
+    electronAPI: {
+      getAppVersion: () => Promise<string>;
+      minimizeWindow: () => Promise<void>;
+      maximizeWindow: () => Promise<void>;
+      closeWindow: () => Promise<void>;
+      isMaximized: () => Promise<boolean>;
+
+      getServerStatus: () => Promise<ServerStatus>;
+      restartServer: () => Promise<{ port: number; addresses: string[] }>;
+
+      getDevices: () => Promise<Device[]>;
+      addDevice: (ipAddress: string, name?: string) => Promise<AddDeviceResult>;
+      testDeviceConnection: (ipAddress: string) => Promise<TestConnectionResult>;
+      deleteDevice: (id: string) => Promise<{ success: boolean }>;
+      updateDeviceName: (id: string, name: string) => Promise<{ success: boolean }>;
+      updateDeviceIp: (id: string, ipAddress: string) => Promise<{ success: boolean }>;
+      refreshDevice: (id: string) => Promise<{ success: boolean; data?: AxeOSSystemInfo; error?: string }>;
+
+      getMetrics: (deviceId: string, options?: { startTime?: number; endTime?: number; limit?: number }) => Promise<MetricData[]>;
+      getLatestMetrics: (deviceId: string) => Promise<{ timestamp: number; data: AxeOSSystemInfo } | null>;
+
+      getSettings: () => Promise<Record<string, string>>;
+      setSetting: (key: string, value: string) => Promise<{ success: boolean }>;
+
+      onDeviceMetrics: (callback: (data: { deviceId: string; data: AxeOSSystemInfo; isOnline: boolean }) => void) => void;
+      onWindowMaximized: (callback: (isMaximized: boolean) => void) => void;
+      removeAllListeners: (channel: string) => void;
+    };
+  }
+}
