@@ -12,10 +12,16 @@ import {
 } from 'react-native';
 import { Link, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  SlideInLeft,
+} from 'react-native-reanimated';
 import { useAuthStore } from '../../src/stores/authStore';
 import { api } from '../../src/lib/api';
 import { Colors, Spacing, FontSizes, BorderRadius } from '../../src/constants/theme';
 
+const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
 const logo = require('../../assets/logo.png');
 
 export default function LoginScreen() {
@@ -49,14 +55,20 @@ export default function LoginScreen() {
         style={styles.keyboardView}
       >
         <View style={styles.content}>
-          <View style={styles.header}>
+          <Animated.View
+            style={styles.header}
+            entering={FadeIn.duration(500).delay(100)}
+          >
             <Image source={logo} style={styles.logoImage} resizeMode="contain" />
             <Text style={styles.title}>Welcome back</Text>
             <Text style={styles.subtitle}>Sign in to your AxeOS VPN account</Text>
-          </View>
+          </Animated.View>
 
           <View style={styles.form}>
-            <View style={styles.inputContainer}>
+            <Animated.View
+              style={styles.inputContainer}
+              entering={SlideInLeft.duration(400).delay(200)}
+            >
               <Text style={styles.label}>Email</Text>
               <TextInput
                 style={styles.input}
@@ -68,9 +80,12 @@ export default function LoginScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
               />
-            </View>
+            </Animated.View>
 
-            <View style={styles.inputContainer}>
+            <Animated.View
+              style={styles.inputContainer}
+              entering={SlideInLeft.duration(400).delay(280)}
+            >
               <Text style={styles.label}>Password</Text>
               <TextInput
                 style={styles.input}
@@ -80,27 +95,31 @@ export default function LoginScreen() {
                 placeholderTextColor={Colors.textSecondary}
                 secureTextEntry
               />
-            </View>
+            </Animated.View>
 
-            <TouchableOpacity
+            <AnimatedTouchableOpacity
               style={[styles.button, isLoading && styles.buttonDisabled]}
               onPress={handleLogin}
               disabled={isLoading}
+              entering={FadeInDown.duration(400).delay(360)}
             >
               <Text style={styles.buttonText}>
                 {isLoading ? 'Signing in...' : 'Sign In'}
               </Text>
-            </TouchableOpacity>
+            </AnimatedTouchableOpacity>
           </View>
 
-          <View style={styles.footer}>
+          <Animated.View
+            style={styles.footer}
+            entering={FadeIn.duration(400).delay(450)}
+          >
             <Text style={styles.footerText}>Don't have an account? </Text>
             <Link href="/(auth)/register" asChild>
               <TouchableOpacity>
                 <Text style={styles.link}>Create one</Text>
               </TouchableOpacity>
             </Link>
-          </View>
+          </Animated.View>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

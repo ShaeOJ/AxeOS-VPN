@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,10 +9,22 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSequence,
+  withDelay,
+  Easing,
+  FadeIn,
+  SlideInLeft,
+} from 'react-native-reanimated';
 import { useDeviceStore } from '../../src/stores/deviceStore';
 import { api } from '../../src/lib/api';
 import { formatHashrate, formatTemperature, formatPower } from '@axeos-vpn/shared-utils';
 import { Colors, Spacing, FontSizes, BorderRadius } from '../../src/constants/theme';
+
+const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
 
 const logo = require('../../assets/logo.png');
 
@@ -48,6 +60,28 @@ export default function DashboardScreen() {
     0
   );
 
+  // Glitch animation for pull-to-refresh
+  const glitchOffset = useSharedValue(0);
+
+  const triggerGlitch = useCallback(() => {
+    glitchOffset.value = withSequence(
+      withTiming(-3, { duration: 50, easing: Easing.linear }),
+      withTiming(3, { duration: 50, easing: Easing.linear }),
+      withTiming(-2, { duration: 40, easing: Easing.linear }),
+      withTiming(2, { duration: 40, easing: Easing.linear }),
+      withTiming(0, { duration: 30, easing: Easing.linear })
+    );
+  }, []);
+
+  const headerGlitchStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: glitchOffset.value }],
+  }));
+
+  const handleRefresh = async () => {
+    triggerGlitch();
+    await fetchDevices();
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
@@ -55,27 +89,36 @@ export default function DashboardScreen() {
         refreshControl={
           <RefreshControl
             refreshing={isLoading}
-            onRefresh={fetchDevices}
+            onRefresh={handleRefresh}
             tintColor={Colors.accent}
           />
         }
       >
-        <View style={styles.header}>
+        <Animated.View
+          style={[styles.header, headerGlitchStyle]}
+          entering={FadeIn.duration(400).delay(100)}
+        >
           <Image source={logo} style={styles.logoImage} resizeMode="contain" />
           <Text style={styles.subtitle}>
             {onlineDevices.length} of {devices.length} devices online
           </Text>
-        </View>
+        </Animated.View>
 
         {/* Summary Cards */}
         <View style={styles.summaryGrid}>
-          <View style={styles.summaryCard}>
+          <Animated.View
+            style={styles.summaryCard}
+            entering={SlideInLeft.duration(350).delay(150)}
+          >
             <Text style={styles.summaryLabel}>Total Hashrate</Text>
             <Text style={[styles.summaryValue, { color: Colors.accent }]}>
               {formatHashrate(totalHashrate)}
             </Text>
-          </View>
-          <View style={styles.summaryCard}>
+          </Animated.View>
+          <Animated.View
+            style={styles.summaryCard}
+            entering={SlideInLeft.duration(350).delay(200)}
+          >
             <Text style={styles.summaryLabel}>Avg Temp</Text>
             <Text
               style={[
@@ -92,11 +135,14 @@ export default function DashboardScreen() {
             >
               {avgTemperature > 0 ? formatTemperature(avgTemperature) : '--'}
             </Text>
-          </View>
-          <View style={styles.summaryCard}>
+          </Animated.View>
+          <Animated.View
+            style={styles.summaryCard}
+            entering={SlideInLeft.duration(350).delay(250)}
+          >
             <Text style={styles.summaryLabel}>Total Power</Text>
             <Text style={styles.summaryValue}>{formatPower(totalPower)}</Text>
-          </View>
+          </Animated.View>
         </View>
 
         {/* Device List */}
@@ -109,9 +155,18 @@ export default function DashboardScreen() {
           </View>
         ) : (
           <View style={styles.deviceList}>
-            <Text style={styles.sectionTitle}>Devices</Text>
-            {devices.map((device) => (
-              <TouchableOpacity key={device.id} style={styles.deviceCard}>
+            <Animated.Text
+              style={styles.sectionTitle}
+              entering={FadeIn.duration(300).delay(300)}
+            >
+              Devices
+            </Animated.Text>
+            {devices.map((device, index) => (
+              <AnimatedTouchableOpacity
+                key={device.id}
+                style={styles.deviceCard}
+                entering={SlideInLeft.duration(350).delay(350 + index * 80)}
+              >
                 <View style={styles.deviceHeader}>
                   <View>
                     <Text style={styles.deviceName}>{device.name}</Text>
@@ -160,7 +215,7 @@ export default function DashboardScreen() {
                     </View>
                   </View>
                 )}
-              </TouchableOpacity>
+              </AnimatedTouchableOpacity>
             ))}
           </View>
         )}

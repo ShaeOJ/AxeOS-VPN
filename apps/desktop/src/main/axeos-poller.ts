@@ -150,6 +150,15 @@ export async function fetchDeviceMetrics(ipAddress: string): Promise<AxeOSSystem
 
     const data = await response.json() as AxeOSSystemInfo;
 
+    // Calculate efficiency if not provided or invalid from the API
+    // Efficiency (J/TH) = Power (W) / Hashrate (TH/s)
+    if ((!data.efficiency || data.efficiency <= 0) && data.power && data.hashRate) {
+      const hashrateTH = data.hashRate / 1000; // Convert GH/s to TH/s
+      if (hashrateTH > 0) {
+        data.efficiency = data.power / hashrateTH;
+      }
+    }
+
     // Check if this is a ClusterAxe device and fetch cluster info
     if (isClusterAxeFirmware(data.version)) {
       const clusterStatus = await fetchClusterStatus(ipAddress);

@@ -309,21 +309,15 @@ function getWebDashboardHtml(): string {
       color: #E8F4E8;
       min-height: 100vh;
     }
-    /* Scanlines overlay */
+    /* Scanlines overlay - subtle CRT effect */
     body::before {
       content: '';
       position: fixed;
       top: 0; left: 0; width: 100%; height: 100%;
       pointer-events: none;
       z-index: 9999;
-      background:
-        repeating-linear-gradient(0deg, transparent 0px, transparent 2px, rgba(0, 255, 65, 0.03) 2px, rgba(0, 255, 65, 0.03) 4px),
-        repeating-linear-gradient(90deg, transparent 0px, transparent 3px, rgba(0, 0, 0, 0.03) 3px, rgba(0, 0, 0, 0.03) 4px);
-      animation: scanline-flicker 0.05s infinite;
-    }
-    @keyframes scanline-flicker {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.98; }
+      background: repeating-linear-gradient(0deg, transparent 0px, transparent 2px, rgba(0, 255, 65, 0.02) 2px, rgba(0, 255, 65, 0.02) 4px);
+      opacity: 0.8;
     }
     /* Custom scrollbar - Vault-Tec theme */
     ::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -333,8 +327,14 @@ function getWebDashboardHtml(): string {
     ::-webkit-scrollbar-corner { background: #0d2137; }
     /* Firefox scrollbar */
     * { scrollbar-width: thin; scrollbar-color: #FFB000 #0d2137; }
+    /* Subtle fade-in animation */
+    @keyframes fade-in {
+      0% { opacity: 0; transform: translateY(10px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
     .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid #1a4a5c; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid #1a4a5c; animation: fade-in 0.4s ease-out forwards; }
+    .login-container .card { animation: fade-in 0.5s ease-out forwards; }
     .logo { font-size: 24px; font-weight: bold; color: #FFB000; text-transform: uppercase; letter-spacing: 2px; }
     .btn {
       padding: 10px 20px;
@@ -408,25 +408,13 @@ function getWebDashboardHtml(): string {
     .secondary-stat-label { font-size: 9px; color: #8BA88B; text-transform: uppercase; }
     .secondary-stat-value { font-size: 12px; font-weight: 500; }
     /* Modal animations */
-    @keyframes modal-glitch-in {
-      0% { opacity: 0; transform: scale(0.95) translateY(-10px); clip-path: inset(0 0 100% 0); }
-      10% { opacity: 1; clip-path: inset(0 0 80% 0); }
-      20% { clip-path: inset(40% 0 40% 0); transform: scale(1.02) translateX(-5px); }
-      30% { clip-path: inset(20% 0 60% 0); transform: scale(0.98) translateX(5px); }
-      40% { clip-path: inset(60% 0 20% 0); }
-      50% { clip-path: inset(0 0 50% 0); transform: scale(1) translateX(-3px); }
-      60% { clip-path: inset(30% 0 30% 0); transform: scale(1.01) translateX(3px); }
-      70% { clip-path: inset(10% 0 10% 0); }
-      80% { clip-path: inset(0 0 5% 0); transform: scale(1) translateX(0); }
-      100% { opacity: 1; transform: scale(1) translateY(0); clip-path: inset(0 0 0 0); }
+    @keyframes modal-fade-in {
+      0% { opacity: 0; transform: scale(0.95) translateY(-10px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
     }
-    @keyframes modal-glitch-out {
-      0% { opacity: 1; transform: scale(1); clip-path: inset(0 0 0 0); }
-      20% { clip-path: inset(10% 0 10% 0); transform: translateX(5px); }
-      40% { clip-path: inset(30% 0 50% 0); transform: translateX(-5px); }
-      60% { clip-path: inset(50% 0 30% 0); opacity: 0.7; }
-      80% { clip-path: inset(70% 0 20% 0); opacity: 0.4; }
-      100% { opacity: 0; transform: scale(0.95) translateY(-10px); clip-path: inset(100% 0 0 0); }
+    @keyframes modal-fade-out {
+      0% { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(0.95) translateY(-10px); }
     }
     @keyframes overlay-fade-in {
       0% { opacity: 0; backdrop-filter: blur(0px); }
@@ -435,14 +423,6 @@ function getWebDashboardHtml(): string {
     @keyframes overlay-fade-out {
       0% { opacity: 1; }
       100% { opacity: 0; }
-    }
-    @keyframes terminal-flicker {
-      0%, 100% { opacity: 1; }
-      92% { opacity: 1; }
-      93% { opacity: 0.8; }
-      94% { opacity: 1; }
-      96% { opacity: 0.9; }
-      97% { opacity: 1; }
     }
     @keyframes border-glow {
       0%, 100% { box-shadow: 0 0 10px rgba(255,176,0,0.3), inset 0 0 10px rgba(255,176,0,0.1); }
@@ -467,10 +447,10 @@ function getWebDashboardHtml(): string {
       max-height: 90vh;
       overflow-y: auto;
       position: relative;
-      animation: modal-glitch-in 0.4s ease-out forwards, border-glow 3s ease-in-out infinite 0.4s;
+      animation: modal-fade-in 0.3s ease-out forwards, border-glow 3s ease-in-out infinite 0.3s;
     }
-    .modal-overlay.closing .modal { animation: modal-glitch-out 0.25s ease-in forwards; }
-    .modal::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, #FFB000, #00FF41, #FFB000); animation: terminal-flicker 4s infinite; }
+    .modal-overlay.closing .modal { animation: modal-fade-out 0.2s ease-in forwards; }
+    .modal::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, #FFB000, #00FF41, #FFB000); }
     .modal::after {
       content: '';
       position: absolute;
@@ -713,11 +693,21 @@ function getWebDashboardHtml(): string {
       const data = await res.json(); devices = data.devices; renderDevices();
     }
 
-    function showDeviceDetail(deviceId) {
+    async function showDeviceDetail(deviceId) {
       const device = devices.find(d => d.id === deviceId);
       if (!device) return;
       const m = device.latestMetrics;
       document.getElementById('modal-device-name').textContent = device.name;
+
+      // Fetch recent metrics for this device
+      let recentMetrics = [];
+      try {
+        const res = await fetch('/api/devices/' + deviceId + '/metrics?limit=20', { headers: { 'Authorization': 'Bearer ' + token } });
+        if (res.ok) {
+          const data = await res.json();
+          recentMetrics = data.metrics || [];
+        }
+      } catch (e) { console.error('Failed to fetch metrics:', e); }
 
       let html = '';
       const isCluster = m && m.isClusterMaster && m.clusterInfo;
@@ -795,6 +785,36 @@ function getWebDashboardHtml(): string {
             html += '</div></div>';
           });
           html += '</div>';
+        }
+
+        // Recent Metrics Table
+        if (recentMetrics.length > 0) {
+          html += '<div class="section-title">Recent Metrics</div>';
+          html += '<div style="overflow-x:auto;max-height:200px;overflow-y:auto;">';
+          html += '<table style="width:100%;border-collapse:collapse;font-size:11px;">';
+          html += '<thead style="position:sticky;top:0;background:#0d2137;"><tr>';
+          html += '<th style="padding:8px;text-align:left;border-bottom:1px solid #1a4a5c;color:#8BA88B;">Time</th>';
+          html += '<th style="padding:8px;text-align:left;border-bottom:1px solid #1a4a5c;color:#8BA88B;">Hashrate</th>';
+          html += '<th style="padding:8px;text-align:left;border-bottom:1px solid #1a4a5c;color:#8BA88B;">Temp</th>';
+          html += '<th style="padding:8px;text-align:left;border-bottom:1px solid #1a4a5c;color:#8BA88B;">Power</th>';
+          html += '<th style="padding:8px;text-align:left;border-bottom:1px solid #1a4a5c;color:#8BA88B;">Best Diff</th>';
+          html += '</tr></thead><tbody>';
+          recentMetrics.forEach(function(metric) {
+            const time = new Date(metric.timestamp).toLocaleTimeString();
+            const hr = metric.hashrate ? formatHashrate(metric.hashrate / 1e9) : '--';
+            const temp = metric.temperature ? metric.temperature.toFixed(1) + '°C' : '--';
+            const power = metric.power ? metric.power.toFixed(1) + ' W' : '--';
+            const diff = metric.data?.bestDiff;
+            const diffStr = diff ? (typeof diff === 'string' ? diff : (diff >= 1e9 ? (diff / 1e9).toFixed(2) + 'B' : diff >= 1e6 ? (diff / 1e6).toFixed(2) + 'M' : diff >= 1e3 ? (diff / 1e3).toFixed(2) + 'K' : diff.toLocaleString())) : '--';
+            html += '<tr style="border-bottom:1px solid #1a4a5c;">';
+            html += '<td style="padding:6px 8px;color:#8BA88B;">' + time + '</td>';
+            html += '<td style="padding:6px 8px;color:#FFB000;">' + hr + '</td>';
+            html += '<td style="padding:6px 8px;color:' + (metric.temperature > 80 ? '#FF3131' : metric.temperature > 70 ? '#FF8C00' : '#00FF41') + ';">' + temp + '</td>';
+            html += '<td style="padding:6px 8px;color:#E8F4E8;">' + power + '</td>';
+            html += '<td style="padding:6px 8px;color:#FFB000;">' + diffStr + '</td>';
+            html += '</tr>';
+          });
+          html += '</tbody></table></div>';
         }
       } else {
         html += '</div><p style="color:#8BA88B;text-align:center;padding:20px;">No metrics available</p>';
