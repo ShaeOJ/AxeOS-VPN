@@ -68,6 +68,10 @@
     "directories": {
       "output": "release"
     },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
     "asar": true,
     "asarUnpack": [
       "**/*.node"

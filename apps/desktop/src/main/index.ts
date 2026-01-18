@@ -1,6 +1,7 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, dialog } from 'electron';
 import * as auth from './database/auth';
 import { join } from 'path';
+import { existsSync, readdirSync } from 'fs';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import { initDatabase, closeDatabase } from './database';
 import * as server from './server';
@@ -48,10 +49,40 @@ function createWindow(): void {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL']);
   } else {
     const rendererPath = join(__dirname, '../renderer/index.html');
-    console.log('Loading renderer from:', rendererPath);
-    console.log('__dirname:', __dirname);
+    const rendererDir = join(__dirname, '../renderer');
+
+    // Debug info
+    const debugInfo = [
+      `__dirname: ${__dirname}`,
+      `rendererPath: ${rendererPath}`,
+      `rendererDir: ${rendererDir}`,
+      `rendererPath exists: ${existsSync(rendererPath)}`,
+      `rendererDir exists: ${existsSync(rendererDir)}`,
+    ];
+
+    // Try to list renderer directory contents
+    try {
+      if (existsSync(rendererDir)) {
+        const files = readdirSync(rendererDir);
+        debugInfo.push(`rendererDir contents: ${files.join(', ')}`);
+      }
+    } catch (e) {
+      debugInfo.push(`Error reading rendererDir: ${e}`);
+    }
+
+    // Show debug dialog
+    dialog.showMessageBox({
+      type: 'info',
+      title: 'Debug Info',
+      message: 'Renderer Loading Debug',
+      detail: debugInfo.join('\n')
+    });
+
+    console.log('Debug info:', debugInfo.join('\n'));
+
     mainWindow.loadFile(rendererPath).catch(err => {
       console.error('Failed to load renderer:', err);
+      dialog.showErrorBox('Load Error', `Failed to load: ${err.message}\n\nPath: ${rendererPath}`);
     });
   }
 
@@ -63,6 +94,7 @@ function createWindow(): void {
   // Log any renderer errors
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
     console.error('Renderer failed to load:', errorCode, errorDescription);
+    dialog.showErrorBox('Renderer Load Failed', `Error ${errorCode}: ${errorDescription}`);
   });
 
   mainWindow.webContents.on('console-message', (event, level, message) => {
