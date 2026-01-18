@@ -86,15 +86,11 @@
           "arch": ["x64"]
         }
       ],
-      "icon": "resources/icon.png",
       "artifactName": "AxeOS-VPN-Monitor-${version}-Setup.${ext}"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "installerIcon": "resources/icon.png",
-      "uninstallerIcon": "resources/icon.png",
-      "installerHeaderIcon": "resources/icon.png",
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "AxeOS VPN Monitor"
@@ -104,7 +100,6 @@
         "dmg",
         "zip"
       ],
-      "icon": "resources/icon.png",
       "artifactName": "AxeOS-VPN-Monitor-${version}-macOS.${ext}",
       "category": "public.app-category.utilities"
     },
