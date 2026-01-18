@@ -56,7 +56,7 @@
   },
   "build": {
     "appId": "com.axeos.vpn",
-    "productName": "AxeOS VPN",
+    "productName": "AxeOS VPN Monitor",
     "directories": {
       "output": "release"
     },
@@ -71,24 +71,45 @@
     ],
     "win": {
       "target": [
-        "nsis",
-        "portable"
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
       ],
-      "icon": "resources/icon.ico"
+      "icon": "resources/icon.png",
+      "artifactName": "AxeOS-VPN-Monitor-${version}-Setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "resources/icon.png",
+      "uninstallerIcon": "resources/icon.png",
+      "installerHeaderIcon": "resources/icon.png",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "AxeOS VPN Monitor"
     },
     "mac": {
       "target": [
         "dmg",
         "zip"
       ],
-      "icon": "resources/icon.icns"
+      "icon": "resources/icon.png",
+      "artifactName": "AxeOS-VPN-Monitor-${version}-macOS.${ext}",
+      "category": "public.app-category.utilities"
     },
     "linux": {
       "target": [
         "AppImage",
         "deb"
       ],
-      "icon": "resources/icons"
+      "icon": "resources/icon.png",
+      "artifactName": "AxeOS-VPN-Monitor-${version}-Linux.${ext}",
+      "category": "Utility"
     }
   }
 }
