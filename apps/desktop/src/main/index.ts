@@ -1,6 +1,7 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, protocol, net } from 'electron';
 import * as auth from './database/auth';
 import { join } from 'path';
+import { pathToFileURL } from 'url';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import { initDatabase, closeDatabase } from './database';
 import * as server from './server';
@@ -11,6 +12,15 @@ import * as poller from './axeos-poller';
 import * as tunnel from './cloudflare-tunnel';
 
 let mainWindow: BrowserWindow | null = null;
+
+// Register custom protocol for serving files with proper MIME types
+function registerProtocol(): void {
+  protocol.handle('app', (request) => {
+    const url = request.url.replace('app://', '');
+    const filePath = join(__dirname, '..', url);
+    return net.fetch(pathToFileURL(filePath).href);
+  });
+}
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -47,7 +57,8 @@ function createWindow(): void {
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL']);
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'));
+    // Use custom protocol for proper ES module support
+    mainWindow.loadURL('app://renderer/index.html');
   }
 
   // Set up poller callback to forward metrics to renderer
@@ -56,8 +67,24 @@ function createWindow(): void {
   });
 }
 
+// Register app:// as privileged scheme (must be before app ready)
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'app',
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
+    },
+  },
+]);
+
 // App lifecycle
 app.whenReady().then(() => {
+  // Register custom protocol handler
+  registerProtocol();
+
   // Initialize database
   initDatabase();
 

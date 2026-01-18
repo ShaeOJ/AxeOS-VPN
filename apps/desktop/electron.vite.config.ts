@@ -31,15 +31,9 @@ export default defineConfig({
     plugins: [react()],
     build: {
       outDir: 'dist/renderer',
-      // Disable crossorigin attribute for file:// protocol compatibility
-      modulePreload: false,
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'src/renderer/index.html'),
-        },
-        output: {
-          // Don't use crossorigin on script tags
-          format: 'iife',
         },
       },
     },
