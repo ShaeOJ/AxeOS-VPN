@@ -59,17 +59,12 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Windows Build Tools
-        if: matrix.platform == 'win'
-        run: |
-          npm install -g node-gyp
-
-      - name: Rebuild native modules
+      - name: Rebuild native modules for Electron
         shell: bash
         run: |
           cd apps/desktop
-          npx @electron/rebuild -f -w better-sqlite3
-        continue-on-error: true
+          npm install @electron/rebuild --save-dev
+          npx electron-rebuild -f -w better-sqlite3
 
       - name: Build shared packages
         run: |

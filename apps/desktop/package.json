@@ -64,17 +64,16 @@
     "appId": "com.axeos.vpn",
     "productName": "AxeOS VPN Monitor",
     "publish": null,
+    "npmRebuild": false,
     "directories": {
       "output": "release"
     },
     "files": [
-      "dist/**/*"
+      "dist/**/*",
+      "node_modules/better-sqlite3/**/*"
     ],
-    "extraResources": [
-      {
-        "from": "node_modules/better-sqlite3/build/Release/better_sqlite3.node",
-        "to": "better_sqlite3.node"
-      }
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**/*"
     ],
     "win": {
       "target": [
