@@ -96,10 +96,13 @@
     },
     "nsis": {
       "oneClick": false,
+      "perMachine": true,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "AxeOS VPN Monitor"
+      "shortcutName": "AxeOS VPN Monitor",
+      "deleteAppDataOnUninstall": true,
+      "runAfterFinish": true
     },
     "mac": {
       "target": [
