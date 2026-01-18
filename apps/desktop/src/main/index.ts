@@ -105,12 +105,26 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
+  // Clean up before quitting
+  tunnel.stopTunnel();
+  poller.stopAllPolling();
+  server.stopServer();
+  closeDatabase();
+
   if (process.platform !== 'darwin') {
     app.quit();
   }
 });
 
 app.on('before-quit', () => {
+  tunnel.stopTunnel();
+  poller.stopAllPolling();
+  server.stopServer();
+  closeDatabase();
+});
+
+// Force quit on will-quit to ensure process exits
+app.on('will-quit', () => {
   tunnel.stopTunnel();
   poller.stopAllPolling();
   server.stopServer();
