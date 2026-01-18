@@ -80,6 +80,22 @@ protocol.registerSchemesAsPrivileged([
   },
 ]);
 
+// Single instance lock - prevent multiple instances
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  // Another instance is already running, quit immediately
+  app.quit();
+} else {
+  // Handle second instance attempt - focus existing window
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+}
+
 // App lifecycle
 app.whenReady().then(() => {
   // Register custom protocol handler
@@ -112,31 +128,43 @@ app.whenReady().then(() => {
   });
 });
 
-app.on('window-all-closed', () => {
-  // Clean up before quitting
-  tunnel.stopTunnel();
-  poller.stopAllPolling();
-  server.stopServer();
-  closeDatabase();
+// Cleanup function to stop all background tasks
+function cleanup(): void {
+  try {
+    tunnel.stopTunnel();
+  } catch (e) { /* ignore */ }
+  try {
+    poller.stopAllPolling();
+  } catch (e) { /* ignore */ }
+  try {
+    server.stopServer();
+  } catch (e) { /* ignore */ }
+  try {
+    closeDatabase();
+  } catch (e) { /* ignore */ }
+}
 
+app.on('window-all-closed', () => {
+  cleanup();
   if (process.platform !== 'darwin') {
     app.quit();
   }
 });
 
 app.on('before-quit', () => {
-  tunnel.stopTunnel();
-  poller.stopAllPolling();
-  server.stopServer();
-  closeDatabase();
+  cleanup();
 });
 
-// Force quit on will-quit to ensure process exits
-app.on('will-quit', () => {
-  tunnel.stopTunnel();
-  poller.stopAllPolling();
-  server.stopServer();
-  closeDatabase();
+app.on('will-quit', (event) => {
+  cleanup();
+});
+
+// Force exit after quit to ensure no zombie processes
+app.on('quit', () => {
+  // Give a small delay for cleanup, then force exit
+  setTimeout(() => {
+    process.exit(0);
+  }, 500);
 });
 
 // IPC Handlers - Window controls
