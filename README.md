@@ -1,150 +1,209 @@
-# AxeOS-VPN
-
-Secure remote monitoring solution for Axe OS cryptocurrency mining rigs. Monitor hashrate, temperature, and power metrics from anywhere via desktop (Windows/Mac/Linux) and mobile (iOS/Android) apps.
-
-## Architecture
-
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         CLOUD SERVER                            │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
-│  │ Auth Service│  │Relay Server │  │ Metrics DB  │              │
-│  │  (JWT/API)  │  │ (WebSocket) │  │ (TimeSeries)│              │
-│  └─────────────┘  └─────────────┘  └─────────────┘              │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-        ┌─────────────────────┼─────────────────────┐
-        ▼                     ▼                     ▼
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│Desktop Client│     │Mobile Client │     │AxeOS Agent   │
-│  (Electron)  │     │(React Native)│     │  (Node.js)   │
-└──────────────┘     └──────────────┘     └──────────────┘
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                                                                              ║
+║     █████╗ ██╗  ██╗███████╗ ██████╗ ███████╗    ██╗   ██╗██████╗ ███╗   ██╗  ║
+║    ██╔══██╗╚██╗██╔╝██╔════╝██╔═══██╗██╔════╝    ██║   ██║██╔══██╗████╗  ██║  ║
+║    ███████║ ╚███╔╝ █████╗  ██║   ██║███████╗    ██║   ██║██████╔╝██╔██╗ ██║  ║
+║    ██╔══██║ ██╔██╗ ██╔══╝  ██║   ██║╚════██║    ╚██╗ ██╔╝██╔═══╝ ██║╚██╗██║  ║
+║    ██║  ██║██╔╝ ██╗███████╗╚██████╔╝███████║     ╚████╔╝ ██║     ██║ ╚████║  ║
+║    ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚══════╝      ╚═══╝  ╚═╝     ╚═╝  ╚═══╝  ║
+║                                                                              ║
+║                    VAULT-TEC MINING OPERATIONS DIVISION                      ║
+║                      "Preparing for the Future, Today!"                      ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
-## Project Structure
+# 🏭 AxeOS VPN Monitor
+
+> **VAULT-TEC APPROVED** | Mining Rig Monitoring System | Est. 2077
+
+Welcome, Vault Dweller! You've discovered the **AxeOS VPN Monitor** - Vault-Tec's premier solution for monitoring your Bitcoin mining operations from the safety of your underground bunker (or anywhere else in the wasteland).
+
+---
+
+## 📟 TERMINAL STATUS: ONLINE
+
+```
+[VAULT-TEC SYSTEMS DIAGNOSTIC]
+├── Desktop App ............ OPERATIONAL ✓
+├── Mobile App ............. OPERATIONAL ✓
+├── Web Dashboard .......... OPERATIONAL ✓
+├── ClusterAxe Support ..... OPERATIONAL ✓
+└── Remote Access .......... OPERATIONAL ✓
+```
+
+---
+
+## 🎯 What Does It Do?
+
+AxeOS VPN Monitor is a **complete monitoring solution** for BitAxe and compatible mining devices:
+
+| Feature | Description |
+|---------|-------------|
+| 📊 **Real-time Metrics** | Hashrate, temperature, power, efficiency - all at a glance |
+| 🌡️ **Thermal Monitoring** | Color-coded alerts: Green (safe) → Orange (warm) → Red (DANGER) |
+| 🔗 **ClusterAxe Support** | Monitor entire mining clusters as a single unit |
+| 🌐 **Remote Access** | Cloudflare Tunnel integration - access from anywhere |
+| 📱 **QR Code Access** | Scan with your Pip-Boy (phone) for instant remote access |
+| ✨ **Network FX** | Beautiful animated particle network background (toggle on/off) |
+
+---
+
+## 🖥️ Supported Devices
+
+```
+┌────────────────────────────────────────────┐
+│         COMPATIBLE MINING UNITS            │
+├────────────────────────────────────────────┤
+│  ✓ BitAxe Ultra                            │
+│  ✓ BitAxe Gamma                            │
+│  ✓ BitAxe Supra                            │
+│  ✓ BitAxe Hex                              │
+│  ✓ NerdAxe / NerdQAxe                      │
+│  ✓ ClusterAxe (Master + Slaves)            │
+│  ✓ Any AxeOS-compatible device             │
+└────────────────────────────────────────────┘
+```
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- **Node.js** 18+ (the reactor core)
+- **PNPM** 8+ (package containment system)
+- **A BitAxe** or compatible device on your network
+
+### Installation
+
+```bash
+# Clone this vault
+git clone https://github.com/YOUR_USERNAME/AxeOS-VPN.git
+cd AxeOS-VPN
+
+# Initialize containment protocols
+pnpm install
+
+# Launch the reactor
+pnpm dev
+```
+
+The desktop app will open automatically. Add your mining devices by IP address and watch the hashrate flow!
+
+---
+
+## 📸 Screenshots
+
+### Desktop Dashboard
+*Vault-Tec approved interface with real-time metrics*
+
+### Web Remote Access
+*Access your miners from any terminal in the wasteland*
+
+### Mobile App
+*Monitor on the go with your Pip-Boy 3000 (or smartphone)*
+
+---
+
+## 🏗️ Project Structure
 
 ```
 axeos-vpn/
 ├── apps/
-│   ├── desktop/          # Electron app (Windows/Mac/Linux)
-│   ├── mobile/           # React Native app (iOS/Android)
-│   ├── backend/          # Relay server + REST API
-│   └── agent/            # Runs on mining rig
+│   ├── desktop/          # Electron app (Win/Mac/Linux)
+│   │   ├── main/         # Main process + local server
+│   │   └── renderer/     # React UI
+│   └── mobile/           # React Native (iOS/Android)
 ├── packages/
 │   ├── shared-types/     # TypeScript interfaces
-│   ├── shared-utils/     # Common utilities
-│   └── tunnel-client/    # WebSocket client library
-└── tools/
-    └── docker/           # Docker configs
+│   └── shared-utils/     # Utility functions
+└── README.md             # You are here, Vault Dweller
 ```
 
-## Prerequisites
+---
 
-- Node.js 18+
-- PNPM 8+
-- PostgreSQL 15+
-- Docker (optional, for development)
+## 🔧 Features in Detail
 
-## Quick Start
+### 🌐 Remote Access (Cloudflare Tunnel)
 
-### 1. Install dependencies
+Access your mining dashboard from anywhere - no port forwarding required!
 
-```bash
-pnpm install
-```
+1. Go to **Settings** → **Remote Access**
+2. Click **Enable Remote Access**
+3. Scan the QR code with your phone
+4. Monitor from anywhere in the wasteland!
 
-### 2. Set up the database
+### 📊 Efficiency Tracking
 
-Copy the example environment file and configure your database:
+AxeOS VPN calculates **J/TH** (Joules per Terahash) for all your devices:
+- Lower is better
+- Helps identify underperforming units
+- Works even if your device doesn't report it natively
 
-```bash
-cp apps/backend/.env.example apps/backend/.env
-```
+### ✨ Network Animation (FX Mode)
 
-Edit `apps/backend/.env` with your PostgreSQL connection string.
+Toggle the beautiful particle network background:
+- Click the **FX** button in the web dashboard header
+- Nodes pulse and connect in real-time
+- Looks cool, makes you feel like a Vault-Tec engineer
 
-### 3. Initialize the database
+---
 
-```bash
-cd apps/backend
-pnpm db:generate
-pnpm db:push
-```
-
-### 4. Start the development servers
-
-From the root directory:
+## 🛠️ Development
 
 ```bash
-# Start the backend (REST API + WebSocket server)
-pnpm --filter @axeos-vpn/backend dev
+# Run in development mode
+pnpm dev
 
-# In another terminal, start the desktop app
-pnpm --filter @axeos-vpn/desktop dev
-
-# In another terminal, start the mobile app
-pnpm --filter @axeos-vpn/mobile start
-```
-
-### 5. Set up an agent (on your mining rig)
-
-```bash
-# Run the setup wizard
-pnpm --filter @axeos-vpn/agent setup
-
-# Start the agent
-pnpm --filter @axeos-vpn/agent dev
-```
-
-## Development
-
-### Building packages
-
-```bash
-# Build all packages
+# Build for production
 pnpm build
 
-# Build specific package
-pnpm --filter @axeos-vpn/shared-types build
-```
-
-### Running tests
-
-```bash
-pnpm test
-```
-
-### Type checking
-
-```bash
+# Type checking
 pnpm typecheck
 ```
 
-## API Endpoints
+---
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/v1/auth/register` | Create account |
-| POST | `/api/v1/auth/login` | Login, get tokens |
-| POST | `/api/v1/auth/refresh` | Refresh access token |
-| GET | `/api/v1/devices` | List user's devices |
-| POST | `/api/v1/devices/pair` | Get pairing code |
-| POST | `/api/v1/devices/verify` | Verify pairing code |
-| GET | `/api/v1/metrics/:deviceId` | Historical metrics |
-| WSS | `/ws` | WebSocket tunnel |
+## 📜 Vault-Tec Legal Notice
 
-## WebSocket Protocol
+```
+╔══════════════════════════════════════════════════════════════════╗
+║                    VAULT-TEC CORPORATION                         ║
+║              "Building a Better Tomorrow, Underground"           ║
+╠══════════════════════════════════════════════════════════════════╣
+║                                                                  ║
+║  This software is provided "AS IS" without warranty of any      ║
+║  kind. Vault-Tec is not responsible for:                        ║
+║                                                                  ║
+║  • Overheated mining rigs                                        ║
+║  • Insufficient hashrate                                         ║
+║  • Radiation exposure from extended terminal use                 ║
+║  • Addiction to watching numbers go up                           ║
+║  • Any incidents involving Deathclaws                            ║
+║                                                                  ║
+║  By using this software, you agree that Bitcoin mining           ║
+║  is essential for post-apocalyptic economic recovery.            ║
+║                                                                  ║
+╚══════════════════════════════════════════════════════════════════╝
+```
 
-The WebSocket relay server uses a JSON-based protocol. See `packages/shared-types/src/protocol.ts` for message type definitions.
+---
 
-### Message Types
+## 🤝 Contributing
 
-- `authenticate` - Client/agent authentication
-- `subscribe` / `unsubscribe` - Device subscription management
-- `metrics_update` - Real-time metrics from agent
-- `device_status` - Online/offline notifications
-- `heartbeat` / `heartbeat_ack` - Keep-alive messages
+Pull requests welcome! Whether you're from Vault 101 or the Capital Wasteland, we appreciate all contributions.
 
-## License
+---
 
-MIT
+## 📄 License
+
+MIT License - Free as in Freedom (and bottle caps)
+
+---
+
+<p align="center">
+  <strong>Built with ☢️ by Vault-Tec Mining Operations Division</strong><br>
+  <em>"When the bombs fall, keep hashing!"</em>
+</p>
