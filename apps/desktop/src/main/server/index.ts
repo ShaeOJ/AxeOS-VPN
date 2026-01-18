@@ -309,6 +309,21 @@ function getWebDashboardHtml(): string {
       color: #E8F4E8;
       min-height: 100vh;
     }
+    /* Network canvas background */
+    #network-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+    }
+    body.animated-bg #network-canvas {
+      opacity: 1;
+    }
     /* Scanlines overlay - subtle CRT effect */
     body::before {
       content: '';
@@ -518,6 +533,7 @@ function getWebDashboardHtml(): string {
   </style>
 </head>
 <body>
+  <canvas id="network-canvas"></canvas>
   <div id="login-view" class="container login-container">
     <div class="card">
       ${logoBase64 ? `<img src="${logoBase64}" alt="AxeOS VPN" style="max-width: 200px; height: auto; display: block; margin: 0 auto 24px; filter: drop-shadow(0 0 10px rgba(255,176,0,0.4));">` : `<h2 style="margin-bottom: 24px; text-align: center; color: #FFB000; text-transform: uppercase; letter-spacing: 2px;">AxeOS VPN</h2>`}
@@ -539,7 +555,15 @@ function getWebDashboardHtml(): string {
   <div id="dashboard-view" class="container hidden">
     <div class="header">
       ${logoBase64 ? `<img src="${logoBase64}" alt="AxeOS VPN" style="height: 60px; width: auto; filter: drop-shadow(0 0 10px rgba(255,176,0,0.4));">` : `<div class="logo">AxeOS VPN Monitor</div>`}
-      <button onclick="doLogout()" class="btn btn-danger">Logout</button>
+      <div style="display: flex; gap: 10px; align-items: center;">
+        <button id="bg-toggle" onclick="toggleBackground()" class="btn btn-secondary" title="Toggle animated background" style="padding: 8px 12px; display: flex; align-items: center; gap: 6px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+          </svg>
+          <span id="bg-toggle-text">FX</span>
+        </button>
+        <button onclick="doLogout()" class="btn btn-danger">Logout</button>
+      </div>
     </div>
 
     <div class="grid" style="margin-bottom: 24px;">
@@ -923,7 +947,140 @@ function getWebDashboardHtml(): string {
     function formatUptime(s) { if (!s) return '--'; const d = Math.floor(s/86400), h = Math.floor((s%86400)/3600), m = Math.floor((s%3600)/60); return d > 0 ? d+'d '+h+'h' : h > 0 ? h+'h '+m+'m' : m+'m'; }
     function getTempClass(t) { if (!t) return ''; return t > 80 ? 'danger' : t > 70 ? 'warning' : 'success'; }
 
+    // Network animation
+    const canvas = document.getElementById('network-canvas');
+    const ctx = canvas.getContext('2d');
+    let nodes = [];
+    let animationId = null;
+    const nodeCount = 60;
+    const connectionDistance = 150;
+    const nodeSpeed = 0.3;
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    function createNodes() {
+      nodes = [];
+      for (let i = 0; i < nodeCount; i++) {
+        nodes.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          vx: (Math.random() - 0.5) * nodeSpeed,
+          vy: (Math.random() - 0.5) * nodeSpeed,
+          radius: Math.random() * 2 + 1,
+          pulse: Math.random() * Math.PI * 2,
+          pulseSpeed: 0.02 + Math.random() * 0.02
+        });
+      }
+    }
+
+    function drawNetwork() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Update and draw nodes
+      nodes.forEach((node, i) => {
+        // Update position
+        node.x += node.vx;
+        node.y += node.vy;
+        node.pulse += node.pulseSpeed;
+
+        // Bounce off edges
+        if (node.x < 0 || node.x > canvas.width) node.vx *= -1;
+        if (node.y < 0 || node.y > canvas.height) node.vy *= -1;
+
+        // Draw connections to nearby nodes
+        for (let j = i + 1; j < nodes.length; j++) {
+          const other = nodes[j];
+          const dx = other.x - node.x;
+          const dy = other.y - node.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist < connectionDistance) {
+            const alpha = (1 - dist / connectionDistance) * 0.4;
+            ctx.beginPath();
+            ctx.moveTo(node.x, node.y);
+            ctx.lineTo(other.x, other.y);
+            ctx.strokeStyle = 'rgba(255, 176, 0, ' + alpha + ')';
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        }
+
+        // Draw node with pulse effect
+        const pulseSize = Math.sin(node.pulse) * 0.5 + 1;
+        const glowAlpha = 0.3 + Math.sin(node.pulse) * 0.2;
+
+        // Glow
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, node.radius * 3 * pulseSize, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 176, 0, ' + (glowAlpha * 0.3) + ')';
+        ctx.fill();
+
+        // Core
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, node.radius * pulseSize, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 176, 0, ' + (0.6 + glowAlpha * 0.4) + ')';
+        ctx.fill();
+      });
+
+      animationId = requestAnimationFrame(drawNetwork);
+    }
+
+    function startNetwork() {
+      if (animationId) return;
+      resizeCanvas();
+      createNodes();
+      drawNetwork();
+    }
+
+    function stopNetwork() {
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+        animationId = null;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    }
+
+    function toggleBackground() {
+      const isEnabled = document.body.classList.toggle('animated-bg');
+      localStorage.setItem('animatedBg', isEnabled ? '1' : '0');
+      const btn = document.getElementById('bg-toggle');
+      if (isEnabled) {
+        btn.classList.remove('btn-secondary');
+        btn.classList.add('btn-primary');
+        startNetwork();
+      } else {
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-secondary');
+        stopNetwork();
+      }
+    }
+
+    // Initialize background preference
+    function initBackground() {
+      const saved = localStorage.getItem('animatedBg');
+      if (saved === '1') {
+        document.body.classList.add('animated-bg');
+        const btn = document.getElementById('bg-toggle');
+        if (btn) {
+          btn.classList.remove('btn-secondary');
+          btn.classList.add('btn-primary');
+        }
+        startNetwork();
+      }
+    }
+
+    window.addEventListener('resize', () => {
+      if (document.body.classList.contains('animated-bg')) {
+        resizeCanvas();
+        createNodes();
+      }
+    });
+
     init();
+    initBackground();
   </script>
 </body>
 </html>`;
