@@ -63,8 +63,8 @@ jobs:
         shell: bash
         run: |
           cd apps/desktop
-          npm install @electron/rebuild --save-dev
-          npx electron-rebuild -f -w better-sqlite3
+          pnpm add -D @electron/rebuild
+          pnpm exec electron-rebuild -f -w better-sqlite3
 
       - name: Build shared packages
         run: |
