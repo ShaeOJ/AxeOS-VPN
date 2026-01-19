@@ -13,6 +13,12 @@
 | | - Dropdown coin selector | |
 | | - 24h change indicators | |
 | | - Saved preferences | |
+| 2026-01-19 | Mining Profitability Calculator | ✅ Implemented |
+| | - Daily/weekly/monthly/yearly earnings | |
+| | - Power cost calculations | |
+| | - Net profit display | |
+| | - Network difficulty & block height | |
+| | - Configurable electricity rate | |
 
 ---
 
@@ -40,9 +46,13 @@
   - [x] Saved preference persistence
   - [ ] Multiple fiat currency support (EUR, GBP, etc.)
   - [ ] Mini chart sparkline
-- [ ] **Mining Profitability Calculator** - Estimate earnings based on hashrate
-- [ ] **Network Difficulty Tracker** - Bitcoin network stats
-- [ ] **Block Height Display** - Current block number
+- [x] **Mining Profitability Calculator** ✅ IMPLEMENTED
+  - [x] Estimate earnings based on hashrate
+  - [x] Power cost calculations
+  - [x] Net profit display
+  - [x] Configurable electricity rate
+- [x] **Network Difficulty Tracker** ✅ IMPLEMENTED (in profitability panel)
+- [x] **Block Height Display** ✅ IMPLEMENTED (in profitability panel)
 - [ ] **Mempool Status** - Transaction fee estimates
 - [ ] **Portfolio Value** - Track accumulated sats value
 
