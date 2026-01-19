@@ -1,6 +1,6 @@
 {
   "name": "@axeos-vpn/desktop",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Vault-Tec Mining Operations Division - BitAxe Monitoring System",
   "author": "Vault-Tec Industries <vault-tec@example.com>",
   "repository": {
@@ -89,13 +89,17 @@
       "artifactName": "AxeOS-VPN-Monitor-${version}-Setup.${ext}"
     },
     "nsis": {
+      "guid": "AxeOS-VPN-Monitor-8F3D9C2A",
       "oneClick": false,
       "perMachine": false,
       "allowElevation": true,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "AxeOS VPN Monitor"
+      "shortcutName": "AxeOS VPN Monitor",
+      "runAfterFinish": false,
+      "installerLanguages": ["en_US"],
+      "language": 1033
     },
     "mac": {
       "target": [
