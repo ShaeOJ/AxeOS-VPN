@@ -41,6 +41,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Utility
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
 
+  // Crypto Prices
+  getBitcoinPrice: () => ipcRenderer.invoke('get-bitcoin-price'),
+  getCryptoPrice: (coinId: string) => ipcRenderer.invoke('get-crypto-price', coinId),
+  getSupportedCoins: () => ipcRenderer.invoke('get-supported-coins'),
+
   // Password Management
   isPasswordSet: () => ipcRenderer.invoke('is-password-set'),
   changePassword: (currentPassword: string, newPassword: string) =>
@@ -147,6 +152,22 @@ export interface TunnelResult {
   error?: string;
 }
 
+export interface CryptoPrice {
+  usd: number;
+  usd_24h_change: number;
+  usd_24h_vol: number;
+  last_updated: number;
+}
+
+export interface CoinInfo {
+  id: string;
+  symbol: string;
+  name: string;
+}
+
+// Legacy alias
+export type BitcoinPrice = CryptoPrice;
+
 declare global {
   interface Window {
     electronAPI: {
@@ -178,6 +199,10 @@ declare global {
       stopTunnel: () => Promise<{ success: boolean }>;
 
       openExternal: (url: string) => Promise<{ success: boolean }>;
+
+      getBitcoinPrice: () => Promise<CryptoPrice | null>;
+      getCryptoPrice: (coinId: string) => Promise<CryptoPrice | null>;
+      getSupportedCoins: () => Promise<CoinInfo[]>;
 
       isPasswordSet: () => Promise<boolean>;
       changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;

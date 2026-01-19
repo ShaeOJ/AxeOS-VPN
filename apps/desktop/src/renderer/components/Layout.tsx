@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
 import { useDeviceStore } from '../stores/deviceStore';
 import { useServerStore } from '../stores/serverStore';
+import { BitcoinTicker } from './BitcoinTicker';
 import logoImage from '../assets/logo.png';
 
 export function Layout() {
@@ -77,6 +78,9 @@ export function Layout() {
             </div>
           )}
         </div>
+
+        {/* Bitcoin Price Ticker */}
+        <BitcoinTicker />
 
         {/* Navigation */}
         <nav className="flex-1 py-4">

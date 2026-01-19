@@ -10,6 +10,7 @@ import * as metrics from './database/metrics';
 import * as settings from './database/settings';
 import * as poller from './axeos-poller';
 import * as tunnel from './cloudflare-tunnel';
+import * as bitcoin from './bitcoin-price';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -330,6 +331,19 @@ ipcMain.handle('stop-tunnel', () => {
 ipcMain.handle('open-external', (_, url: string) => {
   shell.openExternal(url);
   return { success: true };
+});
+
+// IPC Handlers - Crypto Prices
+ipcMain.handle('get-bitcoin-price', async () => {
+  return bitcoin.fetchBitcoinPrice();
+});
+
+ipcMain.handle('get-crypto-price', async (_, coinId: string) => {
+  return bitcoin.fetchCryptoPrice(coinId);
+});
+
+ipcMain.handle('get-supported-coins', () => {
+  return bitcoin.getSupportedCoins();
 });
 
 // IPC Handlers - Password Management
