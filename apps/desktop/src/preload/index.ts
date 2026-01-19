@@ -46,6 +46,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getCryptoPrice: (coinId: string) => ipcRenderer.invoke('get-crypto-price', coinId),
   getSupportedCoins: () => ipcRenderer.invoke('get-supported-coins'),
 
+  // Profitability Calculator
+  getNetworkStats: () => ipcRenderer.invoke('get-network-stats'),
+  calculateProfitability: (hashrateGH: number, powerWatts: number, btcPriceUsd: number, electricityCost?: number) =>
+    ipcRenderer.invoke('calculate-profitability', hashrateGH, powerWatts, btcPriceUsd, electricityCost),
+
   // Password Management
   isPasswordSet: () => ipcRenderer.invoke('is-password-set'),
   changePassword: (currentPassword: string, newPassword: string) =>
@@ -168,6 +173,37 @@ export interface CoinInfo {
 // Legacy alias
 export type BitcoinPrice = CryptoPrice;
 
+export interface NetworkStats {
+  difficulty: number;
+  blockReward: number;
+  blockHeight: number;
+  lastUpdated: number;
+}
+
+export interface ProfitabilityResult {
+  dailyBtc: number;
+  weeklyBtc: number;
+  monthlyBtc: number;
+  yearlyBtc: number;
+  dailyUsd: number;
+  weeklyUsd: number;
+  monthlyUsd: number;
+  yearlyUsd: number;
+  dailyPowerCost: number;
+  weeklyPowerCost: number;
+  monthlyPowerCost: number;
+  yearlyPowerCost: number;
+  dailyProfit: number;
+  weeklyProfit: number;
+  monthlyProfit: number;
+  yearlyProfit: number;
+  hashrate: number;
+  power: number;
+  difficulty: number;
+  btcPrice: number;
+  electricityCost: number;
+}
+
 declare global {
   interface Window {
     electronAPI: {
@@ -203,6 +239,9 @@ declare global {
       getBitcoinPrice: () => Promise<CryptoPrice | null>;
       getCryptoPrice: (coinId: string) => Promise<CryptoPrice | null>;
       getSupportedCoins: () => Promise<CoinInfo[]>;
+
+      getNetworkStats: () => Promise<NetworkStats | null>;
+      calculateProfitability: (hashrateGH: number, powerWatts: number, btcPriceUsd: number, electricityCost?: number) => Promise<ProfitabilityResult | null>;
 
       isPasswordSet: () => Promise<boolean>;
       changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;

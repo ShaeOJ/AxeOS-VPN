@@ -3,6 +3,7 @@ import { Outlet, NavLink } from 'react-router-dom';
 import { useDeviceStore } from '../stores/deviceStore';
 import { useServerStore } from '../stores/serverStore';
 import { BitcoinTicker } from './BitcoinTicker';
+import { ProfitabilityDisplay } from './ProfitabilityDisplay';
 import logoImage from '../assets/logo.png';
 
 export function Layout() {
@@ -81,6 +82,9 @@ export function Layout() {
 
         {/* Bitcoin Price Ticker */}
         <BitcoinTicker />
+
+        {/* Mining Profitability */}
+        <ProfitabilityDisplay />
 
         {/* Navigation */}
         <nav className="flex-1 py-4">

@@ -11,6 +11,7 @@ import * as settings from './database/settings';
 import * as poller from './axeos-poller';
 import * as tunnel from './cloudflare-tunnel';
 import * as bitcoin from './bitcoin-price';
+import * as profitability from './profitability';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -344,6 +345,15 @@ ipcMain.handle('get-crypto-price', async (_, coinId: string) => {
 
 ipcMain.handle('get-supported-coins', () => {
   return bitcoin.getSupportedCoins();
+});
+
+// IPC Handlers - Profitability Calculator
+ipcMain.handle('get-network-stats', async () => {
+  return profitability.fetchNetworkStats();
+});
+
+ipcMain.handle('calculate-profitability', async (_, hashrateGH: number, powerWatts: number, btcPriceUsd: number, electricityCost?: number) => {
+  return profitability.calculateProfitability(hashrateGH, powerWatts, btcPriceUsd, electricityCost);
 });
 
 // IPC Handlers - Password Management
