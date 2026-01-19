@@ -20,15 +20,17 @@
 
 ## 📊 LIVE TICKERS & MARKET DATA
 
-- [ ] **Bitcoin Price Ticker** - Real-time BTC/USD price display
-  - [ ] Multiple currency support (USD, EUR, GBP, etc.)
-  - [ ] Price change indicators (24h, 7d)
+- [x] **Crypto Price Ticker** - Real-time price display ✅ IMPLEMENTED
+  - [x] Multi-coin support (BTC, BCH, BSV, DGB, PPC, NMC)
+  - [x] Price change indicators (24h)
+  - [x] Coin selector dropdown
+  - [x] Saved preference persistence
+  - [ ] Multiple fiat currency support (EUR, GBP, etc.)
   - [ ] Mini chart sparkline
 - [ ] **Mining Profitability Calculator** - Estimate earnings based on hashrate
 - [ ] **Network Difficulty Tracker** - Bitcoin network stats
 - [ ] **Block Height Display** - Current block number
 - [ ] **Mempool Status** - Transaction fee estimates
-- [ ] **Multi-Coin Support** - Track other SHA-256 coins
 - [ ] **Portfolio Value** - Track accumulated sats value
 
 ---
