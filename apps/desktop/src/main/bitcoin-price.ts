@@ -4,11 +4,35 @@
  */
 
 export interface CryptoPrice {
-  usd: number;
-  usd_24h_change: number;
-  usd_24h_vol: number;
+  price: number;
+  change_24h: number;
+  vol_24h: number;
+  currency: string;
   last_updated: number;
 }
+
+export interface CurrencyInfo {
+  code: string;
+  symbol: string;
+  name: string;
+}
+
+export interface PriceHistoryPoint {
+  timestamp: number;
+  price: number;
+}
+
+// Supported fiat currencies
+export const SUPPORTED_CURRENCIES: CurrencyInfo[] = [
+  { code: 'usd', symbol: '$', name: 'US Dollar' },
+  { code: 'eur', symbol: '€', name: 'Euro' },
+  { code: 'gbp', symbol: '£', name: 'British Pound' },
+  { code: 'aud', symbol: 'A$', name: 'Australian Dollar' },
+  { code: 'cad', symbol: 'C$', name: 'Canadian Dollar' },
+  { code: 'jpy', symbol: '¥', name: 'Japanese Yen' },
+  { code: 'chf', symbol: 'CHF', name: 'Swiss Franc' },
+  { code: 'cny', symbol: '¥', name: 'Chinese Yuan' },
+];
 
 export interface CoinInfo {
   id: string;        // CoinGecko API ID
@@ -26,10 +50,15 @@ export const SUPPORTED_COINS: CoinInfo[] = [
   { id: 'namecoin', symbol: 'NMC', name: 'Namecoin' },
 ];
 
-// Cache for each coin
+// Cache for each coin+currency combination
 const priceCache: Map<string, CryptoPrice> = new Map();
 const lastFetchTime: Map<string, number> = new Map();
 const CACHE_DURATION = 30000; // 30 seconds cache
+
+// Separate cache for price history (less frequent updates)
+const historyCache: Map<string, PriceHistoryPoint[]> = new Map();
+const historyLastFetch: Map<string, number> = new Map();
+const HISTORY_CACHE_DURATION = 300000; // 5 minutes cache for history
 
 /**
  * Get the list of supported coins
@@ -39,12 +68,20 @@ export function getSupportedCoins(): CoinInfo[] {
 }
 
 /**
+ * Get the list of supported currencies
+ */
+export function getSupportedCurrencies(): CurrencyInfo[] {
+  return SUPPORTED_CURRENCIES;
+}
+
+/**
  * Fetch price for a specific coin from CoinGecko
  */
-export async function fetchCryptoPrice(coinId: string): Promise<CryptoPrice | null> {
+export async function fetchCryptoPrice(coinId: string, currency: string = 'usd'): Promise<CryptoPrice | null> {
+  const cacheKey = `${coinId}_${currency}`;
   const now = Date.now();
-  const lastFetch = lastFetchTime.get(coinId) || 0;
-  const cached = priceCache.get(coinId);
+  const lastFetch = lastFetchTime.get(cacheKey) || 0;
+  const cached = priceCache.get(cacheKey);
 
   // Return cached price if still valid
   if (cached && now - lastFetch < CACHE_DURATION) {
@@ -52,7 +89,7 @@ export async function fetchCryptoPrice(coinId: string): Promise<CryptoPrice | nu
   }
 
   try {
-    const url = `https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true`;
+    const url = `https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=${currency}&include_24hr_change=true&include_24hr_vol=true`;
     const response = await fetch(url);
 
     if (!response.ok) {
@@ -64,13 +101,14 @@ export async function fetchCryptoPrice(coinId: string): Promise<CryptoPrice | nu
 
     if (data[coinId]) {
       const price: CryptoPrice = {
-        usd: data[coinId].usd,
-        usd_24h_change: data[coinId].usd_24h_change || 0,
-        usd_24h_vol: data[coinId].usd_24h_vol || 0,
+        price: data[coinId][currency],
+        change_24h: data[coinId][`${currency}_24h_change`] || 0,
+        vol_24h: data[coinId][`${currency}_24h_vol`] || 0,
+        currency: currency,
         last_updated: now,
       };
-      priceCache.set(coinId, price);
-      lastFetchTime.set(coinId, now);
+      priceCache.set(cacheKey, price);
+      lastFetchTime.set(cacheKey, now);
       return price;
     }
 
@@ -84,12 +122,12 @@ export async function fetchCryptoPrice(coinId: string): Promise<CryptoPrice | nu
 /**
  * Fetch prices for all supported coins at once (more efficient)
  */
-export async function fetchAllPrices(): Promise<Map<string, CryptoPrice>> {
+export async function fetchAllPrices(currency: string = 'usd'): Promise<Map<string, CryptoPrice>> {
   const now = Date.now();
   const coinIds = SUPPORTED_COINS.map(c => c.id).join(',');
 
   try {
-    const url = `https://api.coingecko.com/api/v3/simple/price?ids=${coinIds}&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true`;
+    const url = `https://api.coingecko.com/api/v3/simple/price?ids=${coinIds}&vs_currencies=${currency}&include_24hr_change=true&include_24hr_vol=true`;
     const response = await fetch(url);
 
     if (!response.ok) {
@@ -101,14 +139,16 @@ export async function fetchAllPrices(): Promise<Map<string, CryptoPrice>> {
 
     for (const coin of SUPPORTED_COINS) {
       if (data[coin.id]) {
+        const cacheKey = `${coin.id}_${currency}`;
         const price: CryptoPrice = {
-          usd: data[coin.id].usd,
-          usd_24h_change: data[coin.id].usd_24h_change || 0,
-          usd_24h_vol: data[coin.id].usd_24h_vol || 0,
+          price: data[coin.id][currency],
+          change_24h: data[coin.id][`${currency}_24h_change`] || 0,
+          vol_24h: data[coin.id][`${currency}_24h_vol`] || 0,
+          currency: currency,
           last_updated: now,
         };
-        priceCache.set(coin.id, price);
-        lastFetchTime.set(coin.id, now);
+        priceCache.set(cacheKey, price);
+        lastFetchTime.set(cacheKey, now);
       }
     }
 
@@ -116,6 +156,65 @@ export async function fetchAllPrices(): Promise<Map<string, CryptoPrice>> {
   } catch (error) {
     console.error('Failed to fetch crypto prices:', error);
     return priceCache;
+  }
+}
+
+/**
+ * Fetch price history for sparkline chart
+ */
+export async function fetchPriceHistory(coinId: string, currency: string = 'usd', days: number = 7): Promise<PriceHistoryPoint[]> {
+  const cacheKey = `${coinId}_${currency}_${days}`;
+  const now = Date.now();
+  const lastFetch = historyLastFetch.get(cacheKey) || 0;
+  const cached = historyCache.get(cacheKey);
+
+  // Return cached history if still valid
+  if (cached && now - lastFetch < HISTORY_CACHE_DURATION) {
+    return cached;
+  }
+
+  try {
+    const url = `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=${currency}&days=${days}`;
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      console.error(`Price history API error for ${coinId}:`, response.status);
+      return cached || [];
+    }
+
+    const data = await response.json();
+
+    if (data.prices && Array.isArray(data.prices)) {
+      // Downsample to ~50 points for efficient rendering
+      const prices: [number, number][] = data.prices;
+      const targetPoints = 50;
+      const step = Math.max(1, Math.floor(prices.length / targetPoints));
+
+      const history: PriceHistoryPoint[] = [];
+      for (let i = 0; i < prices.length; i += step) {
+        history.push({
+          timestamp: prices[i][0],
+          price: prices[i][1],
+        });
+      }
+
+      // Always include the last point
+      if (prices.length > 0 && history[history.length - 1]?.timestamp !== prices[prices.length - 1][0]) {
+        history.push({
+          timestamp: prices[prices.length - 1][0],
+          price: prices[prices.length - 1][1],
+        });
+      }
+
+      historyCache.set(cacheKey, history);
+      historyLastFetch.set(cacheKey, now);
+      return history;
+    }
+
+    return cached || [];
+  } catch (error) {
+    console.error(`Failed to fetch ${coinId} price history:`, error);
+    return cached || [];
   }
 }
 
@@ -129,6 +228,7 @@ export async function fetchBitcoinPrice(): Promise<CryptoPrice | null> {
 /**
  * Get cached price for a coin without fetching
  */
-export function getCachedPrice(coinId: string = 'bitcoin'): CryptoPrice | null {
-  return priceCache.get(coinId) || null;
+export function getCachedPrice(coinId: string = 'bitcoin', currency: string = 'usd'): CryptoPrice | null {
+  const cacheKey = `${coinId}_${currency}`;
+  return priceCache.get(cacheKey) || null;
 }

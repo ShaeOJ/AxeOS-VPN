@@ -339,12 +339,20 @@ ipcMain.handle('get-bitcoin-price', async () => {
   return bitcoin.fetchBitcoinPrice();
 });
 
-ipcMain.handle('get-crypto-price', async (_, coinId: string) => {
-  return bitcoin.fetchCryptoPrice(coinId);
+ipcMain.handle('get-crypto-price', async (_, coinId: string, currency?: string) => {
+  return bitcoin.fetchCryptoPrice(coinId, currency || 'usd');
 });
 
 ipcMain.handle('get-supported-coins', () => {
   return bitcoin.getSupportedCoins();
+});
+
+ipcMain.handle('get-supported-currencies', () => {
+  return bitcoin.getSupportedCurrencies();
+});
+
+ipcMain.handle('get-price-history', async (_, coinId: string, currency?: string, days?: number) => {
+  return bitcoin.fetchPriceHistory(coinId, currency || 'usd', days || 7);
 });
 
 // IPC Handlers - Profitability Calculator

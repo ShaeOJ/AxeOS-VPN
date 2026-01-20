@@ -9,6 +9,7 @@ import * as metrics from '../database/metrics';
 import * as settings from '../database/settings';
 import * as auth from '../database/auth';
 import * as poller from '../axeos-poller';
+import * as bitcoin from '../bitcoin-price';
 
 // Load logo as base64 for embedding in HTML
 let logoBase64 = '';
@@ -232,6 +233,32 @@ export function startServer(): { port: number; addresses: string[] } {
       metrics: latestData.data,
       timestamp: latestData.timestamp,
     });
+  });
+
+  // ============ CRYPTO PRICES (PUBLIC) ============
+  // These endpoints are public as they're read-only price data
+
+  app.get('/api/crypto/currencies', (_req, res) => {
+    res.json({ currencies: bitcoin.getSupportedCurrencies() });
+  });
+
+  app.get('/api/crypto/coins', (_req, res) => {
+    res.json({ coins: bitcoin.getSupportedCoins() });
+  });
+
+  app.get('/api/crypto/price/:coinId', async (req, res) => {
+    const { coinId } = req.params;
+    const currency = (req.query.currency as string) || 'usd';
+    const price = await bitcoin.fetchCryptoPrice(coinId, currency);
+    res.json({ price });
+  });
+
+  app.get('/api/crypto/history/:coinId', async (req, res) => {
+    const { coinId } = req.params;
+    const currency = (req.query.currency as string) || 'usd';
+    const days = parseInt(req.query.days as string) || 7;
+    const history = await bitcoin.fetchPriceHistory(coinId, currency, days);
+    res.json({ history });
   });
 
   // ============ WEB DASHBOARD ============
@@ -530,6 +557,108 @@ function getWebDashboardHtml(): string {
       .modal-header .btn { width: 100%; }
       .input { padding: 10px 12px; font-size: 14px; }
     }
+
+    /* Crypto Ticker Styles */
+    .crypto-ticker {
+      background: #0d2137;
+      border: 2px solid #1a4a5c;
+      padding: 12px 16px;
+      margin-bottom: 24px;
+      position: relative;
+    }
+    .crypto-ticker::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, #FFB000, transparent);
+      opacity: 0.5;
+    }
+    .ticker-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .ticker-selector {
+      font-size: 12px;
+      text-transform: uppercase;
+      color: #8BA88B;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      border: 1px solid transparent;
+      background: transparent;
+      font-family: 'Share Tech Mono', monospace;
+      transition: all 0.2s;
+    }
+    .ticker-selector:hover {
+      color: #FFB000;
+      border-color: #FFB000;
+    }
+    .ticker-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      background: #0d2137;
+      border: 2px solid #1a4a5c;
+      z-index: 100;
+      min-width: 100px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    }
+    .ticker-dropdown button {
+      display: block;
+      width: 100%;
+      padding: 8px 12px;
+      text-align: left;
+      background: transparent;
+      border: none;
+      color: #8BA88B;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .ticker-dropdown button:hover {
+      background: rgba(255,176,0,0.1);
+      color: #FFB000;
+    }
+    .ticker-dropdown button.active {
+      background: rgba(255,176,0,0.2);
+      color: #FFB000;
+    }
+    .ticker-price {
+      font-size: 24px;
+      font-weight: bold;
+      color: #FFB000;
+      text-shadow: 0 0 10px rgba(255,176,0,0.3);
+      font-family: 'Share Tech Mono', monospace;
+    }
+    .ticker-change {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 4px;
+      font-size: 14px;
+      font-family: 'Share Tech Mono', monospace;
+    }
+    .ticker-change.positive { color: #00FF41; }
+    .ticker-change.negative { color: #FF3131; }
+    .ticker-sparkline {
+      height: 32px;
+      margin-top: 8px;
+      position: relative;
+    }
+    .ticker-sparkline canvas {
+      width: 100%;
+      height: 100%;
+    }
+    @media (max-width: 768px) {
+      .ticker-price { font-size: 20px; }
+      .ticker-change { font-size: 12px; }
+      .ticker-sparkline { height: 24px; }
+    }
   </style>
 </head>
 <body>
@@ -563,6 +692,38 @@ function getWebDashboardHtml(): string {
           <span id="bg-toggle-text">FX</span>
         </button>
         <button onclick="doLogout()" class="btn btn-danger">Logout</button>
+      </div>
+    </div>
+
+    <!-- Crypto Ticker Widget -->
+    <div class="crypto-ticker" id="crypto-ticker">
+      <div class="ticker-header">
+        <div style="position: relative;">
+          <button class="ticker-selector" id="coin-selector" onclick="toggleCoinDropdown()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.31-8.86c-1.77-.45-2.34-.94-2.34-1.67 0-.84.79-1.43 2.1-1.43 1.38 0 1.9.66 1.94 1.64h1.71c-.05-1.34-.87-2.57-2.49-2.97V5H10.9v1.69c-1.51.32-2.72 1.3-2.72 2.81 0 1.79 1.49 2.69 3.66 3.21 1.95.46 2.34 1.15 2.34 1.87 0 .53-.39 1.39-2.1 1.39-1.6 0-2.23-.72-2.32-1.64H8.04c.1 1.7 1.36 2.66 2.86 2.97V19h2.34v-1.67c1.52-.29 2.72-1.16 2.73-2.77-.01-2.2-1.9-2.96-3.66-3.42z"/>
+            </svg>
+            <span id="selected-coin">BTC</span>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="ticker-dropdown hidden" id="coin-dropdown"></div>
+        </div>
+        <span style="color: #8BA88B;">/</span>
+        <div style="position: relative;">
+          <button class="ticker-selector" id="currency-selector" onclick="toggleCurrencyDropdown()">
+            <span id="selected-currency">USD</span>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="ticker-dropdown hidden" id="currency-dropdown"></div>
+        </div>
+      </div>
+      <div class="ticker-price" id="ticker-price">--</div>
+      <div class="ticker-change" id="ticker-change">
+        <span id="ticker-change-value">--</span>
+        <span style="color: #8BA88B; font-size: 11px;">24h</span>
+      </div>
+      <div class="ticker-sparkline" id="ticker-sparkline">
+        <canvas id="sparkline-canvas"></canvas>
       </div>
     </div>
 
@@ -1079,8 +1240,253 @@ function getWebDashboardHtml(): string {
       }
     });
 
+    // ============ CRYPTO TICKER ============
+    let cryptoCoins = [];
+    let cryptoCurrencies = [];
+    let selectedCoin = { id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin' };
+    let selectedCurrency = { code: 'usd', symbol: '$', name: 'US Dollar' };
+    let priceHistory = [];
+    let coinDropdownOpen = false;
+    let currencyDropdownOpen = false;
+
+    async function initCryptoTicker() {
+      try {
+        // Fetch coins and currencies
+        const [coinsRes, currenciesRes] = await Promise.all([
+          fetch('/api/crypto/coins'),
+          fetch('/api/crypto/currencies')
+        ]);
+        const coinsData = await coinsRes.json();
+        const currenciesData = await currenciesRes.json();
+
+        cryptoCoins = coinsData.coins || [];
+        cryptoCurrencies = currenciesData.currencies || [];
+
+        // Load saved preferences
+        const savedCoin = localStorage.getItem('ticker_coin');
+        const savedCurrency = localStorage.getItem('ticker_currency');
+
+        if (savedCoin) {
+          const coin = cryptoCoins.find(c => c.id === savedCoin);
+          if (coin) selectedCoin = coin;
+        }
+        if (savedCurrency) {
+          const currency = cryptoCurrencies.find(c => c.code === savedCurrency);
+          if (currency) selectedCurrency = currency;
+        }
+
+        // Render dropdowns
+        renderCoinDropdown();
+        renderCurrencyDropdown();
+        updateSelectedDisplay();
+
+        // Fetch initial data
+        await fetchCryptoPrice();
+        await fetchCryptoHistory();
+
+        // Start intervals
+        setInterval(fetchCryptoPrice, 30000);
+        setInterval(fetchCryptoHistory, 300000);
+      } catch (err) {
+        console.error('Failed to init crypto ticker:', err);
+      }
+    }
+
+    function renderCoinDropdown() {
+      const dropdown = document.getElementById('coin-dropdown');
+      dropdown.innerHTML = cryptoCoins.map(coin =>
+        '<button class="' + (coin.id === selectedCoin.id ? 'active' : '') + '" onclick="selectCoin(\\'' + coin.id + '\\')">' +
+        coin.symbol + ' <span style="color:#8BA88B;font-size:9px;">- ' + coin.name + '</span></button>'
+      ).join('');
+    }
+
+    function renderCurrencyDropdown() {
+      const dropdown = document.getElementById('currency-dropdown');
+      dropdown.innerHTML = cryptoCurrencies.map(currency =>
+        '<button class="' + (currency.code === selectedCurrency.code ? 'active' : '') + '" onclick="selectCurrency(\\'' + currency.code + '\\')">' +
+        currency.symbol + ' ' + currency.code.toUpperCase() + '</button>'
+      ).join('');
+    }
+
+    function updateSelectedDisplay() {
+      document.getElementById('selected-coin').textContent = selectedCoin.symbol;
+      document.getElementById('selected-currency').textContent = selectedCurrency.code.toUpperCase();
+    }
+
+    function toggleCoinDropdown() {
+      coinDropdownOpen = !coinDropdownOpen;
+      currencyDropdownOpen = false;
+      document.getElementById('coin-dropdown').classList.toggle('hidden', !coinDropdownOpen);
+      document.getElementById('currency-dropdown').classList.add('hidden');
+    }
+
+    function toggleCurrencyDropdown() {
+      currencyDropdownOpen = !currencyDropdownOpen;
+      coinDropdownOpen = false;
+      document.getElementById('currency-dropdown').classList.toggle('hidden', !currencyDropdownOpen);
+      document.getElementById('coin-dropdown').classList.add('hidden');
+    }
+
+    function selectCoin(coinId) {
+      const coin = cryptoCoins.find(c => c.id === coinId);
+      if (coin) {
+        selectedCoin = coin;
+        localStorage.setItem('ticker_coin', coin.id);
+        updateSelectedDisplay();
+        renderCoinDropdown();
+        fetchCryptoPrice();
+        fetchCryptoHistory();
+      }
+      coinDropdownOpen = false;
+      document.getElementById('coin-dropdown').classList.add('hidden');
+    }
+
+    function selectCurrency(currencyCode) {
+      const currency = cryptoCurrencies.find(c => c.code === currencyCode);
+      if (currency) {
+        selectedCurrency = currency;
+        localStorage.setItem('ticker_currency', currency.code);
+        updateSelectedDisplay();
+        renderCurrencyDropdown();
+        fetchCryptoPrice();
+        fetchCryptoHistory();
+      }
+      currencyDropdownOpen = false;
+      document.getElementById('currency-dropdown').classList.add('hidden');
+    }
+
+    async function fetchCryptoPrice() {
+      try {
+        const res = await fetch('/api/crypto/price/' + selectedCoin.id + '?currency=' + selectedCurrency.code);
+        const data = await res.json();
+
+        if (data.price) {
+          const price = data.price.price;
+          const change = data.price.change_24h || 0;
+
+          // Format price
+          const noDecimals = ['jpy', 'cny'].includes(selectedCurrency.code);
+          const decimals = noDecimals ? 0 : (price < 1 ? 4 : price < 100 ? 2 : 0);
+          const formattedPrice = new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: selectedCurrency.code.toUpperCase(),
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+          }).format(price);
+
+          document.getElementById('ticker-price').textContent = formattedPrice;
+
+          // Format change
+          const isPositive = change >= 0;
+          const changeEl = document.getElementById('ticker-change');
+          const changeValueEl = document.getElementById('ticker-change-value');
+
+          changeEl.className = 'ticker-change ' + (isPositive ? 'positive' : 'negative');
+          changeValueEl.innerHTML = (isPositive ? '&#9650; +' : '&#9660; ') + change.toFixed(2) + '%';
+        }
+      } catch (err) {
+        console.error('Failed to fetch crypto price:', err);
+      }
+    }
+
+    async function fetchCryptoHistory() {
+      try {
+        const res = await fetch('/api/crypto/history/' + selectedCoin.id + '?currency=' + selectedCurrency.code + '&days=7');
+        const data = await res.json();
+
+        if (data.history && data.history.length > 0) {
+          priceHistory = data.history;
+          drawSparkline();
+        }
+      } catch (err) {
+        console.error('Failed to fetch crypto history:', err);
+      }
+    }
+
+    function drawSparkline() {
+      const canvas = document.getElementById('sparkline-canvas');
+      const ctx = canvas.getContext('2d');
+      const container = document.getElementById('ticker-sparkline');
+
+      // Set canvas size
+      const rect = container.getBoundingClientRect();
+      canvas.width = rect.width * window.devicePixelRatio;
+      canvas.height = rect.height * window.devicePixelRatio;
+      canvas.style.width = rect.width + 'px';
+      canvas.style.height = rect.height + 'px';
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+      if (priceHistory.length < 2) return;
+
+      // Get price values
+      const prices = priceHistory.map(p => p.price);
+      const minPrice = Math.min(...prices);
+      const maxPrice = Math.max(...prices);
+      const priceRange = maxPrice - minPrice || 1;
+
+      // Determine color based on trend
+      const isPositive = prices[prices.length - 1] >= prices[0];
+      const lineColor = isPositive ? '#00FF41' : '#FF3131';
+
+      // Clear canvas
+      ctx.clearRect(0, 0, rect.width, rect.height);
+
+      // Draw line
+      ctx.beginPath();
+      ctx.strokeStyle = lineColor;
+      ctx.lineWidth = 1.5;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+
+      const padding = 2;
+      const drawWidth = rect.width - padding * 2;
+      const drawHeight = rect.height - padding * 2;
+
+      priceHistory.forEach((point, i) => {
+        const x = padding + (i / (priceHistory.length - 1)) * drawWidth;
+        const y = padding + drawHeight - ((point.price - minPrice) / priceRange) * drawHeight;
+
+        if (i === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+      });
+
+      ctx.stroke();
+
+      // Draw gradient fill
+      ctx.lineTo(padding + drawWidth, padding + drawHeight);
+      ctx.lineTo(padding, padding + drawHeight);
+      ctx.closePath();
+
+      const gradient = ctx.createLinearGradient(0, 0, 0, rect.height);
+      gradient.addColorStop(0, isPositive ? 'rgba(0,255,65,0.2)' : 'rgba(255,49,49,0.2)');
+      gradient.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = gradient;
+      ctx.fill();
+    }
+
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('#coin-selector') && !e.target.closest('#coin-dropdown')) {
+        coinDropdownOpen = false;
+        document.getElementById('coin-dropdown').classList.add('hidden');
+      }
+      if (!e.target.closest('#currency-selector') && !e.target.closest('#currency-dropdown')) {
+        currencyDropdownOpen = false;
+        document.getElementById('currency-dropdown').classList.add('hidden');
+      }
+    });
+
+    // Redraw sparkline on resize
+    window.addEventListener('resize', function() {
+      if (priceHistory.length > 0) drawSparkline();
+    });
+
     init();
     initBackground();
+    initCryptoTicker();
   </script>
 </body>
 </html>`;

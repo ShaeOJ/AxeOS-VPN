@@ -43,8 +43,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Crypto Prices
   getBitcoinPrice: () => ipcRenderer.invoke('get-bitcoin-price'),
-  getCryptoPrice: (coinId: string) => ipcRenderer.invoke('get-crypto-price', coinId),
+  getCryptoPrice: (coinId: string, currency?: string) => ipcRenderer.invoke('get-crypto-price', coinId, currency),
   getSupportedCoins: () => ipcRenderer.invoke('get-supported-coins'),
+  getSupportedCurrencies: () => ipcRenderer.invoke('get-supported-currencies'),
+  getPriceHistory: (coinId: string, currency?: string, days?: number) => ipcRenderer.invoke('get-price-history', coinId, currency, days),
 
   // Profitability Calculator
   getNetworkStats: () => ipcRenderer.invoke('get-network-stats'),
@@ -158,9 +160,10 @@ export interface TunnelResult {
 }
 
 export interface CryptoPrice {
-  usd: number;
-  usd_24h_change: number;
-  usd_24h_vol: number;
+  price: number;
+  change_24h: number;
+  vol_24h: number;
+  currency: string;
   last_updated: number;
 }
 
@@ -168,6 +171,17 @@ export interface CoinInfo {
   id: string;
   symbol: string;
   name: string;
+}
+
+export interface CurrencyInfo {
+  code: string;
+  symbol: string;
+  name: string;
+}
+
+export interface PriceHistoryPoint {
+  timestamp: number;
+  price: number;
 }
 
 // Legacy alias
@@ -237,8 +251,10 @@ declare global {
       openExternal: (url: string) => Promise<{ success: boolean }>;
 
       getBitcoinPrice: () => Promise<CryptoPrice | null>;
-      getCryptoPrice: (coinId: string) => Promise<CryptoPrice | null>;
+      getCryptoPrice: (coinId: string, currency?: string) => Promise<CryptoPrice | null>;
       getSupportedCoins: () => Promise<CoinInfo[]>;
+      getSupportedCurrencies: () => Promise<CurrencyInfo[]>;
+      getPriceHistory: (coinId: string, currency?: string, days?: number) => Promise<PriceHistoryPoint[]>;
 
       getNetworkStats: () => Promise<NetworkStats | null>;
       calculateProfitability: (hashrateGH: number, powerWatts: number, btcPriceUsd: number, electricityCost?: number) => Promise<ProfitabilityResult | null>;
