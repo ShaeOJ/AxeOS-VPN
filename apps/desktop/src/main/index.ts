@@ -50,6 +50,15 @@ function createWindow(): void {
     mainWindow?.show();
   });
 
+  // Open devTools in production to debug loading issues
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('Failed to load:', errorCode, errorDescription);
+  });
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    console.log('Renderer loaded successfully');
+  });
+
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url);
     return { action: 'deny' };

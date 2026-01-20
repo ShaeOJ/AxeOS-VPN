@@ -1,6 +1,6 @@
 {
   "name": "@axeos-vpn/desktop",
-  "version": "1.2.0-beta.2",
+  "version": "1.2.0-beta.3",
   "description": "Vault-Tec Mining Operations Division - BitAxe Monitoring System",
   "author": "Vault-Tec Industries <vault-tec@example.com>",
   "repository": {
@@ -28,9 +28,11 @@
     "@electron-toolkit/utils": "^3.0.0",
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^9.2.2",
+    "bindings": "^1.5.0",
     "body-parser": "^2.2.2",
     "cors": "^2.8.5",
     "express": "^4.18.2",
+    "file-uri-to-path": "^2.0.0",
     "jsonwebtoken": "^9.0.2",
     "qrcode.react": "^4.2.0",
     "ws": "^8.16.0",
@@ -70,11 +72,16 @@
     },
     "files": [
       "dist/**/*",
-      "package.json"
+      "package.json",
+      "node_modules/better-sqlite3/**/*",
+      "node_modules/bindings/**/*",
+      "node_modules/file-uri-to-path/**/*"
     ],
     "asar": true,
     "asarUnpack": [
-      "**/*.node"
+      "**/*.node",
+      "**/better-sqlite3/**/*",
+      "**/bindings/**/*"
     ],
     "nodeGypRebuild": false,
     "win": {
@@ -98,7 +105,9 @@
       "createStartMenuShortcut": true,
       "shortcutName": "AxeOS VPN Monitor",
       "runAfterFinish": false,
-      "installerLanguages": ["en_US"],
+      "installerLanguages": [
+        "en_US"
+      ],
       "language": 1033
     },
     "mac": {
