@@ -661,9 +661,31 @@ function getWebDashboardHtml(): string {
       height: 100%;
     }
     @media (max-width: 768px) {
+      .crypto-ticker { padding: 10px 12px; margin-bottom: 16px; }
+      .ticker-header { flex-wrap: wrap; gap: 6px; }
+      .ticker-selector { padding: 6px 10px; font-size: 11px; }
       .ticker-price { font-size: 20px; }
       .ticker-change { font-size: 12px; }
       .ticker-sparkline { height: 24px; }
+      .ticker-dropdown {
+        position: fixed;
+        top: auto !important;
+        left: 12px !important;
+        right: 12px !important;
+        bottom: 20px;
+        width: auto;
+        max-height: 50vh;
+        overflow-y: auto;
+      }
+      .ticker-dropdown button { padding: 12px 16px; font-size: 13px; }
+    }
+    @media (max-width: 480px) {
+      .crypto-ticker { padding: 8px 10px; margin-bottom: 12px; }
+      .ticker-header { gap: 4px; }
+      .ticker-selector { padding: 4px 8px; font-size: 10px; }
+      .ticker-price { font-size: 18px; }
+      .ticker-change { font-size: 11px; gap: 4px; }
+      .ticker-sparkline { height: 20px; margin-top: 6px; }
     }
   </style>
 </head>
@@ -1319,18 +1341,53 @@ function getWebDashboardHtml(): string {
       document.getElementById('selected-currency').textContent = selectedCurrency.code.toUpperCase();
     }
 
-    function toggleCoinDropdown() {
-      coinDropdownOpen = !coinDropdownOpen;
+    function showDropdownOverlay() {
+      let overlay = document.getElementById('dropdown-overlay');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'dropdown-overlay';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:99;background:rgba(0,0,0,0.3);';
+        overlay.onclick = closeAllDropdowns;
+        document.body.appendChild(overlay);
+      }
+      overlay.classList.remove('hidden');
+    }
+
+    function hideDropdownOverlay() {
+      const overlay = document.getElementById('dropdown-overlay');
+      if (overlay) overlay.classList.add('hidden');
+    }
+
+    function closeAllDropdowns() {
+      coinDropdownOpen = false;
       currencyDropdownOpen = false;
-      document.getElementById('coin-dropdown').classList.toggle('hidden', !coinDropdownOpen);
+      document.getElementById('coin-dropdown').classList.add('hidden');
       document.getElementById('currency-dropdown').classList.add('hidden');
+      hideDropdownOverlay();
+    }
+
+    function toggleCoinDropdown() {
+      if (coinDropdownOpen) {
+        closeAllDropdowns();
+      } else {
+        coinDropdownOpen = true;
+        currencyDropdownOpen = false;
+        document.getElementById('coin-dropdown').classList.remove('hidden');
+        document.getElementById('currency-dropdown').classList.add('hidden');
+        showDropdownOverlay();
+      }
     }
 
     function toggleCurrencyDropdown() {
-      currencyDropdownOpen = !currencyDropdownOpen;
-      coinDropdownOpen = false;
-      document.getElementById('currency-dropdown').classList.toggle('hidden', !currencyDropdownOpen);
-      document.getElementById('coin-dropdown').classList.add('hidden');
+      if (currencyDropdownOpen) {
+        closeAllDropdowns();
+      } else {
+        currencyDropdownOpen = true;
+        coinDropdownOpen = false;
+        document.getElementById('currency-dropdown').classList.remove('hidden');
+        document.getElementById('coin-dropdown').classList.add('hidden');
+        showDropdownOverlay();
+      }
     }
 
     function selectCoin(coinId) {
@@ -1343,8 +1400,7 @@ function getWebDashboardHtml(): string {
         fetchCryptoPrice();
         fetchCryptoHistory();
       }
-      coinDropdownOpen = false;
-      document.getElementById('coin-dropdown').classList.add('hidden');
+      closeAllDropdowns();
     }
 
     function selectCurrency(currencyCode) {
@@ -1357,8 +1413,7 @@ function getWebDashboardHtml(): string {
         fetchCryptoPrice();
         fetchCryptoHistory();
       }
-      currencyDropdownOpen = false;
-      document.getElementById('currency-dropdown').classList.add('hidden');
+      closeAllDropdowns();
     }
 
     async function fetchCryptoPrice() {

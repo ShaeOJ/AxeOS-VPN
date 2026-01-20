@@ -142,19 +142,20 @@ if (!gotTheLock) {
 
 // IPC Handlers - Auth
 ipcMain.handle('check-setup', async () => {
-  return auth.needsSetup();
+  return !auth.isPasswordSet();
 });
 
 ipcMain.handle('setup-pin', async (_, pin: string) => {
-  return auth.setupPin(pin);
+  await auth.setPassword(pin);
+  return true;
 });
 
 ipcMain.handle('verify-pin', async (_, pin: string) => {
-  return auth.verifyPin(pin);
+  return auth.verifyPassword(pin);
 });
 
 ipcMain.handle('change-pin', async (_, currentPin: string, newPin: string) => {
-  return auth.changePin(currentPin, newPin);
+  return auth.changePassword(currentPin, newPin);
 });
 
 // IPC Handlers - Devices
@@ -163,20 +164,27 @@ ipcMain.handle('get-devices', async () => {
 });
 
 ipcMain.handle('add-device', async (_, device: { name: string; ip: string }) => {
-  const newDevice = devices.addDevice(device.name, device.ip);
+  const newDevice = devices.createDevice(device.name, device.ip);
   if (newDevice) {
     poller.startPolling(newDevice);
   }
   return newDevice;
 });
 
-ipcMain.handle('remove-device', async (_, id: number) => {
+ipcMain.handle('remove-device', async (_, id: string) => {
   poller.stopPolling(id);
-  return devices.removeDevice(id);
+  devices.deleteDevice(id);
+  return true;
 });
 
-ipcMain.handle('update-device', async (_, id: number, device: { name?: string; ip?: string }) => {
-  const updated = devices.updateDevice(id, device);
+ipcMain.handle('update-device', async (_, id: string, device: { name?: string; ip?: string }) => {
+  if (device.name) {
+    devices.updateDeviceName(id, device.name);
+  }
+  if (device.ip) {
+    devices.updateDeviceIp(id, device.ip);
+  }
+  const updated = devices.getDeviceById(id);
   if (updated) {
     // Restart polling with new settings
     poller.stopPolling(id);
@@ -186,12 +194,20 @@ ipcMain.handle('update-device', async (_, id: number, device: { name?: string; i
 });
 
 // IPC Handlers - Metrics
-ipcMain.handle('get-device-metrics', async (_, deviceId: number, hours?: number) => {
-  return metrics.getDeviceMetrics(deviceId, hours || 24);
+ipcMain.handle('get-device-metrics', async (_, deviceId: string, hours?: number) => {
+  const startTime = Date.now() - (hours || 24) * 60 * 60 * 1000;
+  return metrics.getMetrics(deviceId, { startTime, limit: 1000 });
 });
 
 ipcMain.handle('get-all-metrics', async (_, hours?: number) => {
-  return metrics.getAllMetrics(hours || 24);
+  // Get metrics for all devices
+  const allDevices = devices.getAllDevices();
+  const startTime = Date.now() - (hours || 24) * 60 * 60 * 1000;
+  const result: Record<string, any[]> = {};
+  for (const device of allDevices) {
+    result[device.id] = metrics.getMetrics(device.id, { startTime, limit: 1000 });
+  }
+  return result;
 });
 
 // IPC Handlers - Settings
