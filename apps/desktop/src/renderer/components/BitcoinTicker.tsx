@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
+import { createPortal } from 'react-dom';
 
 interface CryptoPrice {
   price: number;
@@ -38,6 +39,25 @@ export function BitcoinTicker() {
   const [currencyDropdownOpen, setCurrencyDropdownOpen] = useState(false);
   const [priceHistory, setPriceHistory] = useState<PriceHistoryPoint[]>([]);
   const historyIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const coinButtonRef = useRef<HTMLButtonElement>(null);
+  const currencyButtonRef = useRef<HTMLButtonElement>(null);
+  const [coinDropdownPos, setCoinDropdownPos] = useState({ top: 0, left: 0 });
+  const [currencyDropdownPos, setCurrencyDropdownPos] = useState({ top: 0, left: 0 });
+
+  // Calculate dropdown position when opening
+  const updateCoinDropdownPos = useCallback(() => {
+    if (coinButtonRef.current) {
+      const rect = coinButtonRef.current.getBoundingClientRect();
+      setCoinDropdownPos({ top: rect.bottom + 4, left: rect.left });
+    }
+  }, []);
+
+  const updateCurrencyDropdownPos = useCallback(() => {
+    if (currencyButtonRef.current) {
+      const rect = currencyButtonRef.current.getBoundingClientRect();
+      setCurrencyDropdownPos({ top: rect.bottom + 4, left: rect.left });
+    }
+  }, []);
 
   // Load supported coins, currencies, and saved preferences
   useEffect(() => {
@@ -210,7 +230,11 @@ export function BitcoinTicker() {
         {/* Coin Selector */}
         <div className="relative">
           <button
+            ref={coinButtonRef}
             onClick={() => {
+              if (!coinDropdownOpen) {
+                updateCoinDropdownPos();
+              }
               setCoinDropdownOpen(!coinDropdownOpen);
               setCurrencyDropdownOpen(false);
             }}
@@ -230,9 +254,12 @@ export function BitcoinTicker() {
             </svg>
           </button>
 
-          {/* Coin Dropdown Menu */}
-          {coinDropdownOpen && (
-            <div className="absolute top-full left-0 mt-1 bg-bg-secondary border border-border rounded-md shadow-lg z-50 overflow-hidden min-w-[120px]">
+          {/* Coin Dropdown Menu - Portal */}
+          {coinDropdownOpen && createPortal(
+            <div
+              className="fixed bg-bg-secondary border border-border rounded-md shadow-lg z-[9999] overflow-hidden min-w-[120px]"
+              style={{ top: coinDropdownPos.top, left: coinDropdownPos.left }}
+            >
               {coins.map((coin) => (
                 <button
                   key={coin.id}
@@ -245,7 +272,8 @@ export function BitcoinTicker() {
                   <span className="text-text-secondary/50 text-[10px]">{coin.name}</span>
                 </button>
               ))}
-            </div>
+            </div>,
+            document.body
           )}
         </div>
 
@@ -254,7 +282,11 @@ export function BitcoinTicker() {
         {/* Currency Selector */}
         <div className="relative">
           <button
+            ref={currencyButtonRef}
             onClick={() => {
+              if (!currencyDropdownOpen) {
+                updateCurrencyDropdownPos();
+              }
               setCurrencyDropdownOpen(!currencyDropdownOpen);
               setCoinDropdownOpen(false);
             }}
@@ -271,9 +303,12 @@ export function BitcoinTicker() {
             </svg>
           </button>
 
-          {/* Currency Dropdown Menu */}
-          {currencyDropdownOpen && (
-            <div className="absolute top-full left-0 mt-1 bg-bg-secondary border border-border rounded-md shadow-lg z-50 overflow-hidden min-w-[140px]">
+          {/* Currency Dropdown Menu - Portal */}
+          {currencyDropdownOpen && createPortal(
+            <div
+              className="fixed bg-bg-secondary border border-border rounded-md shadow-lg z-[9999] overflow-hidden min-w-[140px]"
+              style={{ top: currencyDropdownPos.top, left: currencyDropdownPos.left }}
+            >
               {currencies.map((currency) => (
                 <button
                   key={currency.code}
@@ -288,7 +323,8 @@ export function BitcoinTicker() {
                   </span>
                 </button>
               ))}
-            </div>
+            </div>,
+            document.body
           )}
         </div>
       </div>
@@ -340,15 +376,16 @@ export function BitcoinTicker() {
         </div>
       )}
 
-      {/* Click outside to close dropdowns */}
-      {(coinDropdownOpen || currencyDropdownOpen) && (
+      {/* Click outside to close dropdowns - Portal overlay */}
+      {(coinDropdownOpen || currencyDropdownOpen) && createPortal(
         <div
-          className="fixed inset-0 z-40"
+          className="fixed inset-0 z-[9998]"
           onClick={() => {
             setCoinDropdownOpen(false);
             setCurrencyDropdownOpen(false);
           }}
-        />
+        />,
+        document.body
       )}
     </div>
   );

@@ -89,7 +89,7 @@ export function ProfitabilityDisplay() {
       try {
         // Get BTC price
         const btcPrice = await window.electronAPI.getBitcoinPrice();
-        if (!btcPrice) {
+        if (!btcPrice || !btcPrice.price) {
           setLoading(false);
           return;
         }
@@ -104,7 +104,7 @@ export function ProfitabilityDisplay() {
         const result = await window.electronAPI.calculateProfitability(
           totalHashrateGH,
           totalPowerWatts,
-          btcPrice.usd,
+          btcPrice.price,
           electricityCost
         );
 
