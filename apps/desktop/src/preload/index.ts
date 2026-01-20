@@ -32,6 +32,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Settings
   getSettings: () => ipcRenderer.invoke('get-settings'),
   setSetting: (key: string, value: string) => ipcRenderer.invoke('set-setting', key, value),
+  resetAppData: () => ipcRenderer.invoke('reset-app-data'),
 
   // Cloudflare Tunnel (Remote Access)
   getTunnelStatus: () => ipcRenderer.invoke('get-tunnel-status'),
@@ -243,6 +244,7 @@ declare global {
 
       getSettings: () => Promise<Record<string, string>>;
       setSetting: (key: string, value: string) => Promise<{ success: boolean }>;
+      resetAppData: () => Promise<void>;
 
       getTunnelStatus: () => Promise<TunnelStatus>;
       startTunnel: () => Promise<TunnelResult>;

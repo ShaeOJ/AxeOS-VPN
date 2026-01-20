@@ -223,6 +223,27 @@ ipcMain.handle('set-setting', async (_, key: string, value: string) => {
   return settings.setSetting(key, value);
 });
 
+ipcMain.handle('reset-app-data', async () => {
+  // Stop all services
+  poller.stopAllPolling();
+  tunnel.stopTunnel();
+  server.stopServer();
+  closeDatabase();
+
+  // Delete database files
+  const userDataPath = app.getPath('userData');
+  const dataPath = join(userDataPath, 'data');
+  const { rmSync, existsSync } = await import('fs');
+
+  if (existsSync(dataPath)) {
+    rmSync(dataPath, { recursive: true, force: true });
+  }
+
+  // Restart the app
+  app.relaunch();
+  app.exit(0);
+});
+
 // IPC Handlers - Tunnel Status
 ipcMain.handle('get-tunnel-status', async () => {
   return tunnel.getTunnelStatus();

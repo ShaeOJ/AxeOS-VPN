@@ -461,6 +461,29 @@ export function SettingsPage() {
           </div>
         </div>
       </section>
+
+      {/* Reset App Data */}
+      <section className="rounded-xl bg-bg-secondary border border-danger/30 overflow-hidden">
+        <div className="p-4 border-b border-danger/30">
+          <h2 className="text-lg font-medium text-danger">Danger Zone</h2>
+        </div>
+        <div className="p-4 space-y-4">
+          <p className="text-sm text-text-secondary">
+            Reset the application to its initial state. This will delete all devices, metrics, settings, and passwords.
+            The app will restart automatically.
+          </p>
+          <button
+            onClick={() => {
+              if (confirm('Are you sure you want to reset all app data? This cannot be undone.')) {
+                window.electronAPI.resetAppData();
+              }
+            }}
+            className="px-4 py-2 rounded-lg bg-danger text-white font-medium hover:bg-danger/80 transition-colors"
+          >
+            Reset App Data
+          </button>
+        </div>
+      </section>
     </div>
   );
 }
