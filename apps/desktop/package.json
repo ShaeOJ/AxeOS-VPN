@@ -1,6 +1,6 @@
 {
   "name": "@axeos-vpn/desktop",
-  "version": "1.2.0-beta.3",
+  "version": "1.2.0-beta.4",
   "description": "Vault-Tec Mining Operations Division - BitAxe Monitoring System",
   "author": "Vault-Tec Industries <vault-tec@example.com>",
   "repository": {
@@ -72,16 +72,12 @@
     },
     "files": [
       "dist/**/*",
-      "package.json",
-      "node_modules/better-sqlite3/**/*",
-      "node_modules/bindings/**/*",
-      "node_modules/file-uri-to-path/**/*"
+      "package.json"
     ],
     "asar": true,
     "asarUnpack": [
       "**/*.node",
-      "**/better-sqlite3/**/*",
-      "**/bindings/**/*"
+      "**/better-sqlite3/**/*"
     ],
     "nodeGypRebuild": false,
     "win": {
