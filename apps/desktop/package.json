@@ -1,6 +1,6 @@
 {
   "name": "@axeos-vpn/desktop",
-  "version": "1.2.0-beta.4",
+  "version": "1.2.0-beta.5",
   "description": "Vault-Tec Mining Operations Division - BitAxe Monitoring System",
   "author": "Vault-Tec Industries <vault-tec@example.com>",
   "repository": {
@@ -89,6 +89,7 @@
           ]
         }
       ],
+      "icon": "resources/icon.ico",
       "artifactName": "AxeOS-VPN-Monitor-${version}-Setup.${ext}"
     },
     "nsis": {

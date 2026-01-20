@@ -50,15 +50,6 @@ function createWindow(): void {
     mainWindow?.show();
   });
 
-  // Open devTools in production to debug loading issues
-  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
-    console.error('Failed to load:', errorCode, errorDescription);
-  });
-
-  mainWindow.webContents.on('did-finish-load', () => {
-    console.log('Renderer loaded successfully');
-  });
-
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url);
     return { action: 'deny' };
@@ -95,252 +86,172 @@ protocol.registerSchemesAsPrivileged([
 const gotTheLock = app.requestSingleInstanceLock();
 
 if (!gotTheLock) {
-  // Another instance is already running, quit immediately
   app.quit();
 } else {
-  // Handle second instance attempt - focus existing window
   app.on('second-instance', () => {
+    // Someone tried to run a second instance, focus our window
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.focus();
     }
   });
-}
 
-// App lifecycle
-app.whenReady().then(() => {
-  // Register custom protocol handler
-  registerProtocol();
+  // Initialize application
+  app.whenReady().then(async () => {
+    // Set app user model id for windows
+    electronApp.setAppUserModelId('com.axeos.vpn');
 
-  // Initialize database
-  initDatabase();
+    // Default open or close DevTools by F12 in development
+    app.on('browser-window-created', (_, window) => {
+      optimizer.watchWindowShortcuts(window);
+    });
 
-  // Set app user model id for Windows
-  electronApp.setAppUserModelId('com.axeos.monitor');
+    // Register custom protocol
+    registerProtocol();
 
-  // Default open or close DevTools by F12 in dev
-  app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window);
+    // Initialize database
+    await initDatabase();
+
+    // Start the web server
+    server.startServer();
+
+    // Start polling saved devices
+    const savedDevices = devices.getAllDevices();
+    savedDevices.forEach((device) => {
+      poller.startPolling(device);
+    });
+
+    // Create main window
+    createWindow();
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    });
   });
 
-  createWindow();
-
-  // Start the embedded server (for remote web access)
-  const serverInfo = server.startServer();
-  console.log('Server started:', serverInfo);
-
-  // Start polling all devices
-  poller.startPollingAllDevices();
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') {
+      // Stop all polling
+      poller.stopAllPolling();
+      // Close database
+      closeDatabase();
+      app.quit();
     }
   });
-});
-
-// Cleanup function to stop all background tasks
-function cleanup(): void {
-  try {
-    tunnel.stopTunnel();
-  } catch (e) { /* ignore */ }
-  try {
-    poller.stopAllPolling();
-  } catch (e) { /* ignore */ }
-  try {
-    server.stopServer();
-  } catch (e) { /* ignore */ }
-  try {
-    closeDatabase();
-  } catch (e) { /* ignore */ }
 }
 
-app.on('window-all-closed', () => {
-  cleanup();
-  if (process.platform !== 'darwin') {
-    app.quit();
+// IPC Handlers - Auth
+ipcMain.handle('check-setup', async () => {
+  return auth.needsSetup();
+});
+
+ipcMain.handle('setup-pin', async (_, pin: string) => {
+  return auth.setupPin(pin);
+});
+
+ipcMain.handle('verify-pin', async (_, pin: string) => {
+  return auth.verifyPin(pin);
+});
+
+ipcMain.handle('change-pin', async (_, currentPin: string, newPin: string) => {
+  return auth.changePin(currentPin, newPin);
+});
+
+// IPC Handlers - Devices
+ipcMain.handle('get-devices', async () => {
+  return devices.getAllDevices();
+});
+
+ipcMain.handle('add-device', async (_, device: { name: string; ip: string }) => {
+  const newDevice = devices.addDevice(device.name, device.ip);
+  if (newDevice) {
+    poller.startPolling(newDevice);
   }
+  return newDevice;
 });
 
-app.on('before-quit', () => {
-  cleanup();
+ipcMain.handle('remove-device', async (_, id: number) => {
+  poller.stopPolling(id);
+  return devices.removeDevice(id);
 });
 
-app.on('will-quit', (event) => {
-  cleanup();
+ipcMain.handle('update-device', async (_, id: number, device: { name?: string; ip?: string }) => {
+  const updated = devices.updateDevice(id, device);
+  if (updated) {
+    // Restart polling with new settings
+    poller.stopPolling(id);
+    poller.startPolling(updated);
+  }
+  return updated;
 });
 
-// Force exit after quit to ensure no zombie processes
-app.on('quit', () => {
-  // Give a small delay for cleanup, then force exit
-  setTimeout(() => {
-    process.exit(0);
-  }, 500);
+// IPC Handlers - Metrics
+ipcMain.handle('get-device-metrics', async (_, deviceId: number, hours?: number) => {
+  return metrics.getDeviceMetrics(deviceId, hours || 24);
 });
 
-// IPC Handlers - Window controls
-ipcMain.handle('get-app-version', () => app.getVersion());
-ipcMain.handle('minimize-window', () => mainWindow?.minimize());
-ipcMain.handle('maximize-window', () => {
+ipcMain.handle('get-all-metrics', async (_, hours?: number) => {
+  return metrics.getAllMetrics(hours || 24);
+});
+
+// IPC Handlers - Settings
+ipcMain.handle('get-settings', async () => {
+  return settings.getAllSettings();
+});
+
+ipcMain.handle('get-setting', async (_, key: string) => {
+  return settings.getSetting(key);
+});
+
+ipcMain.handle('set-setting', async (_, key: string, value: string) => {
+  return settings.setSetting(key, value);
+});
+
+// IPC Handlers - Tunnel Status
+ipcMain.handle('get-tunnel-status', async () => {
+  return tunnel.getTunnelStatus();
+});
+
+ipcMain.handle('start-tunnel', async () => {
+  return tunnel.startTunnel();
+});
+
+ipcMain.handle('stop-tunnel', async () => {
+  return tunnel.stopTunnel();
+});
+
+ipcMain.handle('get-tunnel-url', async () => {
+  return tunnel.getTunnelUrl();
+});
+
+ipcMain.handle('get-web-port', async () => {
+  return server.getServerPort();
+});
+
+ipcMain.handle('get-local-addresses', async () => {
+  return server.getLocalAddresses();
+});
+
+// IPC Handlers - Window Controls
+ipcMain.handle('minimize-window', async () => {
+  mainWindow?.minimize();
+});
+
+ipcMain.handle('maximize-window', async () => {
   if (mainWindow?.isMaximized()) {
     mainWindow.unmaximize();
   } else {
     mainWindow?.maximize();
   }
 });
-ipcMain.handle('close-window', () => mainWindow?.close());
-ipcMain.handle('is-maximized', () => mainWindow?.isMaximized() ?? false);
 
-// IPC Handlers - Server
-ipcMain.handle('get-server-status', () => server.getServerStatus());
-
-ipcMain.handle('restart-server', () => {
-  server.stopServer();
-  return server.startServer();
+ipcMain.handle('close-window', async () => {
+  mainWindow?.close();
 });
 
-// IPC Handlers - Devices
-ipcMain.handle('get-devices', () => {
-  const allDevices = devices.getAllDevices();
-  return allDevices.map((d) => {
-    const latestData = poller.getLatestMetrics(d.id);
-    return {
-      id: d.id,
-      name: d.name,
-      ipAddress: d.ip_address,
-      isOnline: d.is_online === 1,
-      lastSeen: d.last_seen,
-      createdAt: d.created_at,
-      latestMetrics: latestData?.data || null,
-    };
-  });
-});
-
-ipcMain.handle('add-device', async (_, ipAddress: string, name?: string) => {
-  // Check if device already exists
-  const existing = devices.getDeviceByIp(ipAddress);
-  if (existing) {
-    return { success: false, error: 'Device with this IP already exists' };
-  }
-
-  // Test connection first
-  const testResult = await poller.testConnection(ipAddress);
-  if (!testResult.success) {
-    return { success: false, error: testResult.error || 'Cannot connect to device' };
-  }
-
-  // Use hostname from device or provided name
-  const deviceName = name || testResult.data?.hostname || ipAddress;
-
-  // Create device
-  const device = devices.createDevice(deviceName, ipAddress);
-
-  // Start polling
-  poller.startPolling(device);
-
-  return {
-    success: true,
-    device: {
-      id: device.id,
-      name: device.name,
-      ipAddress: device.ip_address,
-      isOnline: true,
-      lastSeen: Date.now(),
-      createdAt: device.created_at,
-      latestMetrics: testResult.data,
-    },
-  };
-});
-
-ipcMain.handle('test-device-connection', async (_, ipAddress: string) => {
-  return poller.testConnection(ipAddress);
-});
-
-ipcMain.handle('delete-device', (_, id: string) => {
-  poller.stopPolling(id);
-  devices.deleteDevice(id);
-  return { success: true };
-});
-
-ipcMain.handle('update-device-name', (_, id: string, name: string) => {
-  devices.updateDeviceName(id, name);
-  return { success: true };
-});
-
-ipcMain.handle('update-device-ip', (_, id: string, ipAddress: string) => {
-  const device = devices.getDeviceById(id);
-  if (device) {
-    devices.updateDeviceIp(id, ipAddress);
-    poller.stopPolling(id);
-    poller.startPolling({ ...device, ip_address: ipAddress });
-  }
-  return { success: true };
-});
-
-ipcMain.handle('refresh-device', async (_, id: string) => {
-  const device = devices.getDeviceById(id);
-  if (!device) {
-    return { success: false, error: 'Device not found' };
-  }
-
-  const data = await poller.fetchDeviceMetrics(device.ip_address);
-  if (data) {
-    devices.updateDeviceStatus(id, true);
-    return { success: true, data };
-  }
-  devices.updateDeviceStatus(id, false);
-  return { success: false, error: 'Cannot connect to device' };
-});
-
-// IPC Handlers - Metrics
-ipcMain.handle('get-metrics', (_, deviceId: string, options?: { startTime?: number; endTime?: number; limit?: number }) => {
-  const deviceMetrics = metrics.getMetrics(deviceId, options || {});
-  return deviceMetrics.map((m) => ({
-    timestamp: m.timestamp,
-    hashrate: m.hashrate,
-    temperature: m.temperature,
-    power: m.power,
-    data: m.data ? JSON.parse(m.data) : null,
-  }));
-});
-
-ipcMain.handle('get-latest-metrics', (_, deviceId: string) => {
-  const latestData = poller.getLatestMetrics(deviceId);
-  if (!latestData) return null;
-  return {
-    timestamp: latestData.timestamp,
-    data: latestData.data,
-  };
-});
-
-// IPC Handlers - Settings
-ipcMain.handle('get-settings', () => settings.getAllSettings());
-ipcMain.handle('set-setting', (_, key: string, value: string) => {
-  settings.setSetting(key, value);
-  return { success: true };
-});
-
-// IPC Handlers - Cloudflare Tunnel
-ipcMain.handle('get-tunnel-status', () => tunnel.getTunnelStatus());
-
-ipcMain.handle('start-tunnel', async () => {
-  try {
-    const url = await tunnel.startTunnel(settings.getServerPort());
-    return { success: true, url };
-  } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'Failed to start tunnel' };
-  }
-});
-
-ipcMain.handle('stop-tunnel', () => {
-  tunnel.stopTunnel();
-  return { success: true };
-});
-
-// IPC Handlers - Utility
-ipcMain.handle('open-external', (_, url: string) => {
+// IPC Handlers - External Links
+ipcMain.handle('open-external', async (_, url: string) => {
   shell.openExternal(url);
-  return { success: true };
 });
 
 // IPC Handlers - Crypto Prices
@@ -369,27 +280,12 @@ ipcMain.handle('get-network-stats', async () => {
   return profitability.fetchNetworkStats();
 });
 
-ipcMain.handle('calculate-profitability', async (_, hashrateGH: number, powerWatts: number, btcPriceUsd: number, electricityCost?: number) => {
-  return profitability.calculateProfitability(hashrateGH, powerWatts, btcPriceUsd, electricityCost);
+ipcMain.handle('get-electricity-cost', async () => {
+  const cost = settings.getSetting('electricity_cost');
+  return cost ? parseFloat(cost) : 0.12; // Default to $0.12/kWh
 });
 
-// IPC Handlers - Password Management
-ipcMain.handle('is-password-set', () => auth.isPasswordSet());
-
-ipcMain.handle('change-password', async (_, currentPassword: string, newPassword: string) => {
-  return auth.changePassword(currentPassword, newPassword);
-});
-
-ipcMain.handle('reset-password', () => {
-  auth.resetPassword();
-  return { success: true };
-});
-
-// Listen for maximize/unmaximize events
-mainWindow?.on('maximize', () => {
-  mainWindow?.webContents.send('window-maximized', true);
-});
-
-mainWindow?.on('unmaximize', () => {
-  mainWindow?.webContents.send('window-maximized', false);
+ipcMain.handle('set-electricity-cost', async (_, cost: number) => {
+  settings.setSetting('electricity_cost', cost.toString());
+  return true;
 });
