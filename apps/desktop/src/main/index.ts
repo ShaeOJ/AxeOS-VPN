@@ -163,18 +163,64 @@ ipcMain.handle('get-devices', async () => {
   return devices.getAllDevices();
 });
 
-ipcMain.handle('add-device', async (_, device: { name: string; ip: string }) => {
-  const newDevice = devices.createDevice(device.name, device.ip);
+ipcMain.handle('test-device-connection', async (_, ipAddress: string) => {
+  return poller.testConnection(ipAddress);
+});
+
+ipcMain.handle('add-device', async (_, ipAddress: string, name?: string) => {
+  // Test connection first
+  const testResult = await poller.testConnection(ipAddress);
+  if (!testResult.success) {
+    return { success: false, error: testResult.error || 'Could not connect to device' };
+  }
+
+  // Use hostname from device if no name provided
+  const deviceName = name || testResult.data?.hostname || ipAddress;
+  const newDevice = devices.createDevice(deviceName, ipAddress);
   if (newDevice) {
     poller.startPolling(newDevice);
+    return { success: true, device: newDevice };
   }
-  return newDevice;
+  return { success: false, error: 'Failed to create device' };
+});
+
+ipcMain.handle('delete-device', async (_, id: string) => {
+  poller.stopPolling(id);
+  devices.deleteDevice(id);
+  return { success: true };
 });
 
 ipcMain.handle('remove-device', async (_, id: string) => {
   poller.stopPolling(id);
   devices.deleteDevice(id);
-  return true;
+  return { success: true };
+});
+
+ipcMain.handle('update-device-name', async (_, id: string, name: string) => {
+  devices.updateDeviceName(id, name);
+  return { success: true };
+});
+
+ipcMain.handle('update-device-ip', async (_, id: string, ipAddress: string) => {
+  devices.updateDeviceIp(id, ipAddress);
+  const updated = devices.getDeviceById(id);
+  if (updated) {
+    poller.stopPolling(id);
+    poller.startPolling(updated);
+  }
+  return { success: true };
+});
+
+ipcMain.handle('refresh-device', async (_, id: string) => {
+  const device = devices.getDeviceById(id);
+  if (!device) {
+    return { success: false, error: 'Device not found' };
+  }
+  const data = await poller.fetchDeviceMetrics(device.ip_address);
+  if (data) {
+    return { success: true, data };
+  }
+  return { success: false, error: 'Could not fetch device data' };
 });
 
 ipcMain.handle('update-device', async (_, id: string, device: { name?: string; ip?: string }) => {
@@ -186,7 +232,6 @@ ipcMain.handle('update-device', async (_, id: string, device: { name?: string; i
   }
   const updated = devices.getDeviceById(id);
   if (updated) {
-    // Restart polling with new settings
     poller.stopPolling(id);
     poller.startPolling(updated);
   }
