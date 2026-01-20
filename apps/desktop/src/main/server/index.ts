@@ -304,6 +304,12 @@ export function getServerStatus(): {
   };
 }
 
+export function getServerPort(): number {
+  return settings.getServerPort();
+}
+
+export { getLocalAddresses };
+
 function getLocalAddresses(): string[] {
   const addresses: string[] = [];
   const interfaces = networkInterfaces();
