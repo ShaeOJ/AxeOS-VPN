@@ -213,7 +213,8 @@ ipcMain.handle('get-tunnel-status', async () => {
 });
 
 ipcMain.handle('start-tunnel', async () => {
-  return tunnel.startTunnel();
+  const port = server.getServerPort();
+  return tunnel.startTunnel(port);
 });
 
 ipcMain.handle('stop-tunnel', async () => {
