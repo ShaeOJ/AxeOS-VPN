@@ -249,6 +249,16 @@ ipcMain.handle('close-window', async () => {
   mainWindow?.close();
 });
 
+ipcMain.handle('is-maximized', () => mainWindow?.isMaximized() ?? false);
+
+// IPC Handlers - Server
+ipcMain.handle('get-server-status', () => server.getServerStatus());
+
+ipcMain.handle('restart-server', () => {
+  server.stopServer();
+  return server.startServer();
+});
+
 // IPC Handlers - External Links
 ipcMain.handle('open-external', async (_, url: string) => {
   shell.openExternal(url);
@@ -288,4 +298,8 @@ ipcMain.handle('get-electricity-cost', async () => {
 ipcMain.handle('set-electricity-cost', async (_, cost: number) => {
   settings.setSetting('electricity_cost', cost.toString());
   return true;
+});
+
+ipcMain.handle('calculate-profitability', async (_, hashrateGH: number, powerWatts: number, btcPriceUsd: number, electricityCost?: number) => {
+  return profitability.calculateProfitability(hashrateGH, powerWatts, btcPriceUsd, electricityCost);
 });
