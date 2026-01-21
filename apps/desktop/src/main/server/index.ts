@@ -10,6 +10,8 @@ import * as settings from '../database/settings';
 import * as auth from '../database/auth';
 import * as poller from '../axeos-poller';
 import * as bitcoin from '../bitcoin-price';
+import * as profitability from '../profitability';
+import * as deviceControl from '../device-control';
 
 // Load logo as base64 for embedding in HTML
 let logoBase64 = '';
@@ -184,20 +186,81 @@ export function startServer(): { port: number; addresses: string[] } {
     });
   });
 
-  // Update device
-  app.patch('/api/devices/:id', requireAuth, (req, res) => {
-    const { name } = req.body;
-    if (name) {
-      devices.updateDeviceName(req.params.id, name);
-    }
-    res.json({ success: true });
-  });
-
   // Delete device
   app.delete('/api/devices/:id', requireAuth, (req, res) => {
     poller.stopPolling(req.params.id);
     devices.deleteDevice(req.params.id);
     res.json({ success: true });
+  });
+
+  // Test device connection
+  app.post('/api/devices/test', requireAuth, async (req, res) => {
+    const { ipAddress } = req.body;
+    if (!ipAddress) {
+      res.status(400).json({ success: false, error: 'IP address is required' });
+      return;
+    }
+
+    const result = await poller.testConnection(ipAddress);
+    res.json(result);
+  });
+
+  // Add new device
+  app.post('/api/devices', requireAuth, async (req, res) => {
+    const { ipAddress, name } = req.body;
+    if (!ipAddress) {
+      res.status(400).json({ error: 'IP address is required' });
+      return;
+    }
+
+    // Test connection first
+    const testResult = await poller.testConnection(ipAddress);
+    if (!testResult.success) {
+      res.status(400).json({ error: testResult.error || 'Could not connect to device' });
+      return;
+    }
+
+    // Create device
+    const deviceName = name || testResult.data?.hostname || ipAddress;
+    const newDevice = devices.createDevice(deviceName, ipAddress);
+
+    if (newDevice) {
+      poller.startPolling(newDevice);
+      res.json({ success: true, device: newDevice });
+    } else {
+      res.status(500).json({ error: 'Failed to create device' });
+    }
+  });
+
+  // Update device IP address
+  app.patch('/api/devices/:id', requireAuth, (req, res) => {
+    const { name, ipAddress } = req.body;
+    const deviceId = req.params.id;
+
+    if (name) {
+      devices.updateDeviceName(deviceId, name);
+    }
+    if (ipAddress) {
+      devices.updateDeviceIp(deviceId, ipAddress);
+      const updated = devices.getDeviceById(deviceId);
+      if (updated) {
+        poller.stopPolling(deviceId);
+        poller.startPolling(updated);
+      }
+    }
+    res.json({ success: true });
+  });
+
+  // Restart device
+  app.post('/api/devices/:id/restart', requireAuth, async (req, res) => {
+    const device = devices.getDeviceById(req.params.id);
+    if (!device) {
+      res.status(404).json({ success: false, error: 'Device not found' });
+      return;
+    }
+
+    const result = await deviceControl.restartDevice(device.ip_address);
+    res.json(result);
   });
 
   // Get device metrics
@@ -259,6 +322,36 @@ export function startServer(): { port: number; addresses: string[] } {
     const days = parseInt(req.query.days as string) || 7;
     const history = await bitcoin.fetchPriceHistory(coinId, currency, days);
     res.json({ history });
+  });
+
+  // ============ PROFITABILITY CALCULATOR (PUBLIC) ============
+  app.get('/api/profitability/network-stats', async (_req, res) => {
+    const stats = await profitability.fetchNetworkStats();
+    res.json({ stats });
+  });
+
+  app.get('/api/profitability/electricity-cost', (_req, res) => {
+    const cost = settings.getSetting('electricity_cost');
+    res.json({ cost: cost ? parseFloat(cost) : 0.12 });
+  });
+
+  app.post('/api/profitability/electricity-cost', requireAuth, (req, res) => {
+    const { cost } = req.body;
+    if (typeof cost === 'number') {
+      settings.setSetting('electricity_cost', cost.toString());
+    }
+    res.json({ success: true });
+  });
+
+  app.post('/api/profitability/calculate', async (req, res) => {
+    const { hashrateGH, powerWatts, btcPriceUsd, electricityCost } = req.body;
+    const result = await profitability.calculateProfitability(
+      hashrateGH,
+      powerWatts,
+      btcPriceUsd,
+      electricityCost
+    );
+    res.json({ result });
   });
 
   // ============ WEB DASHBOARD ============
@@ -455,6 +548,15 @@ function getWebDashboardHtml(): string {
     .secondary-stat { text-align: center; }
     .secondary-stat-label { font-size: 9px; color: #8BA88B; text-transform: uppercase; }
     .secondary-stat-value { font-size: 12px; font-weight: 500; }
+    /* Device control bar */
+    .device-control-bar { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; padding-top: 8px; border-top: 1px solid #1a4a5c; }
+    .restart-btn { display: flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 11px; background: #1a3a4a; color: #8BA88B; border: 1px solid #2a5a6a; border-radius: 4px; cursor: pointer; transition: all 0.2s; }
+    .restart-btn:hover { color: #FFB000; background: rgba(255,176,0,0.1); border-color: rgba(255,176,0,0.4); }
+    .restart-btn.confirm { background: #FF3131; color: white; border-color: #FF3131; }
+    .restart-btn.restarting { opacity: 0.6; cursor: not-allowed; }
+    .restart-btn svg { flex-shrink: 0; }
+    .restart-btn.restarting svg { animation: spin 1s linear infinite; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
     /* Modal animations */
     @keyframes modal-fade-in {
       0% { opacity: 0; transform: scale(0.95) translateY(-10px); }
@@ -687,6 +789,101 @@ function getWebDashboardHtml(): string {
       .ticker-change { font-size: 11px; gap: 4px; }
       .ticker-sparkline { height: 20px; margin-top: 6px; }
     }
+
+    /* Profitability Calculator Styles */
+    .profitability-widget {
+      background: #0d2137;
+      border: 2px solid #1a4a5c;
+      padding: 12px 16px;
+      margin-bottom: 24px;
+      position: relative;
+    }
+    .profitability-widget::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, #00FF41, transparent);
+      opacity: 0.5;
+    }
+    .profit-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      margin-bottom: 8px;
+    }
+    .profit-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      text-transform: uppercase;
+      color: #8BA88B;
+    }
+    .profit-toggle {
+      background: none;
+      border: none;
+      color: #8BA88B;
+      cursor: pointer;
+      padding: 4px;
+      transition: transform 0.2s;
+    }
+    .profit-toggle.expanded { transform: rotate(180deg); }
+    .profit-summary {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 4px;
+    }
+    .profit-label { font-size: 11px; color: #8BA88B; }
+    .profit-value { font-size: 14px; font-family: 'Share Tech Mono', monospace; }
+    .profit-value.sats { color: #FFB000; text-shadow: 0 0 4px rgba(255,176,0,0.3); }
+    .profit-value.positive { color: #00FF41; }
+    .profit-value.negative { color: #FF3131; }
+    .profit-details {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #1a4a5c;
+      display: none;
+    }
+    .profit-details.show { display: block; }
+    .profit-section { margin-bottom: 12px; }
+    .profit-section-title {
+      font-size: 10px;
+      text-transform: uppercase;
+      color: #8BA88B;
+      margin-bottom: 6px;
+    }
+    .profit-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      margin-bottom: 2px;
+    }
+    .profit-input-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .profit-input {
+      width: 80px;
+      padding: 6px 8px;
+      background: #0a1929;
+      border: 1px solid #1a4a5c;
+      color: #8BA88B;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 12px;
+    }
+    .profit-input:focus {
+      outline: none;
+      border-color: #FFB000;
+    }
+    @media (max-width: 768px) {
+      .profitability-widget { padding: 10px 12px; }
+      .profit-value { font-size: 13px; }
+    }
   </style>
 </head>
 <body>
@@ -752,6 +949,68 @@ function getWebDashboardHtml(): string {
       </div>
       <div class="ticker-sparkline" id="ticker-sparkline">
         <canvas id="sparkline-canvas"></canvas>
+      </div>
+    </div>
+
+    <!-- Profitability Calculator Widget -->
+    <div class="profitability-widget" id="profitability-widget">
+      <div class="profit-header" onclick="toggleProfitDetails()">
+        <div class="profit-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00FF41" stroke-width="2">
+            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Est. Earnings (<span id="profit-coin-symbol">BTC</span>)
+        </div>
+        <button class="profit-toggle" id="profit-toggle-btn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+      </div>
+      <div class="profit-summary">
+        <span class="profit-label">Daily earnings</span>
+        <span class="profit-value sats" id="profit-daily-sats">-- sats</span>
+      </div>
+      <div class="profit-summary">
+        <span class="profit-label">Net profit (<span id="profit-currency-label">USD</span>)</span>
+        <span class="profit-value" id="profit-daily-net">--</span>
+      </div>
+      <div class="profit-details" id="profit-details">
+        <div class="profit-section">
+          <div class="profit-section-title">Earnings</div>
+          <div class="profit-row"><span style="color:#8BA88B;">Daily</span><span id="profit-earn-daily" style="color:#FFB000;">--</span></div>
+          <div class="profit-row"><span style="color:#8BA88B;">Weekly</span><span id="profit-earn-weekly" style="color:#FFB000;">--</span></div>
+          <div class="profit-row"><span style="color:#8BA88B;">Monthly</span><span id="profit-earn-monthly" style="color:#FFB000;">--</span></div>
+          <div class="profit-row"><span style="color:#8BA88B;">Yearly</span><span id="profit-earn-yearly" style="color:#FFB000;">--</span></div>
+        </div>
+        <div class="profit-section">
+          <div class="profit-section-title">Power Costs</div>
+          <div class="profit-row"><span style="color:#8BA88B;">Daily</span><span id="profit-power-daily" style="color:#FF8C00;">--</span></div>
+          <div class="profit-row"><span style="color:#8BA88B;">Weekly</span><span id="profit-power-weekly" style="color:#FF8C00;">--</span></div>
+          <div class="profit-row"><span style="color:#8BA88B;">Monthly</span><span id="profit-power-monthly" style="color:#FF8C00;">--</span></div>
+          <div class="profit-row"><span style="color:#8BA88B;">Yearly</span><span id="profit-power-yearly" style="color:#FF8C00;">--</span></div>
+        </div>
+        <div class="profit-section">
+          <div class="profit-section-title">Net Profit</div>
+          <div class="profit-row"><span style="color:#8BA88B;">Daily</span><span id="profit-net-daily">--</span></div>
+          <div class="profit-row"><span style="color:#8BA88B;">Weekly</span><span id="profit-net-weekly">--</span></div>
+          <div class="profit-row"><span style="color:#8BA88B;">Monthly</span><span id="profit-net-monthly">--</span></div>
+          <div class="profit-row"><span style="color:#8BA88B;">Yearly</span><span id="profit-net-yearly">--</span></div>
+        </div>
+        <div class="profit-section">
+          <div class="profit-section-title">Settings</div>
+          <div style="margin-bottom:8px;font-size:10px;padding:4px 8px;background:rgba(0,0,0,0.3);border-radius:4px;">
+            <span style="color:#8BA88B;">Using </span><span id="profit-coin-name" style="color:#FFB000;">Bitcoin</span><span style="color:#8BA88B;"> price: </span><span id="profit-coin-price" style="color:#00FF41;">--</span>
+          </div>
+          <div class="profit-input-row">
+            <span style="color:#8BA88B;font-size:11px;">Electricity cost:</span>
+            <input type="number" class="profit-input" id="electricity-cost-input" value="0.12" step="0.01" min="0">
+            <span style="color:#8BA88B;font-size:11px;">$/kWh</span>
+            <button class="btn btn-secondary" style="padding:4px 8px;font-size:10px;" onclick="saveElectricityCost()">Save</button>
+          </div>
+          <div style="margin-top:8px;font-size:10px;color:#8BA88B;">
+            <span>Network Difficulty: <span id="profit-difficulty" style="color:#FFB000;">--</span></span>
+            <span style="margin-left:12px;">Block Reward: <span id="profit-block-reward" style="color:#FFB000;">--</span> BTC</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -831,7 +1090,15 @@ function getWebDashboardHtml(): string {
       </div>
     </div>
 
-    <h3 style="margin-bottom: 16px; color: #FFB000; text-transform: uppercase; letter-spacing: 1px;">Devices (<span id="device-count">0</span>)</h3>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <h3 style="color: #FFB000; text-transform: uppercase; letter-spacing: 1px;">Devices (<span id="device-count">0</span>)</h3>
+      <button onclick="openAddDeviceModal()" class="btn btn-primary" style="padding: 8px 16px;">
+        <span style="display: flex; align-items: center; gap: 6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Device
+        </span>
+      </button>
+    </div>
     <div id="devices-list"></div>
   </div>
 
@@ -839,11 +1106,87 @@ function getWebDashboardHtml(): string {
     <div class="modal">
       <div class="modal-header">
         <div class="modal-title" id="modal-device-name">Device</div>
-        <button onclick="closeModal()" class="btn btn-secondary">Close</button>
+        <div style="display: flex; gap: 8px;">
+          <button onclick="openEditDeviceModal()" class="btn btn-secondary" id="modal-edit-btn">Edit</button>
+          <button onclick="confirmDeleteDevice()" class="btn btn-danger" id="modal-delete-btn">Delete</button>
+          <button onclick="closeModal()" class="btn btn-secondary">Close</button>
+        </div>
       </div>
       <div class="modal-body" id="modal-body"></div>
     </div>
   </div>
+
+  <!-- Add Device Modal -->
+  <div id="add-device-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeAddDeviceModal()">
+    <div class="modal" style="max-width: 400px;">
+      <div class="modal-header">
+        <div class="modal-title">Add Device</div>
+        <button onclick="closeAddDeviceModal()" class="btn btn-secondary">Cancel</button>
+      </div>
+      <div class="modal-body">
+        <p style="color: #8BA88B; margin-bottom: 16px;">Enter the IP address of your BitAxe device to add it to your fleet.</p>
+        <div style="margin-bottom: 12px;">
+          <label style="font-size: 11px; color: #8BA88B; text-transform: uppercase; display: block; margin-bottom: 4px;">IP Address *</label>
+          <input type="text" id="add-device-ip" class="input" placeholder="192.168.1.100" style="margin-bottom: 0;">
+        </div>
+        <div style="margin-bottom: 16px;">
+          <label style="font-size: 11px; color: #8BA88B; text-transform: uppercase; display: block; margin-bottom: 4px;">Device Name (optional)</label>
+          <input type="text" id="add-device-name" class="input" placeholder="Leave blank to use hostname" style="margin-bottom: 0;">
+        </div>
+        <div id="add-device-error" class="error hidden"></div>
+        <div id="add-device-testing" class="hidden" style="color: #FFB000; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+          <div style="width: 16px; height: 16px; border: 2px solid #FFB000; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+          Testing connection...
+        </div>
+        <button onclick="addDevice()" class="btn btn-primary" style="width: 100%;" id="add-device-btn">Add Device</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Device Modal -->
+  <div id="edit-device-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeEditDeviceModal()">
+    <div class="modal" style="max-width: 400px;">
+      <div class="modal-header">
+        <div class="modal-title">Edit Device</div>
+        <button onclick="closeEditDeviceModal()" class="btn btn-secondary">Cancel</button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom: 12px;">
+          <label style="font-size: 11px; color: #8BA88B; text-transform: uppercase; display: block; margin-bottom: 4px;">Device Name</label>
+          <input type="text" id="edit-device-name" class="input" style="margin-bottom: 0;">
+        </div>
+        <div style="margin-bottom: 16px;">
+          <label style="font-size: 11px; color: #8BA88B; text-transform: uppercase; display: block; margin-bottom: 4px;">IP Address</label>
+          <input type="text" id="edit-device-ip" class="input" style="margin-bottom: 0;">
+        </div>
+        <div id="edit-device-error" class="error hidden"></div>
+        <button onclick="saveDeviceChanges()" class="btn btn-primary" style="width: 100%;">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm Delete Modal -->
+  <div id="confirm-delete-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeConfirmDeleteModal()">
+    <div class="modal" style="max-width: 400px;">
+      <div class="modal-header">
+        <div class="modal-title" style="color: #FF3131;">Confirm Delete</div>
+        <button onclick="closeConfirmDeleteModal()" class="btn btn-secondary">Cancel</button>
+      </div>
+      <div class="modal-body">
+        <p style="color: #E8F4E8; margin-bottom: 8px;">Are you sure you want to delete this device?</p>
+        <p style="color: #8BA88B; margin-bottom: 16px; font-size: 12px;">Device: <span id="delete-device-name" style="color: #FFB000;"></span></p>
+        <p style="color: #FF8C00; margin-bottom: 16px; font-size: 11px;">⚠️ This will remove all associated metrics and history.</p>
+        <div style="display: flex; gap: 12px;">
+          <button onclick="closeConfirmDeleteModal()" class="btn btn-secondary" style="flex: 1;">Cancel</button>
+          <button onclick="deleteDevice()" class="btn btn-danger" style="flex: 1;">Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
 
   <script>
     let token = localStorage.getItem('token');
@@ -907,6 +1250,7 @@ function getWebDashboardHtml(): string {
     }
 
     async function showDeviceDetail(deviceId) {
+      currentDeviceId = deviceId;
       const device = devices.find(d => d.id === deviceId);
       if (!device) return;
       const m = device.latestMetrics;
@@ -1072,7 +1416,8 @@ function getWebDashboardHtml(): string {
             '<div class="metric"><div class="metric-label">Power</div><div class="metric-value">' + formatPower(m.power) + '</div></div></div>' +
             '<div class="secondary-stats"><div class="secondary-stat"><div class="secondary-stat-label">Efficiency</div><div class="secondary-stat-value">' + (m.efficiency ? m.efficiency.toFixed(1) + ' J/TH' : '--') + '</div></div>' +
             '<div class="secondary-stat"><div class="secondary-stat-label">Shares</div><div class="secondary-stat-value success">' + (m.sharesAccepted || 0).toLocaleString() + '</div></div>' +
-            '<div class="secondary-stat"><div class="secondary-stat-label">Fan</div><div class="secondary-stat-value">' + (m.fanspeed ? m.fanspeed + '%' : '--') + '</div></div></div>'
+            '<div class="secondary-stat"><div class="secondary-stat-label">Fan</div><div class="secondary-stat-value">' + (m.fanspeed ? m.fanspeed + '%' : '--') + '</div></div></div>' +
+            '<div class="device-control-bar" onclick="event.stopPropagation();"><button class="restart-btn" data-device-id="' + d.id + '" onclick="handleRestartClick(this, event)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Restart</button></div>'
           : '<div style="color:#8BA88B;margin-top:8px;">' + (d.isOnline ? 'Waiting for metrics...' : 'Offline') + '</div>') +
         '</div>';
       }).join('');
@@ -1135,6 +1480,256 @@ function getWebDashboardHtml(): string {
     function formatPower(p) { return p ? p.toFixed(1) + ' W' : '--'; }
     function formatUptime(s) { if (!s) return '--'; const d = Math.floor(s/86400), h = Math.floor((s%86400)/3600), m = Math.floor((s%3600)/60); return d > 0 ? d+'d '+h+'h' : h > 0 ? h+'h '+m+'m' : m+'m'; }
     function getTempClass(t) { if (!t) return ''; return t > 80 ? 'danger' : t > 70 ? 'warning' : 'success'; }
+
+    // ============ DEVICE CONTROL ============
+    const restartConfirmState = new Map();
+
+    async function handleRestartClick(btn, event) {
+      event.stopPropagation();
+      const deviceId = btn.dataset.deviceId;
+
+      // Check if waiting for confirmation
+      if (restartConfirmState.get(deviceId)) {
+        // Second click - perform restart
+        restartConfirmState.delete(deviceId);
+        btn.classList.remove('confirm');
+        btn.classList.add('restarting');
+        btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" opacity="0.25"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg>Restarting...';
+
+        try {
+          const response = await fetch('/api/devices/' + deviceId + '/restart', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token }
+          });
+          const result = await response.json();
+
+          if (result.success) {
+            btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>Sent!';
+            setTimeout(() => {
+              btn.classList.remove('restarting');
+              btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Restart';
+            }, 2000);
+          } else {
+            btn.classList.remove('restarting');
+            btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Restart';
+            alert('Restart failed: ' + (result.error || 'Unknown error'));
+          }
+        } catch (err) {
+          btn.classList.remove('restarting');
+          btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Restart';
+          alert('Restart error: ' + err.message);
+        }
+      } else {
+        // First click - show confirmation
+        restartConfirmState.set(deviceId, true);
+        btn.classList.add('confirm');
+        btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>Confirm?';
+
+        // Auto-reset after 3 seconds
+        setTimeout(() => {
+          if (restartConfirmState.get(deviceId)) {
+            restartConfirmState.delete(deviceId);
+            btn.classList.remove('confirm');
+            btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Restart';
+          }
+        }, 3000);
+      }
+    }
+
+    // ============ DEVICE MANAGEMENT ============
+    let currentDeviceId = null;
+
+    function openAddDeviceModal() {
+      document.getElementById('add-device-ip').value = '';
+      document.getElementById('add-device-name').value = '';
+      document.getElementById('add-device-error').classList.add('hidden');
+      document.getElementById('add-device-testing').classList.add('hidden');
+      document.getElementById('add-device-btn').disabled = false;
+      document.getElementById('add-device-modal').classList.remove('hidden');
+    }
+
+    function closeAddDeviceModal() {
+      const modal = document.getElementById('add-device-modal');
+      modal.classList.add('closing');
+      setTimeout(() => {
+        modal.classList.add('hidden');
+        modal.classList.remove('closing');
+      }, 250);
+    }
+
+    async function addDevice() {
+      const ipInput = document.getElementById('add-device-ip');
+      const nameInput = document.getElementById('add-device-name');
+      const errorEl = document.getElementById('add-device-error');
+      const testingEl = document.getElementById('add-device-testing');
+      const addBtn = document.getElementById('add-device-btn');
+
+      const ip = ipInput.value.trim();
+      const name = nameInput.value.trim();
+
+      if (!ip) {
+        errorEl.textContent = 'IP address is required';
+        errorEl.classList.remove('hidden');
+        return;
+      }
+
+      // Show testing state
+      errorEl.classList.add('hidden');
+      testingEl.classList.remove('hidden');
+      addBtn.disabled = true;
+
+      try {
+        // Test connection first
+        const testRes = await fetch('/api/devices/test', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+          },
+          body: JSON.stringify({ ipAddress: ip })
+        });
+        const testData = await testRes.json();
+
+        if (!testData.success) {
+          throw new Error(testData.error || 'Could not connect to device');
+        }
+
+        // Add the device
+        const addRes = await fetch('/api/devices', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+          },
+          body: JSON.stringify({
+            ipAddress: ip,
+            name: name || testData.data?.hostname || ip
+          })
+        });
+        const addData = await addRes.json();
+
+        if (addData.error) {
+          throw new Error(addData.error);
+        }
+
+        // Success - close modal and refresh
+        closeAddDeviceModal();
+        await fetchDevices();
+
+      } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.classList.remove('hidden');
+      } finally {
+        testingEl.classList.add('hidden');
+        addBtn.disabled = false;
+      }
+    }
+
+    function openEditDeviceModal() {
+      if (!currentDeviceId) return;
+
+      const device = devices.find(d => d.id === currentDeviceId);
+      if (!device) return;
+
+      document.getElementById('edit-device-name').value = device.name;
+      document.getElementById('edit-device-ip').value = device.ipAddress;
+      document.getElementById('edit-device-error').classList.add('hidden');
+
+      closeModal();
+      document.getElementById('edit-device-modal').classList.remove('hidden');
+    }
+
+    function closeEditDeviceModal() {
+      const modal = document.getElementById('edit-device-modal');
+      modal.classList.add('closing');
+      setTimeout(() => {
+        modal.classList.add('hidden');
+        modal.classList.remove('closing');
+      }, 250);
+    }
+
+    async function saveDeviceChanges() {
+      if (!currentDeviceId) return;
+
+      const nameInput = document.getElementById('edit-device-name');
+      const ipInput = document.getElementById('edit-device-ip');
+      const errorEl = document.getElementById('edit-device-error');
+
+      const name = nameInput.value.trim();
+      const ip = ipInput.value.trim();
+
+      if (!name || !ip) {
+        errorEl.textContent = 'Name and IP address are required';
+        errorEl.classList.remove('hidden');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/devices/' + currentDeviceId, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+          },
+          body: JSON.stringify({ name, ipAddress: ip })
+        });
+
+        if (!res.ok) {
+          throw new Error('Failed to update device');
+        }
+
+        closeEditDeviceModal();
+        await fetchDevices();
+
+      } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.classList.remove('hidden');
+      }
+    }
+
+    function confirmDeleteDevice() {
+      if (!currentDeviceId) return;
+
+      const device = devices.find(d => d.id === currentDeviceId);
+      if (!device) return;
+
+      document.getElementById('delete-device-name').textContent = device.name;
+      closeModal();
+      document.getElementById('confirm-delete-modal').classList.remove('hidden');
+    }
+
+    function closeConfirmDeleteModal() {
+      const modal = document.getElementById('confirm-delete-modal');
+      modal.classList.add('closing');
+      setTimeout(() => {
+        modal.classList.add('hidden');
+        modal.classList.remove('closing');
+      }, 250);
+    }
+
+    async function deleteDevice() {
+      if (!currentDeviceId) return;
+
+      try {
+        const res = await fetch('/api/devices/' + currentDeviceId, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': 'Bearer ' + token
+          }
+        });
+
+        if (!res.ok) {
+          throw new Error('Failed to delete device');
+        }
+
+        currentDeviceId = null;
+        closeConfirmDeleteModal();
+        await fetchDevices();
+
+      } catch (err) {
+        alert('Failed to delete device: ' + err.message);
+      }
+    }
 
     // Network animation
     const canvas = document.getElementById('network-canvas');
@@ -1399,6 +1994,9 @@ function getWebDashboardHtml(): string {
         renderCoinDropdown();
         fetchCryptoPrice();
         fetchCryptoHistory();
+        // Update profitability calculator with new coin
+        updateProfitCoinDisplay();
+        calculateProfitability();
       }
       closeAllDropdowns();
     }
@@ -1412,6 +2010,9 @@ function getWebDashboardHtml(): string {
         renderCurrencyDropdown();
         fetchCryptoPrice();
         fetchCryptoHistory();
+        // Update profitability calculator with new currency
+        updateProfitCoinDisplay();
+        calculateProfitability();
       }
       closeAllDropdowns();
     }
@@ -1545,9 +2146,226 @@ function getWebDashboardHtml(): string {
       if (priceHistory.length > 0) drawSparkline();
     });
 
+    // ============ PROFITABILITY CALCULATOR ============
+    let profitabilityExpanded = false;
+    let networkStats = null;
+    let electricityCost = 0.12;
+    let currentBtcPrice = 0;
+
+    function toggleProfitDetails() {
+      profitabilityExpanded = !profitabilityExpanded;
+      const details = document.getElementById('profit-details');
+      const toggleBtn = document.getElementById('profit-toggle-btn');
+
+      if (profitabilityExpanded) {
+        details.classList.add('show');
+        toggleBtn.classList.add('expanded');
+      } else {
+        details.classList.remove('show');
+        toggleBtn.classList.remove('expanded');
+      }
+    }
+
+    async function initProfitability() {
+      try {
+        // Fetch electricity cost
+        const costRes = await fetch('/api/profitability/electricity-cost');
+        const costData = await costRes.json();
+        if (costData.cost) {
+          electricityCost = costData.cost;
+          document.getElementById('electricity-cost-input').value = electricityCost;
+        }
+
+        // Update coin display based on ticker selection
+        updateProfitCoinDisplay();
+
+        // Fetch network stats
+        await fetchNetworkStats();
+
+        // Calculate initial profitability after devices are loaded
+        setTimeout(calculateProfitability, 2000);
+
+        // Set intervals for updates
+        setInterval(fetchNetworkStats, 300000); // Every 5 minutes
+        setInterval(calculateProfitability, 60000); // Every minute
+      } catch (err) {
+        console.error('Failed to init profitability:', err);
+      }
+    }
+
+    async function fetchNetworkStats() {
+      try {
+        const res = await fetch('/api/profitability/network-stats');
+        const data = await res.json();
+
+        if (data.stats) {
+          networkStats = data.stats;
+
+          // Update UI
+          const diffTrillion = networkStats.difficulty / 1e12;
+          document.getElementById('profit-difficulty').textContent = diffTrillion.toFixed(2) + 'T';
+          document.getElementById('profit-block-reward').textContent = networkStats.blockReward.toFixed(4);
+        }
+      } catch (err) {
+        console.error('Failed to fetch network stats:', err);
+      }
+    }
+
+    async function saveElectricityCost() {
+      const input = document.getElementById('electricity-cost-input');
+      const cost = parseFloat(input.value);
+
+      if (!isNaN(cost) && cost >= 0) {
+        electricityCost = cost;
+
+        try {
+          await fetch('/api/profitability/electricity-cost', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify({ cost })
+          });
+        } catch (err) {
+          console.error('Failed to save electricity cost:', err);
+        }
+
+        // Recalculate
+        calculateProfitability();
+      }
+    }
+
+    function updateProfitCoinDisplay() {
+      // Update the coin symbol in the header
+      const symbolEl = document.getElementById('profit-coin-symbol');
+      if (symbolEl) symbolEl.textContent = selectedCoin.symbol;
+
+      // Update the coin name in settings
+      const nameEl = document.getElementById('profit-coin-name');
+      if (nameEl) nameEl.textContent = selectedCoin.name;
+
+      // Update currency label
+      const currencyLabelEl = document.getElementById('profit-currency-label');
+      if (currencyLabelEl) currencyLabelEl.textContent = selectedCurrency.code.toUpperCase();
+    }
+
+    async function calculateProfitability() {
+      // Need devices data, network stats, and crypto price
+      if (!networkStats) return;
+
+      // Get crypto price from ticker using selected coin/currency
+      try {
+        const priceRes = await fetch('/api/crypto/price/' + selectedCoin.id + '?currency=' + selectedCurrency.code);
+        const priceData = await priceRes.json();
+        if (priceData.price) {
+          currentBtcPrice = priceData.price.price;
+        }
+      } catch (err) {
+        console.error('Failed to fetch crypto price for profitability:', err);
+      }
+
+      if (!currentBtcPrice) return;
+
+      // Calculate total hashrate and power from devices
+      let totalHashrateGH = 0;
+      let totalPowerWatts = 0;
+
+      devices.forEach(d => {
+        if (d.isOnline && d.latestMetrics) {
+          totalHashrateGH += d.latestMetrics.hashRate || 0;
+          totalPowerWatts += d.latestMetrics.power || 0;
+        }
+      });
+
+      if (totalHashrateGH === 0) {
+        // No online devices with metrics
+        document.getElementById('profit-daily-sats').textContent = '-- sats';
+        document.getElementById('profit-daily-net').textContent = '--';
+        return;
+      }
+
+      // Call profitability API
+      try {
+        const res = await fetch('/api/profitability/calculate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            hashrateGH: totalHashrateGH,
+            powerWatts: totalPowerWatts,
+            btcPriceUsd: currentBtcPrice,
+            electricityCost: electricityCost
+          })
+        });
+
+        const data = await res.json();
+
+        if (data.result) {
+          updateProfitabilityUI(data.result);
+        }
+      } catch (err) {
+        console.error('Failed to calculate profitability:', err);
+      }
+    }
+
+    function updateProfitabilityUI(result) {
+      // Format numbers using selected currency
+      const formatBtc = (btc) => (btc * 100000000).toFixed(0) + ' sats';
+      const formatCurrency = (value) => {
+        const noDecimals = ['jpy', 'cny'].includes(selectedCurrency.code);
+        return new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: selectedCurrency.code.toUpperCase(),
+          minimumFractionDigits: noDecimals ? 0 : 2,
+          maximumFractionDigits: noDecimals ? 0 : 2
+        }).format(Math.abs(value));
+      };
+      const formatNet = (net) => {
+        const sign = net >= 0 ? '+' : '-';
+        return sign + formatCurrency(net);
+      };
+
+      // Update coin price display
+      const priceEl = document.getElementById('profit-coin-price');
+      if (priceEl && currentBtcPrice) {
+        priceEl.textContent = formatCurrency(currentBtcPrice);
+      }
+
+      // Update summary
+      document.getElementById('profit-daily-sats').textContent = formatBtc(result.dailyBtc);
+      const dailyNetEl = document.getElementById('profit-daily-net');
+      dailyNetEl.textContent = formatNet(result.dailyProfit);
+      dailyNetEl.className = 'profit-value ' + (result.dailyProfit >= 0 ? 'positive' : 'negative');
+
+      // Update earnings section
+      document.getElementById('profit-earn-daily').textContent = formatCurrency(result.dailyUsd) + ' (' + formatBtc(result.dailyBtc) + ')';
+      document.getElementById('profit-earn-weekly').textContent = formatCurrency(result.weeklyUsd);
+      document.getElementById('profit-earn-monthly').textContent = formatCurrency(result.monthlyUsd);
+      document.getElementById('profit-earn-yearly').textContent = formatCurrency(result.yearlyUsd);
+
+      // Update power costs section
+      document.getElementById('profit-power-daily').textContent = '-' + formatCurrency(result.dailyPowerCost);
+      document.getElementById('profit-power-weekly').textContent = '-' + formatCurrency(result.weeklyPowerCost);
+      document.getElementById('profit-power-monthly').textContent = '-' + formatCurrency(result.monthlyPowerCost);
+      document.getElementById('profit-power-yearly').textContent = '-' + formatCurrency(result.yearlyPowerCost);
+
+      // Update net profit section with colors
+      const updateNetProfit = (id, value) => {
+        const el = document.getElementById(id);
+        el.textContent = formatNet(value);
+        el.style.color = value >= 0 ? '#00FF41' : '#FF3131';
+      };
+
+      updateNetProfit('profit-net-daily', result.dailyProfit);
+      updateNetProfit('profit-net-weekly', result.weeklyProfit);
+      updateNetProfit('profit-net-monthly', result.monthlyProfit);
+      updateNetProfit('profit-net-yearly', result.yearlyProfit);
+    }
+
     init();
     initBackground();
     initCryptoTicker();
+    initProfitability();
   </script>
 </body>
 </html>`;

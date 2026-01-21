@@ -7,6 +7,24 @@
 
 | Date | Feature | Status |
 |------|---------|--------|
+| 2026-01-21 | Major Feature Update | ✅ Implemented |
+| | - Auto-Discovery: Scan network for BitAxe devices | |
+| | - System Tray Mode: Minimize to tray, quick stats | |
+| | - Alert System: Offline, temperature, hashrate drop alerts | |
+| | - Device Control: Remote restart with confirmation | |
+| | - Web UI coin selection integration for profitability | |
+| 2026-01-20 | Web UI Feature Parity | ✅ Implemented |
+| | - Profitability calculator widget added to web UI | |
+| | - Device management (add/edit/delete) in web UI | |
+| | - API endpoints for device CRUD operations | |
+| | - Network stats API for profitability calculation | |
+| 2026-01-20 | v1.2.0-beta.12 | 🔧 In Development |
+| | - Fixed tunnel start error (getServerPort export) | |
+| | - Fixed NaN in profitability (btcPrice.price) | |
+| | - Fixed dropdown overflow with React portals | |
+| | - Fixed IPC handler function name mismatches | |
+| | - Added Reset App Data in settings | |
+| | - Updated application icon | |
 | 2026-01-19 | v1.1.2 Stable Release | ✅ Released |
 | 2026-01-19 | Multi-Coin Crypto Ticker | ✅ Implemented |
 | | - BTC, BCH, BSV, DGB, PPC, NMC support | |
@@ -44,8 +62,8 @@
   - [x] Price change indicators (24h)
   - [x] Coin selector dropdown
   - [x] Saved preference persistence
-  - [ ] Multiple fiat currency support (EUR, GBP, etc.)
-  - [ ] Mini chart sparkline
+  - [x] Multiple fiat currency support (USD, EUR, GBP, AUD, CAD, JPY, CHF, CNY) ✅ IMPLEMENTED
+  - [x] Mini chart sparkline (7-day price history) ✅ IMPLEMENTED
 - [x] **Mining Profitability Calculator** ✅ IMPLEMENTED
   - [x] Estimate earnings based on hashrate
   - [x] Power cost calculations
@@ -60,11 +78,11 @@
 
 ## 🎮 DEVICE CONTROL
 
-- [ ] **On-Demand Device Control** - Send commands to BitAxe units
-  - [ ] Restart device
-  - [ ] Adjust fan speed
-  - [ ] Change frequency/voltage
-  - [ ] Switch mining pools
+- [x] **On-Demand Device Control** - Send commands to BitAxe units ✅ IMPLEMENTED
+  - [x] Restart device
+  - [x] Adjust fan speed (API ready)
+  - [x] Change frequency/voltage (API ready)
+  - [x] Switch mining pools (API ready)
 - [ ] **Batch Operations** - Control multiple devices at once
 - [ ] **Scheduling** - Set operating schedules (e.g., mine during off-peak hours)
 - [ ] **Power Profiles** - Save/load device configurations
@@ -76,13 +94,13 @@
 
 ## 🔔 ALERTS & NOTIFICATIONS
 
-- [ ] **Alert System** - Configurable notifications
-  - [ ] Device offline alerts
-  - [ ] Temperature threshold warnings
-  - [ ] Hashrate drop alerts
+- [x] **Alert System** - Configurable notifications ✅ IMPLEMENTED
+  - [x] Device offline alerts
+  - [x] Temperature threshold warnings
+  - [x] Hashrate drop alerts
   - [ ] Power consumption alerts
 - [ ] **Notification Channels**
-  - [ ] Desktop notifications (system tray)
+  - [x] Desktop notifications (system tray) ✅ IMPLEMENTED
   - [ ] Email alerts
   - [ ] Discord webhook
   - [ ] Telegram bot
@@ -105,7 +123,7 @@
 
 ## 🌐 NETWORK & CONNECTIVITY
 
-- [ ] **Auto-Discovery** - Scan network for BitAxe devices
+- [x] **Auto-Discovery** - Scan network for BitAxe devices ✅ IMPLEMENTED
 - [ ] **Device Groups** - Organize devices by location/purpose
 - [ ] **Multi-Network Support** - Monitor devices across different networks
 - [ ] **VPN Integration** - Built-in WireGuard/OpenVPN client
@@ -125,7 +143,7 @@
 
 ## 🖥️ DESKTOP APP ENHANCEMENTS
 
-- [ ] **System Tray Mode** - Minimize to tray with quick stats
+- [x] **System Tray Mode** - Minimize to tray with quick stats ✅ IMPLEMENTED
 - [ ] **Startup Launch** - Option to start with Windows/macOS
 - [ ] **Keyboard Shortcuts** - Quick navigation
 - [ ] **Multi-Window Support** - Detach charts/devices to separate windows
@@ -197,4 +215,4 @@
 
 *"The future is in your hands, Vault Dweller!"*
 
-**Last Updated:** 2026-01-19
+**Last Updated:** 2026-01-20

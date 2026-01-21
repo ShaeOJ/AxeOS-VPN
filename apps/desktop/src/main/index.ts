@@ -12,6 +12,10 @@ import * as poller from './axeos-poller';
 import * as tunnel from './cloudflare-tunnel';
 import * as bitcoin from './bitcoin-price';
 import * as profitability from './profitability';
+import * as discovery from './device-discovery';
+import * as systemTray from './system-tray';
+import * as alertSystem from './alert-system';
+import * as deviceControl from './device-control';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -48,6 +52,17 @@ function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show();
+
+    // Create system tray
+    if (mainWindow) {
+      systemTray.createTray(mainWindow);
+      alertSystem.initialize(mainWindow);
+    }
+  });
+
+  // Handle close event - minimize to tray instead of closing
+  mainWindow.on('close', (event) => {
+    systemTray.handleWindowClose(event);
   });
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -63,9 +78,21 @@ function createWindow(): void {
     mainWindow.loadURL('app://renderer/index.html');
   }
 
-  // Set up poller callback to forward metrics to renderer
+  // Set up poller callback to forward metrics to renderer and process alerts
   poller.setMetricsCallback((deviceId, data, isOnline) => {
     mainWindow?.webContents.send('device-metrics', { deviceId, data, isOnline });
+
+    // Process alerts
+    const device = devices.getDeviceById(deviceId);
+    if (device) {
+      alertSystem.processDeviceMetrics(
+        deviceId,
+        device.name,
+        isOnline,
+        data?.hashRate || 0,
+        data?.temp || 0
+      );
+    }
   });
 }
 
@@ -133,10 +160,17 @@ if (!gotTheLock) {
     if (process.platform !== 'darwin') {
       // Stop all polling
       poller.stopAllPolling();
+      // Destroy tray
+      systemTray.destroyTray();
       // Close database
       closeDatabase();
       app.quit();
     }
+  });
+
+  // Clean up before quit
+  app.on('before-quit', () => {
+    systemTray.destroyTray();
   });
 }
 
@@ -156,6 +190,67 @@ ipcMain.handle('verify-pin', async (_, pin: string) => {
 
 ipcMain.handle('change-pin', async (_, currentPin: string, newPin: string) => {
   return auth.changePassword(currentPin, newPin);
+});
+
+// IPC Handlers - Password Management (for Settings page)
+ipcMain.handle('is-password-set', () => {
+  return auth.isPasswordSet();
+});
+
+ipcMain.handle('change-password', async (_, currentPassword: string, newPassword: string) => {
+  return auth.changePassword(currentPassword, newPassword);
+});
+
+ipcMain.handle('reset-password', async () => {
+  // Clear the password hash from settings
+  const db = require('./database').getDatabase();
+  db.prepare('DELETE FROM settings WHERE key = ?').run('password_hash');
+  return { success: true };
+});
+
+// IPC Handlers - System Tray
+ipcMain.handle('get-minimize-to-tray', () => {
+  return systemTray.isMinimizeToTrayEnabled();
+});
+
+ipcMain.handle('set-minimize-to-tray', (_, enabled: boolean) => {
+  systemTray.setMinimizeToTray(enabled);
+  return { success: true };
+});
+
+// IPC Handlers - Alert System
+ipcMain.handle('get-alert-config', () => {
+  return alertSystem.getConfig();
+});
+
+ipcMain.handle('set-alert-config', async (_, config: Partial<alertSystem.AlertConfig>) => {
+  await alertSystem.saveConfig(config);
+  return { success: true };
+});
+
+ipcMain.handle('test-alert-notification', () => {
+  return alertSystem.testNotification();
+});
+
+// IPC Handlers - Device Control
+ipcMain.handle('restart-device', async (_, ipAddress: string) => {
+  return deviceControl.restartDevice(ipAddress);
+});
+
+ipcMain.handle('set-device-fan-speed', async (_, ipAddress: string, speed: number) => {
+  return deviceControl.setFanSpeed(ipAddress, speed);
+});
+
+ipcMain.handle('set-device-frequency', async (_, ipAddress: string, frequency: number) => {
+  return deviceControl.setFrequency(ipAddress, frequency);
+});
+
+ipcMain.handle('update-device-settings', async (_, ipAddress: string, settings: deviceControl.DeviceSettings) => {
+  return deviceControl.updateDeviceSettings(ipAddress, settings);
+});
+
+ipcMain.handle('update-pool-settings', async (_, ipAddress: string, stratumURL: string, stratumUser: string, stratumPassword?: string) => {
+  return deviceControl.updatePoolSettings(ipAddress, stratumURL, stratumUser, stratumPassword);
 });
 
 // IPC Handlers - Devices
@@ -238,6 +333,49 @@ ipcMain.handle('update-device', async (_, id: string, device: { name?: string; i
   return updated;
 });
 
+// IPC Handlers - Device Discovery
+ipcMain.handle('start-device-discovery', async (event) => {
+  const checkExisting = (ip: string): boolean => {
+    const existing = devices.getDeviceByIp(ip);
+    return existing !== null;
+  };
+
+  const onProgress = (progress: discovery.DiscoveryProgress): void => {
+    // Send progress to renderer
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('discovery-progress', progress);
+    }
+  };
+
+  try {
+    const discovered = await discovery.discoverDevices(onProgress, checkExisting);
+    return { success: true, devices: discovered };
+  } catch (err) {
+    console.error('Discovery failed:', err);
+    return { success: false, error: 'Discovery failed' };
+  }
+});
+
+ipcMain.handle('cancel-device-discovery', () => {
+  discovery.cancelDiscovery();
+  return { success: true };
+});
+
+ipcMain.handle('add-discovered-device', async (_, ip: string, hostname: string) => {
+  // Check if already exists
+  const existing = devices.getDeviceByIp(ip);
+  if (existing) {
+    return { success: false, error: 'Device already added' };
+  }
+
+  const newDevice = devices.createDevice(hostname, ip);
+  if (newDevice) {
+    poller.startPolling(newDevice);
+    return { success: true, device: newDevice };
+  }
+  return { success: false, error: 'Failed to create device' };
+});
+
 // IPC Handlers - Metrics
 ipcMain.handle('get-device-metrics', async (_, deviceId: string, hours?: number) => {
   const startTime = Date.now() - (hours || 24) * 60 * 60 * 1000;
@@ -295,8 +433,14 @@ ipcMain.handle('get-tunnel-status', async () => {
 });
 
 ipcMain.handle('start-tunnel', async () => {
-  const port = server.getServerPort();
-  return tunnel.startTunnel(port);
+  try {
+    const port = server.getServerPort();
+    const url = await tunnel.startTunnel(port);
+    return { success: true, url };
+  } catch (error) {
+    console.error('Tunnel start error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to start tunnel' };
+  }
 });
 
 ipcMain.handle('stop-tunnel', async () => {

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useDeviceStore } from '../stores/deviceStore';
+import { useCryptoStore } from '../stores/cryptoStore';
 
 interface ProfitabilityResult {
   dailyBtc: number;
@@ -34,6 +35,7 @@ interface NetworkStats {
 
 export function ProfitabilityDisplay() {
   const { devices } = useDeviceStore();
+  const { price: cryptoPrice, selectedCoin, selectedCurrency } = useCryptoStore();
   const [profitability, setProfitability] = useState<ProfitabilityResult | null>(null);
   const [networkStats, setNetworkStats] = useState<NetworkStats | null>(null);
   const [electricityCost, setElectricityCost] = useState(0.10);
@@ -55,7 +57,7 @@ export function ProfitabilityDisplay() {
     loadSettings();
   }, []);
 
-  // Calculate profitability when devices or settings change
+  // Calculate profitability when devices, crypto price, or settings change
   useEffect(() => {
     const calculateProfitability = async () => {
       // Get online devices with metrics
@@ -86,25 +88,24 @@ export function ProfitabilityDisplay() {
         return;
       }
 
-      try {
-        // Get BTC price
-        const btcPrice = await window.electronAPI.getBitcoinPrice();
-        if (!btcPrice || !btcPrice.price) {
-          setLoading(false);
-          return;
-        }
+      // Use price from crypto store
+      if (!cryptoPrice || !cryptoPrice.price) {
+        setLoading(false);
+        return;
+      }
 
+      try {
         // Get network stats
         const stats = await window.electronAPI.getNetworkStats();
         if (stats) {
           setNetworkStats(stats);
         }
 
-        // Calculate profitability
+        // Calculate profitability using the selected coin's price
         const result = await window.electronAPI.calculateProfitability(
           totalHashrateGH,
           totalPowerWatts,
-          btcPrice.price,
+          cryptoPrice.price,
           electricityCost
         );
 
@@ -120,7 +121,7 @@ export function ProfitabilityDisplay() {
     // Refresh every 60 seconds
     const interval = setInterval(calculateProfitability, 60000);
     return () => clearInterval(interval);
-  }, [devices, electricityCost]);
+  }, [devices, electricityCost, cryptoPrice]);
 
   // Handle electricity cost change
   const handleElectricityCostChange = async (newCost: number) => {
@@ -137,13 +138,14 @@ export function ProfitabilityDisplay() {
     return sats.toLocaleString();
   };
 
-  const formatUsd = (usd: number): string => {
+  const formatCurrency = (value: number): string => {
+    const currencyCode = selectedCurrency?.code?.toUpperCase() || 'USD';
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD',
+      currency: currencyCode,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(usd);
+    }).format(value);
   };
 
   const formatDifficulty = (diff: number): string => {
@@ -152,6 +154,10 @@ export function ProfitabilityDisplay() {
     if (diff >= 1e6) return (diff / 1e6).toFixed(2) + 'M';
     return diff.toLocaleString();
   };
+
+  // Get coin symbol for display
+  const coinSymbol = selectedCoin?.symbol || 'BTC';
+  const coinName = selectedCoin?.name || 'Bitcoin';
 
   if (loading) {
     return (
@@ -187,7 +193,7 @@ export function ProfitabilityDisplay() {
           <svg className="w-3 h-3 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          Est. Earnings
+          Est. Earnings ({coinSymbol})
           <svg
             className={`w-3 h-3 ml-auto transition-transform ${showDetails ? 'rotate-180' : ''}`}
             fill="none"
@@ -210,7 +216,7 @@ export function ProfitabilityDisplay() {
         <div className="flex justify-between items-baseline">
           <span className="text-xs text-text-secondary"></span>
           <span className={`text-xs font-mono ${isProfitable ? 'text-success' : 'text-danger'}`}>
-            {formatUsd(profitability.dailyProfit)} net
+            {formatCurrency(profitability.dailyProfit)} net
           </span>
         </div>
       </div>
@@ -218,6 +224,11 @@ export function ProfitabilityDisplay() {
       {/* Expanded details */}
       {showDetails && (
         <div className="mt-3 pt-3 border-t border-border/30 space-y-3">
+          {/* Coin info */}
+          <div className="text-xs text-text-secondary/70 bg-bg-primary/50 rounded px-2 py-1">
+            Using {coinName} price: {formatCurrency(cryptoPrice?.price || 0)}
+          </div>
+
           {/* Monthly earnings */}
           <div>
             <div className="text-xs text-text-secondary uppercase tracking-wider mb-1">Monthly</div>
@@ -227,12 +238,12 @@ export function ProfitabilityDisplay() {
             </div>
             <div className="flex justify-between text-xs">
               <span className="text-text-secondary">Power Cost:</span>
-              <span className="font-mono text-danger">-{formatUsd(profitability.monthlyPowerCost)}</span>
+              <span className="font-mono text-danger">-{formatCurrency(profitability.monthlyPowerCost)}</span>
             </div>
             <div className="flex justify-between text-xs font-semibold">
               <span className="text-text-secondary">Net Profit:</span>
               <span className={`font-mono ${profitability.monthlyProfit >= 0 ? 'text-success' : 'text-danger'}`}>
-                {formatUsd(profitability.monthlyProfit)}
+                {formatCurrency(profitability.monthlyProfit)}
               </span>
             </div>
           </div>

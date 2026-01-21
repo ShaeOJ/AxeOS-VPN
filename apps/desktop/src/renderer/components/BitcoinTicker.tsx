@@ -1,48 +1,39 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
 import { createPortal } from 'react-dom';
-
-interface CryptoPrice {
-  price: number;
-  change_24h: number;
-  vol_24h: number;
-  currency: string;
-  last_updated: number;
-}
-
-interface CoinInfo {
-  id: string;
-  symbol: string;
-  name: string;
-}
-
-interface CurrencyInfo {
-  code: string;
-  symbol: string;
-  name: string;
-}
-
-interface PriceHistoryPoint {
-  timestamp: number;
-  price: number;
-}
+import { useCryptoStore, CoinInfo, CurrencyInfo } from '../stores/cryptoStore';
 
 export function BitcoinTicker() {
-  const [price, setPrice] = useState<CryptoPrice | null>(null);
-  const [coins, setCoins] = useState<CoinInfo[]>([]);
-  const [selectedCoin, setSelectedCoin] = useState<CoinInfo | null>(null);
-  const [currencies, setCurrencies] = useState<CurrencyInfo[]>([]);
-  const [selectedCurrency, setSelectedCurrency] = useState<CurrencyInfo | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const {
+    coins,
+    currencies,
+    selectedCoin,
+    selectedCurrency,
+    price,
+    priceHistory,
+    isLoading,
+    isRefreshing,
+    error,
+    isInitialized,
+    initialize,
+    setSelectedCoin,
+    setSelectedCurrency,
+    startPolling,
+  } = useCryptoStore();
+
   const [coinDropdownOpen, setCoinDropdownOpen] = useState(false);
   const [currencyDropdownOpen, setCurrencyDropdownOpen] = useState(false);
-  const [priceHistory, setPriceHistory] = useState<PriceHistoryPoint[]>([]);
-  const historyIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const coinButtonRef = useRef<HTMLButtonElement>(null);
   const currencyButtonRef = useRef<HTMLButtonElement>(null);
   const [coinDropdownPos, setCoinDropdownPos] = useState({ top: 0, left: 0 });
   const [currencyDropdownPos, setCurrencyDropdownPos] = useState({ top: 0, left: 0 });
+
+  // Initialize store and start polling
+  useEffect(() => {
+    initialize();
+    const cleanup = startPolling();
+    return cleanup;
+  }, []);
 
   // Calculate dropdown position when opening
   const updateCoinDropdownPos = useCallback(() => {
@@ -59,117 +50,16 @@ export function BitcoinTicker() {
     }
   }, []);
 
-  // Load supported coins, currencies, and saved preferences
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [supportedCoins, supportedCurrencies, settings] = await Promise.all([
-          window.electronAPI.getSupportedCoins(),
-          window.electronAPI.getSupportedCurrencies(),
-          window.electronAPI.getSettings(),
-        ]);
-
-        setCoins(supportedCoins);
-        setCurrencies(supportedCurrencies);
-
-        // Load saved coin preference or default to Bitcoin
-        const savedCoinId = settings['ticker_coin'] || 'bitcoin';
-        const savedCoin = supportedCoins.find((c) => c.id === savedCoinId) || supportedCoins[0];
-        setSelectedCoin(savedCoin);
-
-        // Load saved currency preference or default to USD
-        const savedCurrencyCode = settings['ticker_currency'] || 'usd';
-        const savedCurrency = supportedCurrencies.find((c) => c.code === savedCurrencyCode) || supportedCurrencies[0];
-        setSelectedCurrency(savedCurrency);
-      } catch (err) {
-        console.error('Failed to load coins/currencies:', err);
-        // Fallback defaults
-        setSelectedCoin({ id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin' });
-        setSelectedCurrency({ code: 'usd', symbol: '$', name: 'US Dollar' });
-      }
-    };
-    loadData();
-  }, []);
-
-  // Fetch price when selected coin or currency changes
-  const fetchPrice = async () => {
-    if (!selectedCoin || !selectedCurrency) return;
-
-    try {
-      const data = await window.electronAPI.getCryptoPrice(selectedCoin.id, selectedCurrency.code);
-      if (data) {
-        setPrice(data);
-        setError(false);
-      } else {
-        setError(true);
-      }
-    } catch (err) {
-      console.error('Failed to fetch crypto price:', err);
-      setError(true);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Fetch price history for sparkline
-  const fetchHistory = async () => {
-    if (!selectedCoin || !selectedCurrency) return;
-
-    try {
-      const history = await window.electronAPI.getPriceHistory(selectedCoin.id, selectedCurrency.code, 7);
-      setPriceHistory(history);
-    } catch (err) {
-      console.error('Failed to fetch price history:', err);
-    }
-  };
-
-  // Price fetching effect (30s interval)
-  useEffect(() => {
-    if (selectedCoin && selectedCurrency) {
-      setLoading(true);
-      fetchPrice();
-      // Refresh every 30 seconds
-      const interval = setInterval(fetchPrice, 30000);
-      return () => clearInterval(interval);
-    }
-  }, [selectedCoin, selectedCurrency]);
-
-  // History fetching effect (5min interval)
-  useEffect(() => {
-    if (selectedCoin && selectedCurrency) {
-      fetchHistory();
-      // Refresh history every 5 minutes
-      historyIntervalRef.current = setInterval(fetchHistory, 300000);
-      return () => {
-        if (historyIntervalRef.current) {
-          clearInterval(historyIntervalRef.current);
-        }
-      };
-    }
-  }, [selectedCoin, selectedCurrency]);
-
   // Handle coin selection
-  const handleCoinSelect = async (coin: CoinInfo) => {
+  const handleCoinSelect = (coin: CoinInfo) => {
     setSelectedCoin(coin);
     setCoinDropdownOpen(false);
-    setPriceHistory([]); // Clear history while loading new coin
-    try {
-      await window.electronAPI.setSetting('ticker_coin', coin.id);
-    } catch (err) {
-      console.error('Failed to save coin preference:', err);
-    }
   };
 
   // Handle currency selection
-  const handleCurrencySelect = async (currency: CurrencyInfo) => {
+  const handleCurrencySelect = (currency: CurrencyInfo) => {
     setSelectedCurrency(currency);
     setCurrencyDropdownOpen(false);
-    setPriceHistory([]); // Clear history while loading new currency
-    try {
-      await window.electronAPI.setSetting('ticker_currency', currency.code);
-    } catch (err) {
-      console.error('Failed to save currency preference:', err);
-    }
   };
 
   const formatPrice = (value: number): string => {
@@ -198,7 +88,7 @@ export function BitcoinTicker() {
     return `${sign}${change.toFixed(2)}%`;
   };
 
-  if (loading && !price) {
+  if (isLoading && !price) {
     return (
       <div className="p-4 border-b border-border/30 bg-bg-tertiary/30">
         <div className="text-xs text-text-secondary uppercase tracking-wider mb-2">CRYPTO</div>
@@ -224,7 +114,7 @@ export function BitcoinTicker() {
   const isPositive = price.change_24h >= 0;
 
   return (
-    <div className="p-4 border-b border-border/30 bg-bg-tertiary/30 relative">
+    <div className={`p-4 border-b border-border/30 bg-bg-tertiary/30 relative transition-opacity duration-150 ${isRefreshing ? 'opacity-70' : 'opacity-100'}`}>
       {/* Coin + Currency Selector Header */}
       <div className="flex items-center gap-1 mb-2">
         {/* Coin Selector */}

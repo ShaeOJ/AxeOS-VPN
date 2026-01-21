@@ -24,6 +24,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateDeviceIp: (id: string, ipAddress: string) => ipcRenderer.invoke('update-device-ip', id, ipAddress),
   refreshDevice: (id: string) => ipcRenderer.invoke('refresh-device', id),
 
+  // Device Discovery
+  startDeviceDiscovery: () => ipcRenderer.invoke('start-device-discovery'),
+  cancelDeviceDiscovery: () => ipcRenderer.invoke('cancel-device-discovery'),
+  addDiscoveredDevice: (ip: string, hostname: string) => ipcRenderer.invoke('add-discovered-device', ip, hostname),
+
   // Metrics
   getMetrics: (deviceId: string, options?: { startTime?: number; endTime?: number; limit?: number }) =>
     ipcRenderer.invoke('get-metrics', deviceId, options),
@@ -60,12 +65,35 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('change-password', currentPassword, newPassword),
   resetPassword: () => ipcRenderer.invoke('reset-password'),
 
+  // System Tray
+  getMinimizeToTray: () => ipcRenderer.invoke('get-minimize-to-tray'),
+  setMinimizeToTray: (enabled: boolean) => ipcRenderer.invoke('set-minimize-to-tray', enabled),
+
+  // Alert System
+  getAlertConfig: () => ipcRenderer.invoke('get-alert-config'),
+  setAlertConfig: (config: Partial<AlertConfig>) => ipcRenderer.invoke('set-alert-config', config),
+  testAlertNotification: () => ipcRenderer.invoke('test-alert-notification'),
+
+  // Device Control
+  restartDevice: (ipAddress: string) => ipcRenderer.invoke('restart-device', ipAddress),
+  setDeviceFanSpeed: (ipAddress: string, speed: number) => ipcRenderer.invoke('set-device-fan-speed', ipAddress, speed),
+  setDeviceFrequency: (ipAddress: string, frequency: number) => ipcRenderer.invoke('set-device-frequency', ipAddress, frequency),
+  updateDeviceSettings: (ipAddress: string, settings: DeviceSettings) => ipcRenderer.invoke('update-device-settings', ipAddress, settings),
+  updatePoolSettings: (ipAddress: string, stratumURL: string, stratumUser: string, stratumPassword?: string) =>
+    ipcRenderer.invoke('update-pool-settings', ipAddress, stratumURL, stratumUser, stratumPassword),
+
   // Events
   onDeviceMetrics: (callback: (data: { deviceId: string; data: AxeOSSystemInfo; isOnline: boolean }) => void) => {
     ipcRenderer.on('device-metrics', (_, data) => callback(data));
   },
   onWindowMaximized: (callback: (isMaximized: boolean) => void) => {
     ipcRenderer.on('window-maximized', (_, isMaximized) => callback(isMaximized));
+  },
+  onDiscoveryProgress: (callback: (progress: DiscoveryProgress) => void) => {
+    ipcRenderer.on('discovery-progress', (_, progress) => callback(progress));
+  },
+  onDeviceAlert: (callback: (alert: DeviceAlert) => void) => {
+    ipcRenderer.on('device-alert', (_, alert) => callback(alert));
   },
 
   // Remove listeners
@@ -195,6 +223,63 @@ export interface NetworkStats {
   lastUpdated: number;
 }
 
+export interface DiscoveredDevice {
+  ip: string;
+  hostname: string;
+  model: string;
+  hashRate: number;
+  version: string;
+  alreadyAdded: boolean;
+}
+
+export interface DiscoveryProgress {
+  scanned: number;
+  total: number;
+  found: DiscoveredDevice[];
+  currentIp: string;
+  isComplete: boolean;
+  isCancelled: boolean;
+}
+
+export interface DiscoveryResult {
+  success: boolean;
+  devices?: DiscoveredDevice[];
+  error?: string;
+}
+
+export interface AlertConfig {
+  deviceOffline: boolean;
+  temperatureThreshold: number;
+  temperatureEnabled: boolean;
+  hashrateDropPercent: number;
+  hashrateEnabled: boolean;
+  notificationsEnabled: boolean;
+}
+
+export interface DeviceAlert {
+  type: 'offline' | 'temperature' | 'hashrate';
+  deviceId: string;
+  deviceName: string;
+  message: string;
+  value?: number;
+  threshold?: number;
+}
+
+export interface DeviceSettings {
+  frequency?: number;
+  coreVoltage?: number;
+  fanSpeed?: number;
+  stratumURL?: string;
+  stratumUser?: string;
+  stratumPassword?: string;
+}
+
+export interface DeviceControlResult {
+  success: boolean;
+  error?: string;
+  data?: unknown;
+}
+
 export interface ProfitabilityResult {
   dailyBtc: number;
   weeklyBtc: number;
@@ -239,6 +324,10 @@ declare global {
       updateDeviceIp: (id: string, ipAddress: string) => Promise<{ success: boolean }>;
       refreshDevice: (id: string) => Promise<{ success: boolean; data?: AxeOSSystemInfo; error?: string }>;
 
+      startDeviceDiscovery: () => Promise<DiscoveryResult>;
+      cancelDeviceDiscovery: () => Promise<{ success: boolean }>;
+      addDiscoveredDevice: (ip: string, hostname: string) => Promise<AddDeviceResult>;
+
       getMetrics: (deviceId: string, options?: { startTime?: number; endTime?: number; limit?: number }) => Promise<MetricData[]>;
       getLatestMetrics: (deviceId: string) => Promise<{ timestamp: number; data: AxeOSSystemInfo } | null>;
 
@@ -265,8 +354,23 @@ declare global {
       changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
       resetPassword: () => Promise<{ success: boolean }>;
 
+      getMinimizeToTray: () => Promise<boolean>;
+      setMinimizeToTray: (enabled: boolean) => Promise<{ success: boolean }>;
+
+      getAlertConfig: () => Promise<AlertConfig>;
+      setAlertConfig: (config: Partial<AlertConfig>) => Promise<{ success: boolean }>;
+      testAlertNotification: () => Promise<{ success: boolean; message: string }>;
+
+      restartDevice: (ipAddress: string) => Promise<DeviceControlResult>;
+      setDeviceFanSpeed: (ipAddress: string, speed: number) => Promise<DeviceControlResult>;
+      setDeviceFrequency: (ipAddress: string, frequency: number) => Promise<DeviceControlResult>;
+      updateDeviceSettings: (ipAddress: string, settings: DeviceSettings) => Promise<DeviceControlResult>;
+      updatePoolSettings: (ipAddress: string, stratumURL: string, stratumUser: string, stratumPassword?: string) => Promise<DeviceControlResult>;
+
       onDeviceMetrics: (callback: (data: { deviceId: string; data: AxeOSSystemInfo; isOnline: boolean }) => void) => void;
       onWindowMaximized: (callback: (isMaximized: boolean) => void) => void;
+      onDiscoveryProgress: (callback: (progress: DiscoveryProgress) => void) => void;
+      onDeviceAlert: (callback: (alert: DeviceAlert) => void) => void;
       removeAllListeners: (channel: string) => void;
     };
   }

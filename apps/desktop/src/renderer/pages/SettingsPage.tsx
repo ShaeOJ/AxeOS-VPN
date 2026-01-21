@@ -29,12 +29,57 @@ export function SettingsPage() {
   const [isSavingPassword, setIsSavingPassword] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
+  // System Tray state
+  const [minimizeToTray, setMinimizeToTray] = useState(true);
+
+  // Alert state
+  const [alertConfig, setAlertConfig] = useState({
+    deviceOffline: true,
+    temperatureThreshold: 70,
+    temperatureEnabled: true,
+    hashrateDropPercent: 20,
+    hashrateEnabled: true,
+    notificationsEnabled: true
+  });
+  const [notificationTestResult, setNotificationTestResult] = useState<{ success: boolean; message: string } | null>(null);
+
   useEffect(() => {
     window.electronAPI.getAppVersion().then(setAppVersion);
     fetchStatus();
     loadTunnelStatus();
     loadPasswordStatus();
+    loadTraySettings();
+    loadAlertConfig();
   }, []);
+
+  const loadTraySettings = async () => {
+    const enabled = await window.electronAPI.getMinimizeToTray();
+    setMinimizeToTray(enabled);
+  };
+
+  const handleMinimizeToTrayChange = async (enabled: boolean) => {
+    setMinimizeToTray(enabled);
+    await window.electronAPI.setMinimizeToTray(enabled);
+  };
+
+  const loadAlertConfig = async () => {
+    const config = await window.electronAPI.getAlertConfig();
+    setAlertConfig(config);
+  };
+
+  const handleAlertConfigChange = async (key: string, value: boolean | number) => {
+    const newConfig = { ...alertConfig, [key]: value };
+    setAlertConfig(newConfig);
+    await window.electronAPI.setAlertConfig({ [key]: value });
+  };
+
+  const handleTestNotification = async () => {
+    setNotificationTestResult(null);
+    const result = await window.electronAPI.testAlertNotification();
+    setNotificationTestResult(result);
+    // Clear the message after 5 seconds
+    setTimeout(() => setNotificationTestResult(null), 5000);
+  };
 
   const loadTunnelStatus = async () => {
     const status = await window.electronAPI.getTunnelStatus();
@@ -186,6 +231,12 @@ export function SettingsPage() {
               })}
             </div>
           </div>
+          {/* QR Code for Local Network Access */}
+          {status?.addresses && status.addresses.length > 0 && (
+            <div className="flex justify-center">
+              <QRCodeDisplay url={`http://${status.addresses[0]}:${status.port}`} />
+            </div>
+          )}
           <div className="flex items-center gap-4">
             <div>
               <label className="block text-sm text-text-secondary mb-1">Port</label>
@@ -458,6 +509,160 @@ export function SettingsPage() {
                 </kbd>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Application Settings */}
+      <section className="rounded-xl bg-bg-secondary border border-border overflow-hidden">
+        <div className="p-4 border-b border-border">
+          <h2 className="text-lg font-medium text-text-primary">Application</h2>
+        </div>
+        <div className="p-4 space-y-4">
+          {/* Minimize to Tray */}
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm font-medium text-text-primary">Minimize to System Tray</div>
+              <div className="text-xs text-text-secondary">
+                When enabled, closing the window will minimize to the system tray instead of quitting
+              </div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={minimizeToTray}
+                onChange={(e) => handleMinimizeToTrayChange(e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-bg-tertiary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-secondary after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent peer-checked:after:bg-bg-primary"></div>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      {/* Alert Settings */}
+      <section className="rounded-xl bg-bg-secondary border border-border overflow-hidden">
+        <div className="p-4 border-b border-border flex items-center justify-between">
+          <h2 className="text-lg font-medium text-text-primary">Alerts & Notifications</h2>
+          <button
+            onClick={handleTestNotification}
+            className="px-3 py-1 text-xs rounded bg-accent/20 text-accent border border-accent/30 hover:bg-accent/30 transition-colors"
+          >
+            Test Notification
+          </button>
+        </div>
+        {notificationTestResult && (
+          <div className={`mx-4 mb-4 p-3 rounded text-sm ${notificationTestResult.success ? 'bg-success/10 text-success border border-success/20' : 'bg-warning/10 text-warning border border-warning/20'}`}>
+            {notificationTestResult.message}
+          </div>
+        )}
+        <div className="p-4 space-y-4">
+          {/* Master Notifications Toggle */}
+          <div className="flex items-center justify-between pb-4 border-b border-border/30">
+            <div>
+              <div className="text-sm font-medium text-text-primary">Desktop Notifications</div>
+              <div className="text-xs text-text-secondary">
+                Show system notifications for alerts
+              </div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={alertConfig.notificationsEnabled}
+                onChange={(e) => handleAlertConfigChange('notificationsEnabled', e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-bg-tertiary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-secondary after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent peer-checked:after:bg-bg-primary"></div>
+            </label>
+          </div>
+
+          {/* Device Offline Alert */}
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm font-medium text-text-primary">Device Offline Alert</div>
+              <div className="text-xs text-text-secondary">
+                Notify when a device goes offline
+              </div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={alertConfig.deviceOffline}
+                onChange={(e) => handleAlertConfigChange('deviceOffline', e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-bg-tertiary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-secondary after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent peer-checked:after:bg-bg-primary"></div>
+            </label>
+          </div>
+
+          {/* Temperature Alert */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium text-text-primary">High Temperature Alert</div>
+                <div className="text-xs text-text-secondary">
+                  Notify when device temperature exceeds threshold
+                </div>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={alertConfig.temperatureEnabled}
+                  onChange={(e) => handleAlertConfigChange('temperatureEnabled', e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-bg-tertiary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-secondary after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent peer-checked:after:bg-bg-primary"></div>
+              </label>
+            </div>
+            {alertConfig.temperatureEnabled && (
+              <div className="flex items-center gap-2 ml-4">
+                <span className="text-xs text-text-secondary">Threshold:</span>
+                <input
+                  type="number"
+                  value={alertConfig.temperatureThreshold}
+                  onChange={(e) => handleAlertConfigChange('temperatureThreshold', parseInt(e.target.value) || 70)}
+                  min={50}
+                  max={100}
+                  className="w-16 px-2 py-1 text-xs font-mono bg-bg-primary border border-border rounded focus:border-accent focus:outline-none"
+                />
+                <span className="text-xs text-text-secondary">°C</span>
+              </div>
+            )}
+          </div>
+
+          {/* Hashrate Drop Alert */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium text-text-primary">Hashrate Drop Alert</div>
+                <div className="text-xs text-text-secondary">
+                  Notify when hashrate drops significantly
+                </div>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={alertConfig.hashrateEnabled}
+                  onChange={(e) => handleAlertConfigChange('hashrateEnabled', e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-bg-tertiary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-secondary after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent peer-checked:after:bg-bg-primary"></div>
+              </label>
+            </div>
+            {alertConfig.hashrateEnabled && (
+              <div className="flex items-center gap-2 ml-4">
+                <span className="text-xs text-text-secondary">Drop threshold:</span>
+                <input
+                  type="number"
+                  value={alertConfig.hashrateDropPercent}
+                  onChange={(e) => handleAlertConfigChange('hashrateDropPercent', parseInt(e.target.value) || 20)}
+                  min={5}
+                  max={90}
+                  className="w-16 px-2 py-1 text-xs font-mono bg-bg-primary border border-border rounded focus:border-accent focus:outline-none"
+                />
+                <span className="text-xs text-text-secondary">%</span>
+              </div>
+            )}
           </div>
         </div>
       </section>

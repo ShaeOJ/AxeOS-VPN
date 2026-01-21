@@ -46,12 +46,12 @@ export function Layout() {
         <div className="h-1 bg-gradient-to-r from-transparent via-accent to-transparent" />
 
         {/* Logo/Header */}
-        <div className="p-6 border-b-2 border-border/50">
+        <div className="p-4 border-b-2 border-border/50">
           <div className="flex items-center justify-center">
             <img
               src={logoImage}
               alt="AxeOS VPN"
-              className="w-full max-w-[200px] h-auto object-contain drop-shadow-lg"
+              className="w-full max-w-[140px] h-auto object-contain drop-shadow-lg"
               style={{ filter: 'drop-shadow(0 0 12px rgba(255, 176, 0, 0.4))' }}
             />
           </div>
@@ -121,13 +121,22 @@ export function Layout() {
           </NavLink>
         </nav>
 
-        {/* Remote Access Info - Terminal Style */}
+        {/* Local Network Access Info - Terminal Style */}
         <div className="p-4 border-t-2 border-border/50 bg-bg-terminal/30">
-          <div className="text-xs text-text-secondary uppercase tracking-wider mb-2">Remote Access</div>
+          <div className="text-xs text-text-secondary uppercase tracking-wider mb-2">Local Network Access</div>
           {status?.addresses && status.addresses.length > 0 && (
-            <div className="text-xs font-mono text-success terminal-glow break-all">
-              http://{status.addresses[0]}:{status.port}
-            </div>
+            <button
+              onClick={() => {
+                const url = `http://${status.addresses[0]}:${status.port}`;
+                window.electronAPI.openExternal(url);
+              }}
+              className="text-xs font-mono text-success terminal-glow break-all hover:text-accent transition-colors cursor-pointer text-left flex items-center gap-1 group"
+            >
+              <span>http://{status.addresses[0]}:{status.port}</span>
+              <svg className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </button>
           )}
         </div>
 
