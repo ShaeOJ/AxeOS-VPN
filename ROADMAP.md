@@ -7,12 +7,14 @@
 
 | Date | Feature | Status |
 |------|---------|--------|
-| 2026-01-21 | Major Feature Update | ✅ Implemented |
+| 2026-01-21 | **v1.2.0 STABLE RELEASE** | ✅ Released |
 | | - Auto-Discovery: Scan network for BitAxe devices | |
 | | - System Tray Mode: Minimize to tray, quick stats | |
 | | - Alert System: Offline, temperature, hashrate drop alerts | |
 | | - Device Control: Remote restart with confirmation | |
-| | - Web UI coin selection integration for profitability | |
+| | - Web UI feature parity with desktop app | |
+| | - Multi-firmware pool difficulty support | |
+| | - Historical metrics display fix | |
 | 2026-01-20 | Web UI Feature Parity | ✅ Implemented |
 | | - Profitability calculator widget added to web UI | |
 | | - Device management (add/edit/delete) in web UI | |
