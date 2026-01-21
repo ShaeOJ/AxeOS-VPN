@@ -458,8 +458,9 @@ export function DeviceDetailPage() {
                 <div className="text-accent font-bold">
                   {(() => {
                     // Check for various field names used by different firmware
-                    const diff = metrics.poolDifficulty ?? (metrics as Record<string, unknown>).pool_difficulty ?? (metrics as Record<string, unknown>).poolDiff ?? (metrics as Record<string, unknown>).diff;
-                    if (!diff) return '--';
+                    const m = metrics as Record<string, unknown>;
+                    const diff = metrics.poolDifficulty ?? m.pool_difficulty ?? m.poolDiff ?? m.stratum_difficulty ?? m.stratumDifficulty ?? m.stratumSuggestedDifficulty;
+                    if (diff === undefined || diff === null) return '--';
                     if (typeof diff === 'number') return diff.toLocaleString();
                     return String(diff);
                   })()}
