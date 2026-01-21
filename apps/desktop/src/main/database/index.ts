@@ -118,7 +118,6 @@ export function initDatabase(): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_metrics_device_timestamp ON metrics(device_id, timestamp);
     CREATE INDEX IF NOT EXISTS idx_alerts_device ON alerts(device_id);
     CREATE INDEX IF NOT EXISTS idx_devices_ip ON devices(ip_address);
-    CREATE INDEX IF NOT EXISTS idx_devices_group ON devices(group_id);
   `);
 
   // Migration: Add group_id column to existing devices table if missing
@@ -129,6 +128,9 @@ export function initDatabase(): Database.Database {
     db.exec('ALTER TABLE devices ADD COLUMN group_id TEXT REFERENCES device_groups(id) ON DELETE SET NULL');
     console.log('Migration complete: group_id column added');
   }
+
+  // Create group_id index after migration ensures column exists
+  db.exec('CREATE INDEX IF NOT EXISTS idx_devices_group ON devices(group_id)');
 
   // Initialize default settings
   const initSetting = db.prepare(`
