@@ -15,6 +15,13 @@ export function Layout() {
     fetchDevices();
     fetchStatus();
 
+    // Load and apply saved theme
+    window.electronAPI.getSettings().then((settings) => {
+      if (settings.theme) {
+        document.documentElement.className = `theme-${settings.theme}`;
+      }
+    });
+
     // Listen for real-time device metrics updates
     setupMetricsListener();
 

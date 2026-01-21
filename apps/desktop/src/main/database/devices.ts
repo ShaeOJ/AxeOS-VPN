@@ -7,6 +7,7 @@ export interface Device {
   poll_interval: number;
   last_seen: number | null;
   is_online: number;
+  group_id: string | null;
   created_at: number;
 }
 
@@ -73,4 +74,17 @@ export function updatePollInterval(id: string, interval: number): void {
 export function deleteDevice(id: string): void {
   const db = getDatabase();
   db.prepare('DELETE FROM devices WHERE id = ?').run(id);
+}
+
+export function setDeviceGroup(id: string, groupId: string | null): void {
+  const db = getDatabase();
+  db.prepare('UPDATE devices SET group_id = ? WHERE id = ?').run(groupId, id);
+}
+
+export function getDevicesByGroup(groupId: string | null): Device[] {
+  const db = getDatabase();
+  if (groupId === null) {
+    return db.prepare('SELECT * FROM devices WHERE group_id IS NULL ORDER BY created_at DESC').all() as Device[];
+  }
+  return db.prepare('SELECT * FROM devices WHERE group_id = ? ORDER BY created_at DESC').all(groupId) as Device[];
 }

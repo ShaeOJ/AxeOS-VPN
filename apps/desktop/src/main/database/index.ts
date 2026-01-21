@@ -59,6 +59,15 @@ export function initDatabase(): Database.Database {
       created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
     );
 
+    -- Device groups table
+    CREATE TABLE IF NOT EXISTS device_groups (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      color TEXT DEFAULT '#FFB000',
+      sort_order INTEGER DEFAULT 0,
+      created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
+    );
+
     -- Devices table (BitAxe devices accessed via IP)
     CREATE TABLE IF NOT EXISTS devices (
       id TEXT PRIMARY KEY,
@@ -67,6 +76,7 @@ export function initDatabase(): Database.Database {
       poll_interval INTEGER DEFAULT 5000,
       last_seen INTEGER,
       is_online INTEGER DEFAULT 0,
+      group_id TEXT REFERENCES device_groups(id) ON DELETE SET NULL,
       created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
     );
 
@@ -108,7 +118,17 @@ export function initDatabase(): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_metrics_device_timestamp ON metrics(device_id, timestamp);
     CREATE INDEX IF NOT EXISTS idx_alerts_device ON alerts(device_id);
     CREATE INDEX IF NOT EXISTS idx_devices_ip ON devices(ip_address);
+    CREATE INDEX IF NOT EXISTS idx_devices_group ON devices(group_id);
   `);
+
+  // Migration: Add group_id column to existing devices table if missing
+  const devicesTableInfo = db.prepare("PRAGMA table_info(devices)").all() as { name: string }[];
+  const hasGroupId = devicesTableInfo.some((col) => col.name === 'group_id');
+  if (!hasGroupId) {
+    console.log('Migrating devices table: adding group_id column...');
+    db.exec('ALTER TABLE devices ADD COLUMN group_id TEXT REFERENCES device_groups(id) ON DELETE SET NULL');
+    console.log('Migration complete: group_id column added');
+  }
 
   // Initialize default settings
   const initSetting = db.prepare(`

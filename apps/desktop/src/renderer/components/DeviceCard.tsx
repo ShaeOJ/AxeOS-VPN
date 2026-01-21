@@ -27,6 +27,14 @@ interface AxeOSSystemInfo {
   [key: string]: unknown;
 }
 
+interface DeviceGroup {
+  id: string;
+  name: string;
+  color: string;
+  sortOrder: number;
+  createdAt: number;
+}
+
 interface Device {
   id: string;
   name: string;
@@ -34,11 +42,14 @@ interface Device {
   isOnline: boolean;
   lastSeen: number | null;
   createdAt: number;
+  groupId?: string | null;
   latestMetrics?: AxeOSSystemInfo | null;
 }
 
 interface DeviceCardProps {
   device: Device;
+  groups?: DeviceGroup[];
+  onGroupChange?: (groupId: string | null) => void;
 }
 
 function formatHashrate(hashrate: number | null | undefined): string {
@@ -67,10 +78,18 @@ function formatRelativeTime(timestamp: number | null): string {
   return `${Math.floor(seconds / 86400)}d ago`;
 }
 
-export function DeviceCard({ device }: DeviceCardProps) {
+export function DeviceCard({ device, groups, onGroupChange }: DeviceCardProps) {
   const metrics = device.latestMetrics;
   const [isRestarting, setIsRestarting] = useState(false);
   const [showRestartConfirm, setShowRestartConfirm] = useState(false);
+  const [showGroupDropdown, setShowGroupDropdown] = useState(false);
+
+  const currentGroup = groups?.find(g => g.id === device.groupId);
+
+  const handleGroupSelect = (groupId: string | null) => {
+    onGroupChange?.(groupId);
+    setShowGroupDropdown(false);
+  };
 
   const handleRestart = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -188,43 +207,117 @@ export function DeviceCard({ device }: DeviceCardProps) {
       </Link>
 
       {/* Control Bar */}
-      {device.isOnline && (
-        <div className="px-4 py-2 border-t border-border/30 flex items-center justify-end gap-2">
-          <button
-            onClick={handleRestart}
-            disabled={isRestarting}
-            className={`px-2 py-1 text-xs rounded flex items-center gap-1 transition-colors ${
-              showRestartConfirm
-                ? 'bg-danger text-white'
-                : 'bg-bg-tertiary text-text-secondary hover:text-accent hover:bg-accent/10'
-            } disabled:opacity-50`}
-          >
-            {isRestarting ? (
+      <div className="px-4 py-2 border-t border-border/30 flex items-center justify-between gap-2">
+        {/* Group Selector */}
+        {groups && onGroupChange && (
+          <div className="relative">
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowGroupDropdown(!showGroupDropdown);
+              }}
+              className="flex items-center gap-1.5 px-2 py-1 text-xs rounded bg-bg-tertiary text-text-secondary hover:text-accent hover:bg-accent/10 transition-colors"
+            >
+              <div
+                className="w-2 h-2 rounded-full"
+                style={{ backgroundColor: currentGroup?.color || '#666' }}
+              />
+              <span className="max-w-[80px] truncate">{currentGroup?.name || 'No group'}</span>
+              <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {/* Dropdown Menu */}
+            {showGroupDropdown && (
               <>
-                <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                Restarting...
-              </>
-            ) : showRestartConfirm ? (
-              <>
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-                Confirm Restart
-              </>
-            ) : (
-              <>
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Restart
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowGroupDropdown(false);
+                  }}
+                />
+                <div className="absolute left-0 bottom-full mb-1 z-20 w-40 bg-bg-secondary border border-border rounded-lg shadow-lg overflow-hidden">
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleGroupSelect(null);
+                    }}
+                    className={`w-full px-3 py-2 text-xs text-left flex items-center gap-2 hover:bg-bg-tertiary transition-colors ${
+                      !device.groupId ? 'bg-accent/10 text-accent' : 'text-text-secondary'
+                    }`}
+                  >
+                    <div className="w-2 h-2 rounded-full bg-text-secondary/50" />
+                    No group
+                  </button>
+                  {groups.map((group) => (
+                    <button
+                      key={group.id}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleGroupSelect(group.id);
+                      }}
+                      className={`w-full px-3 py-2 text-xs text-left flex items-center gap-2 hover:bg-bg-tertiary transition-colors ${
+                        device.groupId === group.id ? 'bg-accent/10 text-accent' : 'text-text-primary'
+                      }`}
+                    >
+                      <div
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: group.color }}
+                      />
+                      {group.name}
+                    </button>
+                  ))}
+                </div>
               </>
             )}
-          </button>
+          </div>
+        )}
+
+        {/* Right side controls */}
+        <div className="flex items-center gap-2 ml-auto">
+          {device.isOnline && (
+            <button
+              onClick={handleRestart}
+              disabled={isRestarting}
+              className={`px-2 py-1 text-xs rounded flex items-center gap-1 transition-colors ${
+                showRestartConfirm
+                  ? 'bg-danger text-white'
+                  : 'bg-bg-tertiary text-text-secondary hover:text-accent hover:bg-accent/10'
+              } disabled:opacity-50`}
+            >
+              {isRestarting ? (
+                <>
+                  <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Restarting...
+                </>
+              ) : showRestartConfirm ? (
+                <>
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  Confirm Restart
+                </>
+              ) : (
+                <>
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Restart
+                </>
+              )}
+            </button>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

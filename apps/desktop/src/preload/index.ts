@@ -15,6 +15,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getServerStatus: () => ipcRenderer.invoke('get-server-status'),
   restartServer: () => ipcRenderer.invoke('restart-server'),
 
+  // Device Groups
+  getGroups: () => ipcRenderer.invoke('get-groups'),
+  createGroup: (name: string, color: string) => ipcRenderer.invoke('create-group', name, color),
+  updateGroup: (id: string, name: string, color: string) => ipcRenderer.invoke('update-group', id, name, color),
+  deleteGroup: (id: string) => ipcRenderer.invoke('delete-group', id),
+  setDeviceGroup: (deviceId: string, groupId: string | null) => ipcRenderer.invoke('set-device-group', deviceId, groupId),
+
   // Devices (IP-based BitAxe devices)
   getDevices: () => ipcRenderer.invoke('get-devices'),
   addDevice: (ipAddress: string, name?: string) => ipcRenderer.invoke('add-device', ipAddress, name),
@@ -147,6 +154,14 @@ export interface ServerStatus {
   setupRequired: boolean;
 }
 
+export interface DeviceGroup {
+  id: string;
+  name: string;
+  color: string;
+  sortOrder: number;
+  createdAt: number;
+}
+
 export interface Device {
   id: string;
   name: string;
@@ -154,6 +169,7 @@ export interface Device {
   isOnline: boolean;
   lastSeen: number | null;
   createdAt: number;
+  groupId: string | null;
   latestMetrics?: AxeOSSystemInfo | null;
 }
 
@@ -316,6 +332,13 @@ declare global {
 
       getServerStatus: () => Promise<ServerStatus>;
       restartServer: () => Promise<{ port: number; addresses: string[] }>;
+
+      // Device Groups
+      getGroups: () => Promise<DeviceGroup[]>;
+      createGroup: (name: string, color: string) => Promise<DeviceGroup>;
+      updateGroup: (id: string, name: string, color: string) => Promise<{ success: boolean }>;
+      deleteGroup: (id: string) => Promise<{ success: boolean }>;
+      setDeviceGroup: (deviceId: string, groupId: string | null) => Promise<{ success: boolean }>;
 
       getDevices: () => Promise<Device[]>;
       addDevice: (ipAddress: string, name?: string) => Promise<AddDeviceResult>;

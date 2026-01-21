@@ -4,8 +4,9 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  /* Vault-Tec Theme Colors */
+:root,
+.theme-vault-tec {
+  /* Vault-Tec Theme Colors (Default) */
   --color-bg-primary: #0a1929;
   --color-bg-secondary: #0d2137;
   --color-bg-tertiary: #112a45;
@@ -31,6 +32,191 @@
   --color-vault-yellow: #FFB000;
   --color-vault-blue: #0055AA;
   --color-pip-green: #00FF41;
+
+  --color-scanline: rgba(0, 255, 65, 0.03);
+  --color-scanline-glow: rgba(0, 255, 65, 0.15);
+}
+
+/* ========================================
+   NUKA-COLA RED THEME
+   ======================================== */
+.theme-nuka-cola {
+  --color-bg-primary: #1a0a0a;
+  --color-bg-secondary: #2a1515;
+  --color-bg-tertiary: #3a2020;
+  --color-bg-terminal: #1a0505;
+
+  --color-accent: #FF3131;
+  --color-accent-hover: #FF5555;
+  --color-accent-dim: #CC2020;
+
+  --color-success: #FF6B6B;
+  --color-success-dim: #FF4444;
+  --color-warning: #FFA500;
+  --color-danger: #FF0000;
+
+  --color-text-primary: #FFE8E8;
+  --color-text-secondary: #CC9999;
+  --color-text-terminal: #FF6B6B;
+
+  --color-border: #5c1a1a;
+  --color-border-highlight: #FF4444;
+  --color-border-glow: #FF3131;
+
+  --color-vault-yellow: #FF3131;
+  --color-vault-blue: #AA0000;
+  --color-pip-green: #FF6B6B;
+
+  --color-scanline: rgba(255, 49, 49, 0.03);
+  --color-scanline-glow: rgba(255, 49, 49, 0.15);
+}
+
+/* ========================================
+   BROTHERHOOD OF STEEL THEME
+   ======================================== */
+.theme-brotherhood {
+  --color-bg-primary: #0a0a1a;
+  --color-bg-secondary: #12122a;
+  --color-bg-tertiary: #1a1a3a;
+  --color-bg-terminal: #050510;
+
+  --color-accent: #4A90D9;
+  --color-accent-hover: #6AAAF9;
+  --color-accent-dim: #3070B9;
+
+  --color-success: #87CEEB;
+  --color-success-dim: #6BB8D5;
+  --color-warning: #FFD700;
+  --color-danger: #FF4444;
+
+  --color-text-primary: #E8E8FF;
+  --color-text-secondary: #9999CC;
+  --color-text-terminal: #87CEEB;
+
+  --color-border: #2a2a5c;
+  --color-border-highlight: #4A90D9;
+  --color-border-glow: #6AAAF9;
+
+  --color-vault-yellow: #4A90D9;
+  --color-vault-blue: #3070B9;
+  --color-pip-green: #87CEEB;
+
+  --color-scanline: rgba(74, 144, 217, 0.03);
+  --color-scanline-glow: rgba(74, 144, 217, 0.15);
+}
+
+/* ========================================
+   INSTITUTE THEME (Light)
+   ======================================== */
+.theme-institute {
+  --color-bg-primary: #f0f0f0;
+  --color-bg-secondary: #e0e0e0;
+  --color-bg-tertiary: #d0d0d0;
+  --color-bg-terminal: #ffffff;
+
+  --color-accent: #00A0A0;
+  --color-accent-hover: #00C0C0;
+  --color-accent-dim: #008080;
+
+  --color-success: #00CED1;
+  --color-success-dim: #00B0B3;
+  --color-warning: #FF8C00;
+  --color-danger: #DC143C;
+
+  --color-text-primary: #1a1a1a;
+  --color-text-secondary: #555555;
+  --color-text-terminal: #00A0A0;
+
+  --color-border: #b0b0b0;
+  --color-border-highlight: #00A0A0;
+  --color-border-glow: #00CED1;
+
+  --color-vault-yellow: #00A0A0;
+  --color-vault-blue: #008080;
+  --color-pip-green: #00CED1;
+
+  --color-scanline: rgba(0, 160, 160, 0.02);
+  --color-scanline-glow: rgba(0, 160, 160, 0.1);
+}
+
+/* Institute theme specific overrides for better contrast */
+.theme-institute body::before {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0px,
+      transparent 2px,
+      var(--color-scanline) 2px,
+      var(--color-scanline) 4px
+    );
+}
+
+/* ========================================
+   NCR THEME (Desert)
+   ======================================== */
+.theme-ncr {
+  --color-bg-primary: #1a1408;
+  --color-bg-secondary: #2a2010;
+  --color-bg-tertiary: #3a2c18;
+  --color-bg-terminal: #0d0a04;
+
+  --color-accent: #C4A35A;
+  --color-accent-hover: #D4B36A;
+  --color-accent-dim: #A4834A;
+
+  --color-success: #8B7355;
+  --color-success-dim: #6B5345;
+  --color-warning: #DAA520;
+  --color-danger: #CD5C5C;
+
+  --color-text-primary: #F5DEB3;
+  --color-text-secondary: #C4A060;
+  --color-text-terminal: #C4A35A;
+
+  --color-border: #5c4a2a;
+  --color-border-highlight: #C4A35A;
+  --color-border-glow: #D4B36A;
+
+  --color-vault-yellow: #C4A35A;
+  --color-vault-blue: #8B7355;
+  --color-pip-green: #DAA520;
+
+  --color-scanline: rgba(196, 163, 90, 0.03);
+  --color-scanline-glow: rgba(196, 163, 90, 0.15);
+}
+
+/* ========================================
+   ENCLAVE THEME (Dark Patriotic)
+   ======================================== */
+.theme-enclave {
+  --color-bg-primary: #0a0a14;
+  --color-bg-secondary: #141420;
+  --color-bg-tertiary: #1e1e2c;
+  --color-bg-terminal: #05050a;
+
+  --color-accent: #B22222;
+  --color-accent-hover: #D22222;
+  --color-accent-dim: #921212;
+
+  --color-success: #FFD700;
+  --color-success-dim: #CCAC00;
+  --color-warning: #FF6347;
+  --color-danger: #FF0000;
+
+  --color-text-primary: #F0F0F5;
+  --color-text-secondary: #9090A0;
+  --color-text-terminal: #FFD700;
+
+  --color-border: #3a3a5c;
+  --color-border-highlight: #B22222;
+  --color-border-glow: #FFD700;
+
+  --color-vault-yellow: #B22222;
+  --color-vault-blue: #191970;
+  --color-pip-green: #FFD700;
+
+  --color-scanline: rgba(178, 34, 34, 0.03);
+  --color-scanline-glow: rgba(255, 215, 0, 0.15);
 }
 
 * {
@@ -67,8 +253,8 @@ body::before {
       0deg,
       transparent 0px,
       transparent 2px,
-      rgba(0, 255, 65, 0.03) 2px,
-      rgba(0, 255, 65, 0.03) 4px
+      var(--color-scanline) 2px,
+      var(--color-scanline) 4px
     ),
     repeating-linear-gradient(
       90deg,
@@ -99,9 +285,9 @@ body::after {
     ),
     linear-gradient(
       180deg,
-      rgba(0, 255, 65, 0.01) 0%,
+      var(--color-scanline) 0%,
       transparent 50%,
-      rgba(0, 255, 65, 0.01) 100%
+      var(--color-scanline) 100%
     );
 }
 
@@ -120,7 +306,7 @@ body::after {
   background: linear-gradient(
     180deg,
     transparent,
-    rgba(0, 255, 65, 0.15),
+    var(--color-scanline-glow),
     transparent
   );
   animation: scanline-move 6s linear infinite;

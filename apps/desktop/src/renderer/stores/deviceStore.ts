@@ -36,6 +36,14 @@ interface AxeOSSystemInfo {
   [key: string]: unknown;
 }
 
+interface DeviceGroup {
+  id: string;
+  name: string;
+  color: string;
+  sortOrder: number;
+  createdAt: number;
+}
+
 interface Device {
   id: string;
   name: string;
@@ -43,11 +51,13 @@ interface Device {
   isOnline: boolean;
   lastSeen: number | null;
   createdAt: number;
+  groupId: string | null;
   latestMetrics?: AxeOSSystemInfo | null;
 }
 
 interface DeviceState {
   devices: Device[];
+  groups: DeviceGroup[];
   selectedDeviceId: string | null;
   isLoading: boolean;
   error: string | null;
@@ -71,10 +81,18 @@ interface DeviceState {
   refreshDevice: (deviceId: string) => Promise<void>;
   testConnection: (ipAddress: string) => Promise<{ success: boolean; data?: AxeOSSystemInfo; error?: string }>;
   setupMetricsListener: () => void;
+
+  // Group actions
+  fetchGroups: () => Promise<void>;
+  createGroup: (name: string, color: string) => Promise<DeviceGroup>;
+  updateGroup: (id: string, name: string, color: string) => Promise<void>;
+  deleteGroup: (id: string) => Promise<void>;
+  setDeviceGroup: (deviceId: string, groupId: string | null) => Promise<void>;
 }
 
 export const useDeviceStore = create<DeviceState>()((set, get) => ({
   devices: [],
+  groups: [],
   selectedDeviceId: null,
   isLoading: false,
   error: null,
@@ -234,5 +252,52 @@ export const useDeviceStore = create<DeviceState>()((set, get) => ({
         get().updateDeviceStatus(deviceId, false);
       }
     });
+  },
+
+  // Group actions
+  fetchGroups: async () => {
+    try {
+      const groups = await window.electronAPI.getGroups();
+      set({ groups });
+    } catch (err) {
+      console.error('Failed to fetch groups:', err);
+    }
+  },
+
+  createGroup: async (name: string, color: string) => {
+    const group = await window.electronAPI.createGroup(name, color);
+    set((state) => ({
+      groups: [...state.groups, group],
+    }));
+    return group;
+  },
+
+  updateGroup: async (id: string, name: string, color: string) => {
+    await window.electronAPI.updateGroup(id, name, color);
+    set((state) => ({
+      groups: state.groups.map((g) =>
+        g.id === id ? { ...g, name, color } : g
+      ),
+    }));
+  },
+
+  deleteGroup: async (id: string) => {
+    await window.electronAPI.deleteGroup(id);
+    set((state) => ({
+      groups: state.groups.filter((g) => g.id !== id),
+      // Move devices from deleted group to ungrouped
+      devices: state.devices.map((d) =>
+        d.groupId === id ? { ...d, groupId: null } : d
+      ),
+    }));
+  },
+
+  setDeviceGroup: async (deviceId: string, groupId: string | null) => {
+    await window.electronAPI.setDeviceGroup(deviceId, groupId);
+    set((state) => ({
+      devices: state.devices.map((d) =>
+        d.id === deviceId ? { ...d, groupId } : d
+      ),
+    }));
   },
 }));

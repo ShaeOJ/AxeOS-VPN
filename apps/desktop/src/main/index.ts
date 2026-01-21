@@ -6,6 +6,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import { initDatabase, closeDatabase } from './database';
 import * as server from './server';
 import * as devices from './database/devices';
+import * as groups from './database/groups';
 import * as metrics from './database/metrics';
 import * as settings from './database/settings';
 import * as poller from './axeos-poller';
@@ -257,6 +258,43 @@ ipcMain.handle('update-pool-settings', async (_, ipAddress: string, stratumURL: 
   return deviceControl.updatePoolSettings(ipAddress, stratumURL, stratumUser, stratumPassword);
 });
 
+// IPC Handlers - Device Groups
+ipcMain.handle('get-groups', () => {
+  return groups.getAllGroups().map(g => ({
+    id: g.id,
+    name: g.name,
+    color: g.color,
+    sortOrder: g.sort_order,
+    createdAt: g.created_at,
+  }));
+});
+
+ipcMain.handle('create-group', (_, name: string, color: string) => {
+  const group = groups.createGroup(name, color);
+  return {
+    id: group.id,
+    name: group.name,
+    color: group.color,
+    sortOrder: group.sort_order,
+    createdAt: group.created_at,
+  };
+});
+
+ipcMain.handle('update-group', (_, id: string, name: string, color: string) => {
+  groups.updateGroup(id, name, color);
+  return { success: true };
+});
+
+ipcMain.handle('delete-group', (_, id: string) => {
+  groups.deleteGroup(id);
+  return { success: true };
+});
+
+ipcMain.handle('set-device-group', (_, deviceId: string, groupId: string | null) => {
+  devices.setDeviceGroup(deviceId, groupId);
+  return { success: true };
+});
+
 // IPC Handlers - Devices
 ipcMain.handle('get-devices', async () => {
   // Transform snake_case database fields to camelCase for frontend
@@ -268,6 +306,7 @@ ipcMain.handle('get-devices', async () => {
     isOnline: d.is_online === 1,
     lastSeen: d.last_seen,
     createdAt: d.created_at,
+    groupId: d.group_id,
     latestMetrics: poller.getLatestMetrics(d.id)?.data || null,
   }));
 });

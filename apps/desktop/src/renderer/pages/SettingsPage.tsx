@@ -8,6 +8,70 @@ interface TunnelStatus {
   isStarting: boolean;
 }
 
+// Theme definitions
+const THEMES = [
+  {
+    id: 'vault-tec',
+    name: 'Vault-Tec',
+    description: 'Classic yellow/green',
+    colors: {
+      bg: '#0a1929',
+      accent: '#FFB000',
+      success: '#00FF41',
+    },
+  },
+  {
+    id: 'nuka-cola',
+    name: 'Nuka-Cola',
+    description: 'Red/pink tones',
+    colors: {
+      bg: '#1a0a0a',
+      accent: '#FF3131',
+      success: '#FF6B6B',
+    },
+  },
+  {
+    id: 'brotherhood',
+    name: 'Brotherhood',
+    description: 'Blue/silver military',
+    colors: {
+      bg: '#0a0a1a',
+      accent: '#4A90D9',
+      success: '#87CEEB',
+    },
+  },
+  {
+    id: 'institute',
+    name: 'Institute',
+    description: 'Clean white/teal',
+    colors: {
+      bg: '#f0f0f0',
+      accent: '#00A0A0',
+      success: '#00CED1',
+    },
+  },
+  {
+    id: 'ncr',
+    name: 'NCR',
+    description: 'Desert tan/brown',
+    colors: {
+      bg: '#1a1408',
+      accent: '#C4A35A',
+      success: '#8B7355',
+    },
+  },
+  {
+    id: 'enclave',
+    name: 'Enclave',
+    description: 'Dark patriotic',
+    colors: {
+      bg: '#0a0a14',
+      accent: '#B22222',
+      success: '#FFD700',
+    },
+  },
+];
+
 export function SettingsPage() {
   const { status, fetchStatus } = useServerStore();
   const [appVersion, setAppVersion] = useState('');
@@ -43,6 +107,9 @@ export function SettingsPage() {
   });
   const [notificationTestResult, setNotificationTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
+  // Theme state
+  const [currentTheme, setCurrentTheme] = useState('vault-tec');
+
   useEffect(() => {
     window.electronAPI.getAppVersion().then(setAppVersion);
     fetchStatus();
@@ -50,7 +117,22 @@ export function SettingsPage() {
     loadPasswordStatus();
     loadTraySettings();
     loadAlertConfig();
+    loadTheme();
   }, []);
+
+  const loadTheme = async () => {
+    const settings = await window.electronAPI.getSettings();
+    if (settings.theme) {
+      setCurrentTheme(settings.theme);
+    }
+  };
+
+  const handleThemeChange = async (themeId: string) => {
+    setCurrentTheme(themeId);
+    await window.electronAPI.setSetting('theme', themeId);
+    // Apply theme to document
+    document.documentElement.className = `theme-${themeId}`;
+  };
 
   const loadTraySettings = async () => {
     const enabled = await window.electronAPI.getMinimizeToTray();
@@ -486,6 +568,60 @@ export function SettingsPage() {
           <div>
             <label className="block text-sm text-text-secondary mb-1">Platform</label>
             <div className="text-text-primary capitalize">{navigator.platform}</div>
+          </div>
+        </div>
+      </section>
+
+      {/* Appearance / Theme Selector */}
+      <section className="rounded-xl bg-bg-secondary border border-border overflow-hidden">
+        <div className="p-4 border-b border-border">
+          <h2 className="text-lg font-medium text-text-primary">Appearance</h2>
+        </div>
+        <div className="p-4 space-y-4">
+          <p className="text-sm text-text-secondary">
+            Choose a color theme for your dashboard. Changes apply immediately.
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {THEMES.map((theme) => (
+              <button
+                key={theme.id}
+                onClick={() => handleThemeChange(theme.id)}
+                className={`p-3 rounded-lg border-2 transition-all text-left ${
+                  currentTheme === theme.id
+                    ? 'border-accent bg-accent/10'
+                    : 'border-border hover:border-accent/50 bg-bg-primary'
+                }`}
+              >
+                {/* Color preview */}
+                <div className="flex gap-1 mb-2">
+                  <div
+                    className="w-6 h-6 rounded"
+                    style={{ backgroundColor: theme.colors.bg }}
+                    title="Background"
+                  />
+                  <div
+                    className="w-6 h-6 rounded"
+                    style={{ backgroundColor: theme.colors.accent }}
+                    title="Accent"
+                  />
+                  <div
+                    className="w-6 h-6 rounded"
+                    style={{ backgroundColor: theme.colors.success }}
+                    title="Success"
+                  />
+                </div>
+                <div className="text-sm font-medium text-text-primary">{theme.name}</div>
+                <div className="text-xs text-text-secondary">{theme.description}</div>
+                {currentTheme === theme.id && (
+                  <div className="mt-2 flex items-center gap-1 text-xs text-accent">
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    Active
+                  </div>
+                )}
+              </button>
+            ))}
           </div>
         </div>
       </section>

@@ -155,6 +155,61 @@ export function ProfitabilityDisplay() {
     return diff.toLocaleString();
   };
 
+  // Calculate block finding probability
+  const calculateBlockChance = () => {
+    if (!networkStats || !profitability || profitability.hashrate <= 0) return null;
+
+    // Network hashrate in H/s: difficulty * 2^32 / 600 (average block time in seconds)
+    const networkHashrateHs = (networkStats.difficulty * Math.pow(2, 32)) / 600;
+    // Convert our hashrate from GH/s to H/s
+    const ourHashrateHs = profitability.hashrate * 1e9;
+
+    // Probability of finding any given block
+    const probPerBlock = ourHashrateHs / networkHashrateHs;
+
+    // Blocks per day (144 on average - one every 10 minutes)
+    const blocksPerDay = 144;
+
+    // Expected time to find a block (in days)
+    const daysToBlock = 1 / (probPerBlock * blocksPerDay);
+
+    // Probability of finding at least one block in time period
+    // P(at least 1) = 1 - P(none) = 1 - (1 - p)^n
+    const probDaily = 1 - Math.pow(1 - probPerBlock, blocksPerDay);
+    const probWeekly = 1 - Math.pow(1 - probPerBlock, blocksPerDay * 7);
+    const probMonthly = 1 - Math.pow(1 - probPerBlock, blocksPerDay * 30);
+    const probYearly = 1 - Math.pow(1 - probPerBlock, blocksPerDay * 365);
+
+    return {
+      daysToBlock,
+      probDaily,
+      probWeekly,
+      probMonthly,
+      probYearly,
+      networkHashrateEH: networkHashrateHs / 1e18, // Convert to EH/s for display
+    };
+  };
+
+  const formatTimeToBlock = (days: number): string => {
+    if (days < 1) return `${Math.round(days * 24)} hours`;
+    if (days < 30) return `${Math.round(days)} days`;
+    if (days < 365) return `${(days / 30).toFixed(1)} months`;
+    if (days < 3650) return `${(days / 365).toFixed(1)} years`;
+    if (days < 36500) return `${Math.round(days / 365)} years`;
+    if (days < 365000) return `${(days / 365 / 1000).toFixed(1)}k years`;
+    if (days < 3650000) return `${Math.round(days / 365 / 1000)}k years`;
+    return `${(days / 365 / 1e6).toFixed(1)}M years`;
+  };
+
+  const formatProbability = (prob: number): string => {
+    if (prob >= 0.01) return `${(prob * 100).toFixed(2)}%`;
+    if (prob >= 0.0001) return `${(prob * 100).toFixed(4)}%`;
+    if (prob >= 1e-8) return `${(prob * 100).toExponential(2)}%`;
+    return `${(prob * 100).toExponential(1)}%`;
+  };
+
+  const blockChance = calculateBlockChance();
+
   // Get coin symbol for display
   const coinSymbol = selectedCoin?.symbol || 'BTC';
   const coinName = selectedCoin?.name || 'Bitcoin';
@@ -259,6 +314,43 @@ export function ProfitabilityDisplay() {
               <div className="flex justify-between text-xs">
                 <span className="text-text-secondary">Block:</span>
                 <span className="font-mono text-text-terminal">#{networkStats.blockHeight.toLocaleString()}</span>
+              </div>
+              {blockChance && (
+                <div className="flex justify-between text-xs">
+                  <span className="text-text-secondary">Network HR:</span>
+                  <span className="font-mono text-text-terminal">{blockChance.networkHashrateEH.toFixed(2)} EH/s</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Solo Mining / Block Chance */}
+          {blockChance && (
+            <div>
+              <div className="text-xs text-text-secondary uppercase tracking-wider mb-1 flex items-center gap-1">
+                <svg className="w-3 h-3 text-warning" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                </svg>
+                Solo Block Chance
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-text-secondary">Expected time:</span>
+                <span className="font-mono text-warning">{formatTimeToBlock(blockChance.daysToBlock)}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-text-secondary">Daily odds:</span>
+                <span className="font-mono text-text-terminal">{formatProbability(blockChance.probDaily)}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-text-secondary">Monthly odds:</span>
+                <span className="font-mono text-text-terminal">{formatProbability(blockChance.probMonthly)}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-text-secondary">Yearly odds:</span>
+                <span className="font-mono text-text-terminal">{formatProbability(blockChance.probYearly)}</span>
+              </div>
+              <div className="text-[10px] text-text-secondary/60 mt-1 italic">
+                Solo mining is a lottery - these are statistical averages
               </div>
             </div>
           )}

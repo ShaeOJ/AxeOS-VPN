@@ -4,6 +4,7 @@ import { useServerStore } from '../stores/serverStore';
 import { DeviceCard } from '../components/DeviceCard';
 import { PairingModal } from '../components/PairingModal';
 import { DiscoveryModal } from '../components/DiscoveryModal';
+import { GroupManager } from '../components/GroupManager';
 
 function formatHashrate(hashrate: number | null | undefined): string {
   if (!hashrate) return '--';
@@ -28,16 +29,39 @@ function formatEfficiency(efficiency: number | null | undefined): string {
 }
 
 export function DashboardPage() {
-  const { devices, isLoading, error, fetchDevices } = useDeviceStore();
+  const { devices, groups, isLoading, error, fetchDevices, fetchGroups, setDeviceGroup } = useDeviceStore();
   const { status, fetchStatus } = useServerStore();
   const [showPairingModal, setShowPairingModal] = useState(false);
   const [showDiscoveryModal, setShowDiscoveryModal] = useState(false);
+  const [showGroupManager, setShowGroupManager] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     // Initial fetch - Layout handles the metrics listener
     fetchDevices();
     fetchStatus();
+    fetchGroups();
   }, []);
+
+  const toggleGroupCollapse = (groupId: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) {
+        next.delete(groupId);
+      } else {
+        next.add(groupId);
+      }
+      return next;
+    });
+  };
+
+  // Group devices by their groupId
+  const devicesByGroup = devices.reduce((acc, device) => {
+    const key = device.groupId || 'ungrouped';
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(device);
+    return acc;
+  }, {} as Record<string, typeof devices>);
 
   const onlineDevices = devices.filter((d) => d.isOnline);
   const offlineDevices = devices.filter((d) => !d.isOnline);
@@ -81,6 +105,16 @@ export function DashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowGroupManager(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-bg-secondary border border-border text-text-primary font-medium hover:border-accent hover:text-accent transition-colors"
+            title="Manage groups"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+            Groups
+          </button>
           <button
             onClick={() => setShowDiscoveryModal(true)}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-bg-secondary border border-border text-text-primary font-medium hover:border-accent hover:text-accent transition-colors"
@@ -198,28 +232,103 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* Device Grid */}
+      {/* Device Grid - Organized by Groups */}
       {devices.length > 0 && (
-        <div className="space-y-6">
-          {onlineDevices.length > 0 && (
-            <div>
-              <h2 className="text-lg font-medium text-text-primary mb-4">Online</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {onlineDevices.map((device) => (
-                  <DeviceCard key={device.id} device={device} />
-                ))}
-              </div>
-            </div>
-          )}
+        <div className="space-y-4">
+          {/* Grouped Devices */}
+          {groups.map((group) => {
+            const groupDevices = devicesByGroup[group.id] || [];
+            if (groupDevices.length === 0) return null;
 
-          {offlineDevices.length > 0 && (
-            <div>
-              <h2 className="text-lg font-medium text-text-secondary mb-4">Offline</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {offlineDevices.map((device) => (
-                  <DeviceCard key={device.id} device={device} />
-                ))}
+            const isCollapsed = collapsedGroups.has(group.id);
+            const onlineCount = groupDevices.filter(d => d.isOnline).length;
+
+            return (
+              <div key={group.id} className="rounded-xl bg-bg-secondary border border-border overflow-hidden">
+                {/* Group Header */}
+                <button
+                  onClick={() => toggleGroupCollapse(group.id)}
+                  className="w-full p-4 flex items-center justify-between hover:bg-bg-tertiary/50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: group.color }}
+                    />
+                    <h2 className="text-lg font-medium text-text-primary">{group.name}</h2>
+                    <span className="text-sm text-text-secondary">
+                      ({onlineCount}/{groupDevices.length} online)
+                    </span>
+                  </div>
+                  <svg
+                    className={`w-5 h-5 text-text-secondary transition-transform ${isCollapsed ? '' : 'rotate-180'}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {/* Group Devices */}
+                {!isCollapsed && (
+                  <div className="p-4 pt-0">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {groupDevices.map((device) => (
+                        <DeviceCard
+                          key={device.id}
+                          device={device}
+                          groups={groups}
+                          onGroupChange={(groupId) => setDeviceGroup(device.id, groupId)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
+            );
+          })}
+
+          {/* Ungrouped Devices */}
+          {devicesByGroup['ungrouped']?.length > 0 && (
+            <div className="rounded-xl bg-bg-secondary border border-border overflow-hidden">
+              {/* Ungrouped Header */}
+              <button
+                onClick={() => toggleGroupCollapse('ungrouped')}
+                className="w-full p-4 flex items-center justify-between hover:bg-bg-tertiary/50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-3 h-3 rounded-full bg-text-secondary/50" />
+                  <h2 className="text-lg font-medium text-text-secondary">Ungrouped</h2>
+                  <span className="text-sm text-text-secondary">
+                    ({devicesByGroup['ungrouped'].filter(d => d.isOnline).length}/{devicesByGroup['ungrouped'].length} online)
+                  </span>
+                </div>
+                <svg
+                  className={`w-5 h-5 text-text-secondary transition-transform ${collapsedGroups.has('ungrouped') ? '' : 'rotate-180'}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {/* Ungrouped Devices */}
+              {!collapsedGroups.has('ungrouped') && (
+                <div className="p-4 pt-0">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {devicesByGroup['ungrouped'].map((device) => (
+                      <DeviceCard
+                        key={device.id}
+                        device={device}
+                        groups={groups}
+                        onGroupChange={(groupId) => setDeviceGroup(device.id, groupId)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -234,6 +343,12 @@ export function DashboardPage() {
       <DiscoveryModal
         isOpen={showDiscoveryModal}
         onClose={() => setShowDiscoveryModal(false)}
+      />
+
+      {/* Group Manager Modal */}
+      <GroupManager
+        isOpen={showGroupManager}
+        onClose={() => setShowGroupManager(false)}
       />
     </div>
   );
