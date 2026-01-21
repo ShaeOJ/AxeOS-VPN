@@ -53,11 +53,90 @@ export function DeviceDetailPage() {
   const [historicalMetrics, setHistoricalMetrics] = useState<MetricData[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
+  // Device control state
+  const [showControlPanel, setShowControlPanel] = useState(false);
+  const [fanSpeed, setFanSpeed] = useState<number>(0);
+  const [frequency, setFrequency] = useState<number>(0);
+  const [voltage, setVoltage] = useState<number>(0);
+  const [isSavingControl, setIsSavingControl] = useState<string | null>(null);
+  const [controlError, setControlError] = useState<string | null>(null);
+  const [controlSuccess, setControlSuccess] = useState<string | null>(null);
+
   useEffect(() => {
     if (deviceId) {
       loadHistoricalMetrics();
     }
   }, [deviceId]);
+
+  // Initialize control values when metrics change
+  useEffect(() => {
+    if (device?.latestMetrics) {
+      const m = device.latestMetrics;
+      if (m.fanspeed !== undefined) setFanSpeed(m.fanspeed);
+      if (m.frequency !== undefined) setFrequency(m.frequency);
+      if (m.coreVoltage !== undefined) setVoltage(m.coreVoltage);
+    }
+  }, [device?.latestMetrics]);
+
+  const handleSaveFanSpeed = async () => {
+    if (!device) return;
+    setIsSavingControl('fan');
+    setControlError(null);
+    setControlSuccess(null);
+    try {
+      const result = await window.electronAPI.setDeviceFanSpeed(device.ipAddress, fanSpeed);
+      if (result.success) {
+        setControlSuccess('Fan speed updated');
+        setTimeout(() => setControlSuccess(null), 3000);
+      } else {
+        setControlError(result.error || 'Failed to update fan speed');
+      }
+    } catch (err) {
+      setControlError('Failed to update fan speed');
+    } finally {
+      setIsSavingControl(null);
+    }
+  };
+
+  const handleSaveFrequency = async () => {
+    if (!device) return;
+    setIsSavingControl('freq');
+    setControlError(null);
+    setControlSuccess(null);
+    try {
+      const result = await window.electronAPI.setDeviceFrequency(device.ipAddress, frequency);
+      if (result.success) {
+        setControlSuccess('Frequency updated');
+        setTimeout(() => setControlSuccess(null), 3000);
+      } else {
+        setControlError(result.error || 'Failed to update frequency');
+      }
+    } catch (err) {
+      setControlError('Failed to update frequency');
+    } finally {
+      setIsSavingControl(null);
+    }
+  };
+
+  const handleSaveVoltage = async () => {
+    if (!device) return;
+    setIsSavingControl('volt');
+    setControlError(null);
+    setControlSuccess(null);
+    try {
+      const result = await window.electronAPI.setDeviceVoltage(device.ipAddress, voltage);
+      if (result.success) {
+        setControlSuccess('Voltage updated');
+        setTimeout(() => setControlSuccess(null), 3000);
+      } else {
+        setControlError(result.error || 'Failed to update voltage');
+      }
+    } catch (err) {
+      setControlError('Failed to update voltage');
+    } finally {
+      setIsSavingControl(null);
+    }
+  };
 
   const loadHistoricalMetrics = async () => {
     if (!deviceId) return;
@@ -467,6 +546,172 @@ export function DeviceDetailPage() {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Device Control Panel */}
+          <div className="vault-card p-4">
+            <div className="flex items-center justify-between mb-4 pb-2 border-b border-border">
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-warning" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/>
+                </svg>
+                <h3 className="text-sm font-bold text-warning uppercase tracking-wider">Device Control</h3>
+              </div>
+              <button
+                onClick={() => setShowControlPanel(!showControlPanel)}
+                className="text-xs px-3 py-1 rounded bg-warning/20 text-warning border border-warning/30 hover:bg-warning/30 transition-colors"
+              >
+                {showControlPanel ? 'Hide Controls' : 'Show Controls'}
+              </button>
+            </div>
+
+            {showControlPanel && (
+              <div className="space-y-4">
+                {/* Status Messages */}
+                {controlError && (
+                  <div className="p-3 bg-danger/10 border border-danger/30 text-danger text-sm rounded">
+                    {controlError}
+                  </div>
+                )}
+                {controlSuccess && (
+                  <div className="p-3 bg-success/10 border border-success/30 text-success text-sm rounded">
+                    {controlSuccess}
+                  </div>
+                )}
+
+                {/* Warning */}
+                <div className="p-3 bg-warning/10 border border-warning/30 text-warning text-xs rounded flex items-start gap-2">
+                  <svg className="w-4 h-4 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                  </svg>
+                  <span>Changing frequency or voltage may cause instability. Use caution and monitor temperature closely.</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Fan Speed Control */}
+                  <div className="p-4 bg-bg-primary border border-border rounded">
+                    <div className="flex items-center gap-2 mb-3">
+                      <svg className="w-4 h-4 text-border-highlight" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/>
+                      </svg>
+                      <span className="text-sm font-medium text-text-primary">Fan Speed</span>
+                    </div>
+                    <div className="space-y-2">
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={fanSpeed}
+                        onChange={(e) => setFanSpeed(parseInt(e.target.value))}
+                        className="w-full h-2 bg-bg-tertiary rounded-lg appearance-none cursor-pointer accent-border-highlight"
+                      />
+                      <div className="flex items-center justify-between">
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={fanSpeed}
+                          onChange={(e) => setFanSpeed(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                          className="w-16 px-2 py-1 text-sm bg-bg-secondary border border-border rounded text-text-primary text-center"
+                        />
+                        <span className="text-text-secondary text-xs">%</span>
+                        <button
+                          onClick={handleSaveFanSpeed}
+                          disabled={isSavingControl === 'fan'}
+                          className="px-3 py-1 text-xs bg-border-highlight/20 text-border-highlight border border-border-highlight/30 rounded hover:bg-border-highlight/30 disabled:opacity-50 transition-colors"
+                        >
+                          {isSavingControl === 'fan' ? 'Saving...' : 'Apply'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Frequency Control */}
+                  <div className="p-4 bg-bg-primary border border-border rounded">
+                    <div className="flex items-center gap-2 mb-3">
+                      <svg className="w-4 h-4 text-warning" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                      </svg>
+                      <span className="text-sm font-medium text-text-primary">Frequency</span>
+                    </div>
+                    <div className="space-y-2">
+                      <input
+                        type="range"
+                        min="400"
+                        max="650"
+                        step="25"
+                        value={frequency}
+                        onChange={(e) => setFrequency(parseInt(e.target.value))}
+                        className="w-full h-2 bg-bg-tertiary rounded-lg appearance-none cursor-pointer accent-warning"
+                      />
+                      <div className="flex items-center justify-between">
+                        <input
+                          type="number"
+                          min="400"
+                          max="650"
+                          step="25"
+                          value={frequency}
+                          onChange={(e) => setFrequency(parseInt(e.target.value) || 0)}
+                          className="w-16 px-2 py-1 text-sm bg-bg-secondary border border-border rounded text-text-primary text-center"
+                        />
+                        <span className="text-text-secondary text-xs">MHz</span>
+                        <button
+                          onClick={handleSaveFrequency}
+                          disabled={isSavingControl === 'freq'}
+                          className="px-3 py-1 text-xs bg-warning/20 text-warning border border-warning/30 rounded hover:bg-warning/30 disabled:opacity-50 transition-colors"
+                        >
+                          {isSavingControl === 'freq' ? 'Saving...' : 'Apply'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Voltage Control */}
+                  <div className="p-4 bg-bg-primary border border-border rounded">
+                    <div className="flex items-center gap-2 mb-3">
+                      <svg className="w-4 h-4 text-pip-green" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                      </svg>
+                      <span className="text-sm font-medium text-text-primary">Core Voltage</span>
+                    </div>
+                    <div className="space-y-2">
+                      <input
+                        type="range"
+                        min="1000"
+                        max="1300"
+                        step="10"
+                        value={voltage}
+                        onChange={(e) => setVoltage(parseInt(e.target.value))}
+                        className="w-full h-2 bg-bg-tertiary rounded-lg appearance-none cursor-pointer accent-pip-green"
+                      />
+                      <div className="flex items-center justify-between">
+                        <input
+                          type="number"
+                          min="1000"
+                          max="1300"
+                          step="10"
+                          value={voltage}
+                          onChange={(e) => setVoltage(parseInt(e.target.value) || 0)}
+                          className="w-16 px-2 py-1 text-sm bg-bg-secondary border border-border rounded text-text-primary text-center"
+                        />
+                        <span className="text-text-secondary text-xs">mV</span>
+                        <button
+                          onClick={handleSaveVoltage}
+                          disabled={isSavingControl === 'volt'}
+                          className="px-3 py-1 text-xs bg-pip-green/20 text-pip-green border border-pip-green/30 rounded hover:bg-pip-green/30 disabled:opacity-50 transition-colors"
+                        >
+                          {isSavingControl === 'volt' ? 'Saving...' : 'Apply'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <p className="text-xs text-text-secondary text-center mt-2">
+                  Note: Not all devices support all settings. Changes take effect after device restart on some firmware.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* ClusterAxe Cluster Info - Shows when device is a cluster master */}

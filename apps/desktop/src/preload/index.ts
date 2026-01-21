@@ -78,6 +78,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   restartDevice: (ipAddress: string) => ipcRenderer.invoke('restart-device', ipAddress),
   setDeviceFanSpeed: (ipAddress: string, speed: number) => ipcRenderer.invoke('set-device-fan-speed', ipAddress, speed),
   setDeviceFrequency: (ipAddress: string, frequency: number) => ipcRenderer.invoke('set-device-frequency', ipAddress, frequency),
+  setDeviceVoltage: (ipAddress: string, voltage: number) => ipcRenderer.invoke('set-device-voltage', ipAddress, voltage),
   updateDeviceSettings: (ipAddress: string, settings: DeviceSettings) => ipcRenderer.invoke('update-device-settings', ipAddress, settings),
   updatePoolSettings: (ipAddress: string, stratumURL: string, stratumUser: string, stratumPassword?: string) =>
     ipcRenderer.invoke('update-pool-settings', ipAddress, stratumURL, stratumUser, stratumPassword),
@@ -364,6 +365,7 @@ declare global {
       restartDevice: (ipAddress: string) => Promise<DeviceControlResult>;
       setDeviceFanSpeed: (ipAddress: string, speed: number) => Promise<DeviceControlResult>;
       setDeviceFrequency: (ipAddress: string, frequency: number) => Promise<DeviceControlResult>;
+      setDeviceVoltage: (ipAddress: string, voltage: number) => Promise<DeviceControlResult>;
       updateDeviceSettings: (ipAddress: string, settings: DeviceSettings) => Promise<DeviceControlResult>;
       updatePoolSettings: (ipAddress: string, stratumURL: string, stratumUser: string, stratumPassword?: string) => Promise<DeviceControlResult>;
 

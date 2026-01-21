@@ -245,6 +245,10 @@ ipcMain.handle('set-device-frequency', async (_, ipAddress: string, frequency: n
   return deviceControl.setFrequency(ipAddress, frequency);
 });
 
+ipcMain.handle('set-device-voltage', async (_, ipAddress: string, voltage: number) => {
+  return deviceControl.setCoreVoltage(ipAddress, voltage);
+});
+
 ipcMain.handle('update-device-settings', async (_, ipAddress: string, settings: deviceControl.DeviceSettings) => {
   return deviceControl.updateDeviceSettings(ipAddress, settings);
 });

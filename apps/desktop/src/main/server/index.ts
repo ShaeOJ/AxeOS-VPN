@@ -263,6 +263,60 @@ export function startServer(): { port: number; addresses: string[] } {
     res.json(result);
   });
 
+  // Set device fan speed
+  app.post('/api/devices/:id/fan', requireAuth, async (req, res) => {
+    const device = devices.getDeviceById(req.params.id);
+    if (!device) {
+      res.status(404).json({ success: false, error: 'Device not found' });
+      return;
+    }
+
+    const { speed } = req.body;
+    if (speed === undefined || speed < 0 || speed > 100) {
+      res.status(400).json({ success: false, error: 'Invalid fan speed (0-100)' });
+      return;
+    }
+
+    const result = await deviceControl.setFanSpeed(device.ip_address, speed);
+    res.json(result);
+  });
+
+  // Set device frequency
+  app.post('/api/devices/:id/frequency', requireAuth, async (req, res) => {
+    const device = devices.getDeviceById(req.params.id);
+    if (!device) {
+      res.status(404).json({ success: false, error: 'Device not found' });
+      return;
+    }
+
+    const { frequency } = req.body;
+    if (frequency === undefined) {
+      res.status(400).json({ success: false, error: 'Frequency is required' });
+      return;
+    }
+
+    const result = await deviceControl.setFrequency(device.ip_address, frequency);
+    res.json(result);
+  });
+
+  // Set device voltage
+  app.post('/api/devices/:id/voltage', requireAuth, async (req, res) => {
+    const device = devices.getDeviceById(req.params.id);
+    if (!device) {
+      res.status(404).json({ success: false, error: 'Device not found' });
+      return;
+    }
+
+    const { voltage } = req.body;
+    if (voltage === undefined) {
+      res.status(400).json({ success: false, error: 'Voltage is required' });
+      return;
+    }
+
+    const result = await deviceControl.setCoreVoltage(device.ip_address, voltage);
+    res.json(result);
+  });
+
   // Get device metrics
   app.get('/api/devices/:id/metrics', requireAuth, (req, res) => {
     const { startTime, endTime, limit } = req.query;
@@ -1373,6 +1427,52 @@ function getWebDashboardHtml(): string {
           });
           html += '</tbody></table></div>';
         }
+
+        // Device Control Panel
+        html += '<div class="section-title" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="toggleControlPanel()">';
+        html += '<div style="display:flex;align-items:center;gap:8px;">';
+        html += '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFB000" stroke-width="2"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>';
+        html += 'Device Control</div>';
+        html += '<svg id="control-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8BA88B" stroke-width="2" style="transition:transform 0.2s;"><path d="M6 9l6 6 6-6"/></svg>';
+        html += '</div>';
+
+        html += '<div id="control-panel" style="display:none;margin-top:12px;">';
+        html += '<div style="background:rgba(255,140,0,0.1);border:1px solid rgba(255,140,0,0.3);padding:10px;margin-bottom:12px;font-size:11px;color:#FF8C00;">';
+        html += '<strong>⚠️ Warning:</strong> Changing these settings may affect device stability. Use with caution.';
+        html += '</div>';
+
+        // Fan Speed
+        html += '<div style="margin-bottom:16px;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
+        html += '<label style="color:#8BA88B;font-size:12px;">Fan Speed</label>';
+        html += '<span id="fan-value" style="color:#FFB000;font-size:12px;">' + (m.fanspeed || 0) + '%</span>';
+        html += '</div>';
+        html += '<input type="range" id="fan-slider" min="0" max="100" value="' + (m.fanspeed || 0) + '" style="width:100%;cursor:pointer;" oninput="document.getElementById(\\'fan-value\\').textContent=this.value+\\'%\\'">';
+        html += '<button onclick="applyFanSpeed()" style="margin-top:8px;padding:6px 12px;background:#1a4a5c;border:1px solid #00CED1;color:#00CED1;cursor:pointer;font-size:11px;">Apply Fan Speed</button>';
+        html += '</div>';
+
+        // Frequency
+        html += '<div style="margin-bottom:16px;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
+        html += '<label style="color:#8BA88B;font-size:12px;">Frequency</label>';
+        html += '<span id="freq-value" style="color:#FFB000;font-size:12px;">' + (m.frequency || 485) + ' MHz</span>';
+        html += '</div>';
+        html += '<input type="range" id="freq-slider" min="400" max="650" step="5" value="' + (m.frequency || 485) + '" style="width:100%;cursor:pointer;" oninput="document.getElementById(\\'freq-value\\').textContent=this.value+\\' MHz\\'">';
+        html += '<button onclick="applyFrequency()" style="margin-top:8px;padding:6px 12px;background:#1a4a5c;border:1px solid #00CED1;color:#00CED1;cursor:pointer;font-size:11px;">Apply Frequency</button>';
+        html += '</div>';
+
+        // Core Voltage
+        html += '<div style="margin-bottom:16px;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
+        html += '<label style="color:#8BA88B;font-size:12px;">Core Voltage</label>';
+        html += '<span id="voltage-value" style="color:#FFB000;font-size:12px;">' + (m.coreVoltage || 1200) + ' mV</span>';
+        html += '</div>';
+        html += '<input type="range" id="voltage-slider" min="1000" max="1300" step="10" value="' + (m.coreVoltage || 1200) + '" style="width:100%;cursor:pointer;" oninput="document.getElementById(\\'voltage-value\\').textContent=this.value+\\' mV\\'">';
+        html += '<button onclick="applyVoltage()" style="margin-top:8px;padding:6px 12px;background:#1a4a5c;border:1px solid #00CED1;color:#00CED1;cursor:pointer;font-size:11px;">Apply Voltage</button>';
+        html += '</div>';
+
+        html += '<div id="control-status" style="display:none;padding:8px;margin-top:8px;font-size:11px;"></div>';
+        html += '</div>';
       } else {
         html += '</div><p style="color:#8BA88B;text-align:center;padding:20px;">No metrics available</p>';
       }
@@ -1533,6 +1633,85 @@ function getWebDashboardHtml(): string {
             btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Restart';
           }
         }, 3000);
+      }
+    }
+
+    function toggleControlPanel() {
+      const panel = document.getElementById('control-panel');
+      const chevron = document.getElementById('control-chevron');
+      if (panel.style.display === 'none') {
+        panel.style.display = 'block';
+        chevron.style.transform = 'rotate(180deg)';
+      } else {
+        panel.style.display = 'none';
+        chevron.style.transform = 'rotate(0deg)';
+      }
+    }
+
+    function showControlStatus(message, isError) {
+      const status = document.getElementById('control-status');
+      status.style.display = 'block';
+      status.style.background = isError ? 'rgba(255,49,49,0.2)' : 'rgba(0,255,65,0.2)';
+      status.style.border = '1px solid ' + (isError ? 'rgba(255,49,49,0.4)' : 'rgba(0,255,65,0.4)');
+      status.style.color = isError ? '#FF3131' : '#00FF41';
+      status.textContent = message;
+      setTimeout(() => { status.style.display = 'none'; }, 3000);
+    }
+
+    async function applyFanSpeed() {
+      const speed = parseInt(document.getElementById('fan-slider').value);
+      try {
+        const res = await fetch('/api/devices/' + currentDeviceId + '/fan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ speed })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showControlStatus('Fan speed updated to ' + speed + '%', false);
+        } else {
+          showControlStatus('Failed: ' + (data.error || 'Unknown error'), true);
+        }
+      } catch (err) {
+        showControlStatus('Error: ' + err.message, true);
+      }
+    }
+
+    async function applyFrequency() {
+      const frequency = parseInt(document.getElementById('freq-slider').value);
+      try {
+        const res = await fetch('/api/devices/' + currentDeviceId + '/frequency', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ frequency })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showControlStatus('Frequency updated to ' + frequency + ' MHz', false);
+        } else {
+          showControlStatus('Failed: ' + (data.error || 'Unknown error'), true);
+        }
+      } catch (err) {
+        showControlStatus('Error: ' + err.message, true);
+      }
+    }
+
+    async function applyVoltage() {
+      const voltage = parseInt(document.getElementById('voltage-slider').value);
+      try {
+        const res = await fetch('/api/devices/' + currentDeviceId + '/voltage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ voltage })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showControlStatus('Core voltage updated to ' + voltage + ' mV', false);
+        } else {
+          showControlStatus('Failed: ' + (data.error || 'Unknown error'), true);
+        }
+      } catch (err) {
+        showControlStatus('Error: ' + err.message, true);
       }
     }
 
