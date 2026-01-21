@@ -259,7 +259,17 @@ ipcMain.handle('update-pool-settings', async (_, ipAddress: string, stratumURL: 
 
 // IPC Handlers - Devices
 ipcMain.handle('get-devices', async () => {
-  return devices.getAllDevices();
+  // Transform snake_case database fields to camelCase for frontend
+  const allDevices = devices.getAllDevices();
+  return allDevices.map(d => ({
+    id: d.id,
+    name: d.name,
+    ipAddress: d.ip_address,
+    isOnline: d.is_online === 1,
+    lastSeen: d.last_seen,
+    createdAt: d.created_at,
+    latestMetrics: poller.getLatestMetrics(d.id)?.data || null,
+  }));
 });
 
 ipcMain.handle('test-device-connection', async (_, ipAddress: string) => {

@@ -598,19 +598,24 @@ function getWebDashboardHtml(): string {
     .error { color: #FF3131; margin-bottom: 16px; font-size: 14px; }
     .hidden { display: none !important; }
     .device-model { font-size: 11px; color: #00CED1; margin-top: 2px; }
-    .secondary-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #1a4a5c; }
+    .secondary-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #1a4a5c; }
     .secondary-stat { text-align: center; }
     .secondary-stat-label { font-size: 9px; color: #8BA88B; text-transform: uppercase; }
     .secondary-stat-value { font-size: 12px; font-weight: 500; }
     /* Device control bar */
     .device-control-bar { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; padding-top: 8px; border-top: 1px solid #1a4a5c; }
-    .restart-btn { display: flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 11px; background: #1a3a4a; color: #8BA88B; border: 1px solid #2a5a6a; border-radius: 4px; cursor: pointer; transition: all 0.2s; }
-    .restart-btn:hover { color: #FFB000; background: rgba(255,176,0,0.1); border-color: rgba(255,176,0,0.4); }
+    .restart-btn { display: flex; align-items: center; gap: 4px; padding: 8px 12px; font-size: 12px; background: #1a3a4a; color: #8BA88B; border: 1px solid #2a5a6a; border-radius: 4px; cursor: pointer; transition: all 0.2s; min-height: 44px; }
+    .restart-btn:hover, .restart-btn:active { color: #FFB000; background: rgba(255,176,0,0.1); border-color: rgba(255,176,0,0.4); }
     .restart-btn.confirm { background: #FF3131; color: white; border-color: #FF3131; }
     .restart-btn.restarting { opacity: 0.6; cursor: not-allowed; }
     .restart-btn svg { flex-shrink: 0; }
     .restart-btn.restarting svg { animation: spin 1s linear infinite; }
     @keyframes spin { 100% { transform: rotate(360deg); } }
+    /* Touch-friendly styles */
+    input[type="range"] { -webkit-appearance: none; appearance: none; height: 8px; background: #1a4a5c; border-radius: 4px; outline: none; }
+    input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 24px; height: 24px; background: #FFB000; border-radius: 50%; cursor: pointer; border: 2px solid #0d2137; }
+    input[type="range"]::-moz-range-thumb { width: 24px; height: 24px; background: #FFB000; border-radius: 50%; cursor: pointer; border: 2px solid #0d2137; }
+    .control-btn { min-height: 44px; min-width: 44px; padding: 10px 16px; font-size: 14px; touch-action: manipulation; }
     /* Modal animations */
     @keyframes modal-fade-in {
       0% { opacity: 0; transform: scale(0.95) translateY(-10px); }
@@ -682,8 +687,9 @@ function getWebDashboardHtml(): string {
       .stat-label { font-size: 10px; }
       .metrics-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
       .metric-value { font-size: 12px; }
-      .secondary-stats { grid-template-columns: repeat(3, 1fr); gap: 6px; }
-      .secondary-stat-value { font-size: 11px; }
+      .secondary-stats { grid-template-columns: repeat(5, 1fr); gap: 4px; }
+      .secondary-stat-value { font-size: 10px; }
+      .secondary-stat-label { font-size: 8px; }
       .device-name { font-size: 14px; }
       .login-container { margin: 40px auto; padding: 0 12px; }
       .modal { width: 95%; max-height: 85vh; }
@@ -694,7 +700,11 @@ function getWebDashboardHtml(): string {
       .detail-item { padding: 10px; }
       .detail-value { font-size: 14px; }
       .detail-label { font-size: 9px; }
-      .btn { padding: 8px 14px; font-size: 12px; }
+      .btn { padding: 12px 16px; font-size: 14px; min-height: 44px; }
+      .restart-btn { padding: 10px 14px; min-height: 44px; }
+      input[type="range"] { height: 12px; }
+      input[type="range"]::-webkit-slider-thumb { width: 32px; height: 32px; }
+      input[type="range"]::-moz-range-thumb { width: 32px; height: 32px; }
     }
 
     @media (max-width: 480px) {
@@ -716,8 +726,10 @@ function getWebDashboardHtml(): string {
       .detail-item[style*="span 2"] { grid-column: span 1 !important; }
       .modal-header { flex-direction: column; gap: 10px; align-items: stretch; }
       .modal-title { text-align: center; }
-      .modal-header .btn { width: 100%; }
-      .input { padding: 10px 12px; font-size: 14px; }
+      .modal-header .btn { width: 100%; min-height: 48px; }
+      .input { padding: 12px 14px; font-size: 16px; min-height: 48px; }
+      .restart-btn { width: 100%; justify-content: center; min-height: 48px; font-size: 14px; }
+      .device-control-bar { flex-direction: column; }
     }
 
     /* Crypto Ticker Styles */
@@ -1448,7 +1460,7 @@ function getWebDashboardHtml(): string {
         html += '<span id="fan-value" style="color:#FFB000;font-size:12px;">' + (m.fanspeed || 0) + '%</span>';
         html += '</div>';
         html += '<input type="range" id="fan-slider" min="0" max="100" value="' + (m.fanspeed || 0) + '" style="width:100%;cursor:pointer;" oninput="document.getElementById(\\'fan-value\\').textContent=this.value+\\'%\\'">';
-        html += '<button onclick="applyFanSpeed()" style="margin-top:8px;padding:6px 12px;background:#1a4a5c;border:1px solid #00CED1;color:#00CED1;cursor:pointer;font-size:11px;">Apply Fan Speed</button>';
+        html += '<button onclick="applyFanSpeed()" style="margin-top:8px;padding:12px 16px;background:#1a4a5c;border:1px solid #00CED1;color:#00CED1;cursor:pointer;font-size:14px;min-height:44px;width:100%;touch-action:manipulation;">Apply Fan Speed</button>';
         html += '</div>';
 
         // Frequency
@@ -1457,8 +1469,8 @@ function getWebDashboardHtml(): string {
         html += '<label style="color:#8BA88B;font-size:12px;">Frequency</label>';
         html += '<span id="freq-value" style="color:#FFB000;font-size:12px;">' + (m.frequency || 485) + ' MHz</span>';
         html += '</div>';
-        html += '<input type="range" id="freq-slider" min="400" max="650" step="5" value="' + (m.frequency || 485) + '" style="width:100%;cursor:pointer;" oninput="document.getElementById(\\'freq-value\\').textContent=this.value+\\' MHz\\'">';
-        html += '<button onclick="applyFrequency()" style="margin-top:8px;padding:6px 12px;background:#1a4a5c;border:1px solid #00CED1;color:#00CED1;cursor:pointer;font-size:11px;">Apply Frequency</button>';
+        html += '<input type="range" id="freq-slider" min="400" max="900" step="5" value="' + (m.frequency || 485) + '" style="width:100%;cursor:pointer;" oninput="document.getElementById(\\'freq-value\\').textContent=this.value+\\' MHz\\'">';
+        html += '<button onclick="applyFrequency()" style="margin-top:8px;padding:12px 16px;background:#1a4a5c;border:1px solid #00CED1;color:#00CED1;cursor:pointer;font-size:14px;min-height:44px;width:100%;touch-action:manipulation;">Apply Frequency</button>';
         html += '</div>';
 
         // Core Voltage
@@ -1468,7 +1480,7 @@ function getWebDashboardHtml(): string {
         html += '<span id="voltage-value" style="color:#FFB000;font-size:12px;">' + (m.coreVoltage || 1200) + ' mV</span>';
         html += '</div>';
         html += '<input type="range" id="voltage-slider" min="1000" max="1300" step="10" value="' + (m.coreVoltage || 1200) + '" style="width:100%;cursor:pointer;" oninput="document.getElementById(\\'voltage-value\\').textContent=this.value+\\' mV\\'">';
-        html += '<button onclick="applyVoltage()" style="margin-top:8px;padding:6px 12px;background:#1a4a5c;border:1px solid #00CED1;color:#00CED1;cursor:pointer;font-size:11px;">Apply Voltage</button>';
+        html += '<button onclick="applyVoltage()" style="margin-top:8px;padding:12px 16px;background:#1a4a5c;border:1px solid #00CED1;color:#00CED1;cursor:pointer;font-size:14px;min-height:44px;width:100%;touch-action:manipulation;">Apply Voltage</button>';
         html += '</div>';
 
         html += '<div id="control-status" style="display:none;padding:8px;margin-top:8px;font-size:11px;"></div>';
@@ -1515,8 +1527,10 @@ function getWebDashboardHtml(): string {
             '<div class="metric"><div class="metric-label">Temp</div><div class="metric-value ' + getTempClass(m.temp) + '">' + formatTemp(m.temp) + '</div></div>' +
             '<div class="metric"><div class="metric-label">Power</div><div class="metric-value">' + formatPower(m.power) + '</div></div></div>' +
             '<div class="secondary-stats"><div class="secondary-stat"><div class="secondary-stat-label">Efficiency</div><div class="secondary-stat-value">' + (m.efficiency ? m.efficiency.toFixed(1) + ' J/TH' : '--') + '</div></div>' +
-            '<div class="secondary-stat"><div class="secondary-stat-label">Shares</div><div class="secondary-stat-value success">' + (m.sharesAccepted || 0).toLocaleString() + '</div></div>' +
-            '<div class="secondary-stat"><div class="secondary-stat-label">Fan</div><div class="secondary-stat-value">' + (m.fanspeed ? m.fanspeed + '%' : '--') + '</div></div></div>' +
+            '<div class="secondary-stat"><div class="secondary-stat-label">Freq</div><div class="secondary-stat-value">' + (m.frequency ? m.frequency + ' MHz' : '--') + '</div></div>' +
+            '<div class="secondary-stat"><div class="secondary-stat-label">Voltage</div><div class="secondary-stat-value">' + (m.coreVoltage ? m.coreVoltage + ' mV' : '--') + '</div></div>' +
+            '<div class="secondary-stat"><div class="secondary-stat-label">Fan</div><div class="secondary-stat-value">' + (m.fanspeed ? m.fanspeed + '%' : '--') + '</div></div>' +
+            '<div class="secondary-stat"><div class="secondary-stat-label">Shares</div><div class="secondary-stat-value success">' + (m.sharesAccepted || 0).toLocaleString() + '</div></div></div>' +
             '<div class="device-control-bar" onclick="event.stopPropagation();"><button class="restart-btn" data-device-id="' + d.id + '" onclick="handleRestartClick(this, event)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Restart</button></div>'
           : '<div style="color:#8BA88B;margin-top:8px;">' + (d.isOnline ? 'Waiting for metrics...' : 'Offline') + '</div>') +
         '</div>';

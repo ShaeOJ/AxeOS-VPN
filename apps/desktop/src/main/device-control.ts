@@ -59,21 +59,60 @@ export async function restartDevice(ipAddress: string): Promise<ApiResponse> {
 
 /**
  * Update device settings
+ * Transforms camelCase field names to AxeOS API format
+ * Tries PATCH first, falls back to POST if needed
  */
 export async function updateDeviceSettings(
   ipAddress: string,
   settings: DeviceSettings
 ): Promise<ApiResponse> {
+  // Transform settings to AxeOS API field names
+  const apiSettings: Record<string, unknown> = {};
+  if (settings.fanSpeed !== undefined) apiSettings.fanspeed = settings.fanSpeed;
+  if (settings.frequency !== undefined) apiSettings.frequency = settings.frequency;
+  if (settings.coreVoltage !== undefined) apiSettings.coreVoltage = settings.coreVoltage;
+  if (settings.stratumURL !== undefined) apiSettings.stratumURL = settings.stratumURL;
+  if (settings.stratumUser !== undefined) apiSettings.stratumUser = settings.stratumUser;
+  if (settings.stratumPassword !== undefined) apiSettings.stratumPassword = settings.stratumPassword;
+
+  console.log(`[DeviceControl] Updating ${ipAddress} with:`, JSON.stringify(apiSettings));
+
+  // Try PATCH /api/system first (standard AxeOS)
+  const patchResult = await tryRequest(ipAddress, '/api/system', 'PATCH', apiSettings);
+  if (patchResult.success) {
+    console.log(`[DeviceControl] PATCH /api/system succeeded for ${ipAddress}`);
+    return patchResult;
+  }
+
+  console.log(`[DeviceControl] PATCH failed (${patchResult.error}), trying POST...`);
+
+  // Fallback: Try POST /api/system
+  const postResult = await tryRequest(ipAddress, '/api/system', 'POST', apiSettings);
+  if (postResult.success) {
+    console.log(`[DeviceControl] POST /api/system succeeded for ${ipAddress}`);
+    return postResult;
+  }
+
+  console.log(`[DeviceControl] POST also failed (${postResult.error})`);
+  return postResult;
+}
+
+async function tryRequest(
+  ipAddress: string,
+  endpoint: string,
+  method: string,
+  body: Record<string, unknown>
+): Promise<ApiResponse> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
   try {
-    const response = await fetch(`http://${ipAddress}/api/system`, {
-      method: 'PATCH',
+    const response = await fetch(`http://${ipAddress}${endpoint}`, {
+      method,
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(settings),
+      body: JSON.stringify(body),
       signal: controller.signal
     });
 

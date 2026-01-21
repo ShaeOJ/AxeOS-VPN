@@ -638,7 +638,7 @@ export function DeviceDetailPage() {
                       <input
                         type="range"
                         min="400"
-                        max="650"
+                        max="900"
                         step="25"
                         value={frequency}
                         onChange={(e) => setFrequency(parseInt(e.target.value))}
@@ -648,7 +648,7 @@ export function DeviceDetailPage() {
                         <input
                           type="number"
                           min="400"
-                          max="650"
+                          max="900"
                           step="25"
                           value={frequency}
                           onChange={(e) => setFrequency(parseInt(e.target.value) || 0)}
