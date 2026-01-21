@@ -456,7 +456,13 @@ export function DeviceDetailPage() {
                   <span className="text-text-secondary uppercase text-xs tracking-wide">Pool Difficulty</span>
                 </div>
                 <div className="text-accent font-bold">
-                  {metrics.poolDifficulty?.toLocaleString() || '--'}
+                  {(() => {
+                    // Check for various field names used by different firmware
+                    const diff = metrics.poolDifficulty ?? (metrics as Record<string, unknown>).pool_difficulty ?? (metrics as Record<string, unknown>).poolDiff ?? (metrics as Record<string, unknown>).diff;
+                    if (!diff) return '--';
+                    if (typeof diff === 'number') return diff.toLocaleString();
+                    return String(diff);
+                  })()}
                 </div>
               </div>
             </div>

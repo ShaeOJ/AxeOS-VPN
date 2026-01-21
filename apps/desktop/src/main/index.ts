@@ -382,6 +382,18 @@ ipcMain.handle('get-device-metrics', async (_, deviceId: string, hours?: number)
   return metrics.getMetrics(deviceId, { startTime, limit: 1000 });
 });
 
+ipcMain.handle('get-metrics', async (_, deviceId: string, options?: { startTime?: number; endTime?: number; limit?: number }) => {
+  const metricsData = metrics.getMetrics(deviceId, options || {});
+  // Transform to match expected MetricData interface
+  return metricsData.map(m => ({
+    timestamp: m.timestamp,
+    hashrate: m.hashrate,
+    temperature: m.temperature,
+    power: m.power,
+    data: m.data ? JSON.parse(m.data) : null
+  }));
+});
+
 ipcMain.handle('get-all-metrics', async (_, hours?: number) => {
   // Get metrics for all devices
   const allDevices = devices.getAllDevices();
