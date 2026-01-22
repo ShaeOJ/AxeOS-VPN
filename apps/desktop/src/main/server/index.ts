@@ -1178,13 +1178,21 @@ function getWebDashboardHtml(): string {
         left: 0;
         right: 0;
         min-width: 100%;
+        max-height: 70vh;
         border-radius: 16px 16px 0 0;
         border-bottom: none;
         padding-bottom: env(safe-area-inset-bottom, 20px);
         transform: translateY(100%);
+        display: flex;
+        flex-direction: column;
       }
       .theme-dropdown.show { transform: translateY(0); }
-      .theme-dropdown-header { display: flex; }
+      .theme-dropdown-header { display: flex; flex-shrink: 0; }
+      .theme-options-list {
+        overflow-y: auto;
+        flex: 1;
+        -webkit-overflow-scrolling: touch;
+      }
       .theme-option {
         padding: 18px 20px;
         font-size: 16px;
@@ -1239,30 +1247,32 @@ function getWebDashboardHtml(): string {
               <span>Select Theme</span>
               <button onclick="closeThemeDropdown()" class="theme-close-btn">&times;</button>
             </div>
-            <button class="theme-option" onclick="setTheme('vault-tec')">
-              <div class="theme-swatch" style="background:#0a1929;"><div class="theme-swatch-inner" style="background:#FFB000;"></div></div>
-              <span>Vault-Tec</span>
-            </button>
-            <button class="theme-option" onclick="setTheme('nuka-cola')">
-              <div class="theme-swatch" style="background:#1a0a0a;"><div class="theme-swatch-inner" style="background:#FF3131;"></div></div>
-              <span>Nuka-Cola</span>
-            </button>
-            <button class="theme-option" onclick="setTheme('brotherhood')">
-              <div class="theme-swatch" style="background:#0a0a1a;"><div class="theme-swatch-inner" style="background:#4A90D9;"></div></div>
-              <span>Brotherhood</span>
-            </button>
-            <button class="theme-option" onclick="setTheme('institute')">
-              <div class="theme-swatch" style="background:#f0f0f0;"><div class="theme-swatch-inner" style="background:#00A0A0;"></div></div>
-              <span>Institute</span>
-            </button>
-            <button class="theme-option" onclick="setTheme('ncr')">
-              <div class="theme-swatch" style="background:#1a1408;"><div class="theme-swatch-inner" style="background:#C4A35A;"></div></div>
-              <span>NCR</span>
-            </button>
-            <button class="theme-option" onclick="setTheme('enclave')">
-              <div class="theme-swatch" style="background:#0a0a14;"><div class="theme-swatch-inner" style="background:#B22222;"></div></div>
-              <span>Enclave</span>
-            </button>
+            <div class="theme-options-list">
+              <button class="theme-option" onclick="setTheme('vault-tec')">
+                <div class="theme-swatch" style="background:#0a1929;"><div class="theme-swatch-inner" style="background:#FFB000;"></div></div>
+                <span>Vault-Tec</span>
+              </button>
+              <button class="theme-option" onclick="setTheme('nuka-cola')">
+                <div class="theme-swatch" style="background:#1a0a0a;"><div class="theme-swatch-inner" style="background:#FF3131;"></div></div>
+                <span>Nuka-Cola</span>
+              </button>
+              <button class="theme-option" onclick="setTheme('brotherhood')">
+                <div class="theme-swatch" style="background:#0a0a1a;"><div class="theme-swatch-inner" style="background:#4A90D9;"></div></div>
+                <span>Brotherhood</span>
+              </button>
+              <button class="theme-option" onclick="setTheme('institute')">
+                <div class="theme-swatch" style="background:#f0f0f0;"><div class="theme-swatch-inner" style="background:#00A0A0;"></div></div>
+                <span>Institute</span>
+              </button>
+              <button class="theme-option" onclick="setTheme('ncr')">
+                <div class="theme-swatch" style="background:#1a1408;"><div class="theme-swatch-inner" style="background:#C4A35A;"></div></div>
+                <span>NCR</span>
+              </button>
+              <button class="theme-option" onclick="setTheme('enclave')">
+                <div class="theme-swatch" style="background:#0a0a14;"><div class="theme-swatch-inner" style="background:#B22222;"></div></div>
+                <span>Enclave</span>
+              </button>
+            </div>
           </div>
         </div>
         <button onclick="doLogout()" class="btn btn-danger">Logout</button>
