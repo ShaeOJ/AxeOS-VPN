@@ -78,10 +78,10 @@ function formatPower(power: number | null | undefined): string {
   return `${power.toFixed(1)} W`;
 }
 
-function formatAmps(current: number | null | undefined, power?: number, voltage?: number): string {
-  // Use reported current if available
-  if (current && current > 0) {
-    return `${current.toFixed(2)} A`;
+function formatAmps(currentMa: number | null | undefined, power?: number, voltage?: number): string {
+  // Use reported current if available (AxeOS reports in milliamps)
+  if (currentMa && currentMa > 0) {
+    return `${(currentMa / 1000).toFixed(2)} A`;
   }
   // Calculate from power/voltage as fallback
   if (power && voltage && voltage > 0) {
@@ -110,13 +110,13 @@ function calculateBlockChance(hashRateGH: number, difficulty: number): { daysToB
 }
 
 function formatTimeToBlock(days: number): string {
-  if (days < 1) return `${Math.round(days * 24)}h`;
-  if (days < 30) return `${Math.round(days)}d`;
-  if (days < 365) return `${(days / 30).toFixed(1)}mo`;
-  if (days < 3650) return `${(days / 365).toFixed(1)}y`;
-  if (days < 36500) return `${Math.round(days / 365)}y`;
-  if (days < 365000) return `${(days / 365 / 1000).toFixed(1)}ky`;
-  return `${(days / 365 / 1e6).toFixed(1)}My`;
+  if (days < 1) return `${Math.round(days * 24)} hrs`;
+  if (days < 30) return `${Math.round(days)} days`;
+  if (days < 365) return `${(days / 30).toFixed(1)} mos`;
+  if (days < 3650) return `${(days / 365).toFixed(1)} yrs`;
+  const years = days / 365;
+  if (years < 1e6) return `${(years / 1000).toFixed(0)}k yrs`;
+  return `${(years / 1e6).toFixed(1)}M yrs`;
 }
 
 function formatOdds(prob: number): string {
