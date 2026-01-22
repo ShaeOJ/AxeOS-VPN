@@ -594,9 +594,27 @@ function getWebDashboardHtml(): string {
     }
     .card.clickable { cursor: pointer; transition: all 0.2s; }
     .card.clickable:hover { border-color: #FFB000; box-shadow: 0 0 15px rgba(255,176,0,0.2); }
+    .summary-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 24px; }
+    .summary-card {
+      background: #0d2137;
+      border: 2px solid #1a4a5c;
+      border-radius: 12px;
+      padding: 20px;
+      position: relative;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3), inset 0 0 30px rgba(0,0,0,0.2);
+    }
+    .summary-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      border-radius: 12px 12px 0 0;
+      background: linear-gradient(90deg, transparent, #FFB000, transparent);
+      opacity: 0.6;
+    }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
-    .stat-label { font-size: 11px; color: #8BA88B; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px; }
-    .stat-value { font-size: 24px; font-weight: bold; }
+    .stat-label { font-size: 12px; color: #8BA88B; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; }
+    .stat-value { font-size: 32px; font-weight: bold; line-height: 1.1; }
     .accent { color: #FFB000; }
     .success { color: #00FF41; text-shadow: 0 0 3px rgba(0,255,65,0.25); }
     .warning { color: #FF8C00; }
@@ -710,10 +728,12 @@ function getWebDashboardHtml(): string {
       .container { padding: 12px; }
       .header { flex-direction: column; gap: 12px; text-align: center; }
       .header img { height: 50px; }
+      .summary-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+      .summary-card { padding: 16px; border-radius: 10px; }
       .grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-      .card { padding: 14px; }
-      .stat-value { font-size: 20px; }
-      .stat-label { font-size: 10px; }
+      .card { padding: 16px; }
+      .stat-value { font-size: 26px; }
+      .stat-label { font-size: 11px; }
       .metrics-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
       .metric-value { font-size: 12px; }
       .secondary-stats { grid-template-columns: repeat(5, 1fr); gap: 4px; }
@@ -738,9 +758,12 @@ function getWebDashboardHtml(): string {
 
     @media (max-width: 480px) {
       .container { padding: 8px; }
+      .summary-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+      .summary-card { padding: 14px; }
+      .summary-card .stat-value { font-size: 20px; }
       .grid { grid-template-columns: 1fr; gap: 8px; }
-      .card { padding: 12px; margin-bottom: 10px; }
-      .stat-value { font-size: 18px; }
+      .card { padding: 14px; margin-bottom: 10px; }
+      .stat-value { font-size: 22px; }
       .metrics-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
       .metric-label { font-size: 9px; }
       .metric-value { font-size: 11px; }
@@ -1065,6 +1088,8 @@ function getWebDashboardHtml(): string {
     body::before { background: repeating-linear-gradient(0deg, transparent 0px, transparent 2px, var(--color-scanline) 2px, var(--color-scanline) 4px); }
     .card { background: var(--color-bg-secondary); border-color: var(--color-border); }
     .card::before { background: linear-gradient(90deg, transparent, var(--color-accent), transparent); }
+    .summary-card { background: var(--color-bg-secondary); border-color: var(--color-border); }
+    .summary-card::before { background: linear-gradient(90deg, transparent, var(--color-accent), transparent); }
     .btn-primary { background: linear-gradient(180deg, var(--color-accent), var(--color-accent-hover)); color: var(--color-bg-primary); border-color: var(--color-accent); }
     .btn-primary:hover { box-shadow: 0 0 20px color-mix(in srgb, var(--color-accent) 50%, transparent); }
     .btn-secondary { color: var(--color-text-secondary); border-color: var(--color-border); }
@@ -1374,79 +1399,79 @@ function getWebDashboardHtml(): string {
       </div>
     </div>
 
-    <div class="grid" style="margin-bottom: 24px;">
+    <div class="summary-grid">
       <!-- Hashrate Card -->
-      <div class="card">
-        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-          <div style="padding: 8px; background: rgba(255,176,0,0.2); border: 1px solid rgba(255,176,0,0.4); border-radius: 4px;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFB000" stroke-width="2">
+      <div class="summary-card">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+          <div style="padding: 10px; background: rgba(255,176,0,0.15); border: 1px solid rgba(255,176,0,0.3); border-radius: 8px;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFB000" stroke-width="2">
               <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </div>
-          <div class="stat-label" style="margin: 0;">Hashrate</div>
+          <div class="stat-label" style="margin: 0;">Total Hashrate</div>
         </div>
-        <div id="total-hashrate" class="stat-value accent" style="text-shadow: 0 0 4px rgba(255,176,0,0.3);">--</div>
-        <div style="height: 6px; background: #0a1929; border: 1px solid #1a4a5c; margin-top: 10px; overflow: hidden;">
-          <div id="hashrate-bar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #FFB000, #FFC940); transition: width 0.5s;"></div>
+        <div id="total-hashrate" class="stat-value accent" style="text-shadow: 0 0 6px rgba(255,176,0,0.4);">--</div>
+        <div style="height: 6px; background: rgba(10,25,41,0.8); border: 1px solid rgba(26,74,92,0.6); border-radius: 3px; margin-top: 12px; overflow: hidden;">
+          <div id="hashrate-bar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #FFB000, #FFC940); transition: width 0.5s; border-radius: 3px;"></div>
         </div>
       </div>
       <!-- Temperature Card -->
-      <div class="card">
-        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-          <div id="temp-icon-bg" style="padding: 8px; background: rgba(0,255,65,0.2); border: 1px solid rgba(0,255,65,0.4); border-radius: 4px;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00FF41" stroke-width="2" id="temp-icon">
+      <div class="summary-card">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+          <div id="temp-icon-bg" style="padding: 10px; background: rgba(0,255,65,0.15); border: 1px solid rgba(0,255,65,0.3); border-radius: 8px;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00FF41" stroke-width="2" id="temp-icon">
               <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </div>
-          <div class="stat-label" style="margin: 0;">Avg Temp</div>
+          <div class="stat-label" style="margin: 0;">Avg Temperature</div>
         </div>
         <div id="avg-temp" class="stat-value success">--</div>
-        <div style="height: 6px; background: #0a1929; border: 1px solid #1a4a5c; margin-top: 10px; overflow: hidden;">
-          <div id="temp-bar" style="height: 100%; width: 0%; background: #00FF41; transition: width 0.5s;"></div>
+        <div style="height: 6px; background: rgba(10,25,41,0.8); border: 1px solid rgba(26,74,92,0.6); border-radius: 3px; margin-top: 12px; overflow: hidden;">
+          <div id="temp-bar" style="height: 100%; width: 0%; background: #00FF41; transition: width 0.5s; border-radius: 3px;"></div>
         </div>
-        <div style="font-size: 10px; color: #8BA88B; margin-top: 6px; text-align: right;"><span id="temp-status">OPTIMAL</span></div>
+        <div style="font-size: 11px; color: #8BA88B; margin-top: 8px; text-align: right; text-transform: uppercase; letter-spacing: 0.5px;"><span id="temp-status">OPTIMAL</span></div>
       </div>
       <!-- Power Card -->
-      <div class="card">
-        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-          <div style="padding: 8px; background: rgba(0,206,209,0.2); border: 1px solid rgba(0,206,209,0.4); border-radius: 4px;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00CED1" stroke-width="2">
+      <div class="summary-card">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+          <div style="padding: 10px; background: rgba(0,206,209,0.15); border: 1px solid rgba(0,206,209,0.3); border-radius: 8px;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00CED1" stroke-width="2">
               <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </div>
-          <div class="stat-label" style="margin: 0;">Power Draw</div>
+          <div class="stat-label" style="margin: 0;">Total Power</div>
         </div>
-        <div id="total-power" class="stat-value" style="color: #00CED1;">--</div>
-        <div style="height: 6px; background: #0a1929; border: 1px solid #1a4a5c; margin-top: 10px; overflow: hidden;">
-          <div id="power-bar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #00CED1, #20B2AA); transition: width 0.5s;"></div>
+        <div id="total-power" class="stat-value" style="color: #00CED1; text-shadow: 0 0 4px rgba(0,206,209,0.3);">--</div>
+        <div style="height: 6px; background: rgba(10,25,41,0.8); border: 1px solid rgba(26,74,92,0.6); border-radius: 3px; margin-top: 12px; overflow: hidden;">
+          <div id="power-bar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #00CED1, #20B2AA); transition: width 0.5s; border-radius: 3px;"></div>
         </div>
       </div>
       <!-- Efficiency Card -->
-      <div class="card">
-        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-          <div style="padding: 8px; background: rgba(0,255,65,0.2); border: 1px solid rgba(0,255,65,0.4); border-radius: 4px;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00FF41" stroke-width="2">
+      <div class="summary-card">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+          <div style="padding: 10px; background: rgba(0,255,65,0.15); border: 1px solid rgba(0,255,65,0.3); border-radius: 8px;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00FF41" stroke-width="2">
               <path d="M22 12h-4l-3 9L9 3l-3 9H2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </div>
           <div class="stat-label" style="margin: 0;">Efficiency</div>
         </div>
-        <div id="efficiency" class="stat-value" style="color: #00FF41; text-shadow: 0 0 3px rgba(0,255,65,0.25);">--</div>
-        <div style="height: 6px; background: #0a1929; border: 1px solid #1a4a5c; margin-top: 10px; overflow: hidden;">
-          <div id="efficiency-bar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #00FF41, #00CC33); transition: width 0.5s;"></div>
+        <div id="efficiency" class="stat-value" style="color: #00FF41; text-shadow: 0 0 4px rgba(0,255,65,0.3);">--</div>
+        <div style="height: 6px; background: rgba(10,25,41,0.8); border: 1px solid rgba(26,74,92,0.6); border-radius: 3px; margin-top: 12px; overflow: hidden;">
+          <div id="efficiency-bar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #00FF41, #00CC33); transition: width 0.5s; border-radius: 3px;"></div>
         </div>
       </div>
       <!-- Shares Card -->
-      <div class="card">
-        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-          <div style="padding: 8px; background: rgba(0,255,65,0.2); border: 1px solid rgba(0,255,65,0.4); border-radius: 4px;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00FF41" stroke-width="2">
+      <div class="summary-card">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+          <div style="padding: 10px; background: rgba(0,255,65,0.15); border: 1px solid rgba(0,255,65,0.3); border-radius: 8px;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00FF41" stroke-width="2">
               <polyline points="20 6 9 17 4 12"/>
             </svg>
           </div>
-          <div class="stat-label" style="margin: 0;">Shares</div>
+          <div class="stat-label" style="margin: 0;">Shares Accepted</div>
         </div>
-        <div id="total-shares" class="stat-value success" style="text-shadow: 0 0 3px rgba(0,255,65,0.25);">--</div>
+        <div id="total-shares" class="stat-value success" style="text-shadow: 0 0 4px rgba(0,255,65,0.3);">--</div>
       </div>
     </div>
 
