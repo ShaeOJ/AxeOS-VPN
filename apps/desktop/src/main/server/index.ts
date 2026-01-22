@@ -528,7 +528,7 @@ function getWebDashboardHtml(): string {
       100% { opacity: 1; transform: translateY(0); }
     }
     .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid #1a4a5c; animation: fade-in 0.4s ease-out forwards; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid #1a4a5c; animation: fade-in 0.4s ease-out forwards; position: relative; z-index: 10000; }
     .login-container .card { animation: fade-in 0.5s ease-out forwards; }
     .logo { font-size: 24px; font-weight: bold; color: #FFB000; text-transform: uppercase; letter-spacing: 2px; }
     .btn {
