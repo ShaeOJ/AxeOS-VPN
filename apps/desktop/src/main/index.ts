@@ -175,6 +175,11 @@ if (!gotTheLock) {
   });
 }
 
+// IPC Handlers - App Info
+ipcMain.handle('get-app-version', () => {
+  return app.getVersion();
+});
+
 // IPC Handlers - Auth
 ipcMain.handle('check-setup', async () => {
   return !auth.isPasswordSet();
