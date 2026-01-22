@@ -12,23 +12,42 @@ import * as poller from '../axeos-poller';
 import * as bitcoin from '../bitcoin-price';
 import * as profitability from '../profitability';
 import * as deviceControl from '../device-control';
+import { readdirSync } from 'fs';
 
 // Load logo as base64 for embedding in HTML
 let logoBase64 = '';
-const possibleLogoPaths = [
-  join(__dirname, '../../renderer/assets/logo.png'),  // Production build
-  join(__dirname, '../../../src/renderer/assets/logo.png'),  // Dev mode from dist
-  join(process.cwd(), 'src/renderer/assets/logo.png'),  // Dev mode from project root
+
+// Function to find logo file (handles vite's hashed filenames like logo-COfIhftl.png)
+function findLogoInDir(dir: string): string | null {
+  try {
+    const files = readdirSync(dir);
+    const logoFile = files.find(f => f.startsWith('logo') && f.endsWith('.png'));
+    if (logoFile) {
+      return join(dir, logoFile);
+    }
+  } catch (e) {
+    // Directory doesn't exist
+  }
+  return null;
+}
+
+const possibleLogoDirs = [
+  join(__dirname, '../../renderer/assets'),  // Production build
+  join(__dirname, '../../../src/renderer/assets'),  // Dev mode from dist
+  join(process.cwd(), 'src/renderer/assets'),  // Dev mode from project root
 ];
 
-for (const logoPath of possibleLogoPaths) {
-  try {
-    const logoBuffer = readFileSync(logoPath);
-    logoBase64 = `data:image/png;base64,${logoBuffer.toString('base64')}`;
-    console.log('Logo loaded from:', logoPath);
-    break;
-  } catch (e) {
-    // Try next path
+for (const dir of possibleLogoDirs) {
+  const logoPath = findLogoInDir(dir);
+  if (logoPath) {
+    try {
+      const logoBuffer = readFileSync(logoPath);
+      logoBase64 = `data:image/png;base64,${logoBuffer.toString('base64')}`;
+      console.log('Logo loaded from:', logoPath);
+      break;
+    } catch (e) {
+      // Try next directory
+    }
   }
 }
 
