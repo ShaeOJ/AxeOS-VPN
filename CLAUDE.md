@@ -10,7 +10,26 @@ Vault-Tec Mining Operations Division - BitAxe Monitoring System for managing mul
 - **Charts**: Recharts
 - **Build**: electron-vite + electron-builder
 
-## Recent Changes (v1.3.0)
+## Recent Changes (v1.5.0)
+
+### Web UI Theme Support
+Extended the 6 Fallout-inspired themes to the web interface:
+- All desktop themes now available in web UI
+- Improved mobile UX for theme selection
+- Fixed z-index stacking issues with theme dropdown
+- Theme persistence across sessions
+
+### Bug Fixes & Improvements
+- **Logo Loading**: Fixed logo not appearing in web UI production builds and packaged app
+- **Modal Fixes**: Resolved modal being cut off by header
+- **Dropdown UX**: Fixed backdrop blocking theme dropdown clicks
+- **Database**: Fixed migration order for group_id index
+- **IPC Handlers**: Fixed missing get-app-version handler that prevented app launch
+- **Profitability Calculator**: Clarified that calculations use Bitcoin network stats
+
+---
+
+## Previous Changes (v1.3.0)
 
 ### Theme Selector Feature
 Added 6 Fallout-inspired color themes with live switching:
