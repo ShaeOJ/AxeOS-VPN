@@ -950,15 +950,173 @@ function getWebDashboardHtml(): string {
       .profitability-widget { padding: 10px 12px; }
       .profit-value { font-size: 13px; }
     }
+
+    /* ======== THEME SYSTEM ======== */
+    :root, body.theme-vault-tec {
+      --color-bg-primary: #0a1929;
+      --color-bg-secondary: #0d2137;
+      --color-accent: #FFB000;
+      --color-accent-hover: #FFC940;
+      --color-success: #00FF41;
+      --color-warning: #FF8C00;
+      --color-danger: #FF3131;
+      --color-text-primary: #E8F4E8;
+      --color-text-secondary: #8BA88B;
+      --color-border: #1a4a5c;
+      --color-scanline: rgba(0, 255, 65, 0.02);
+    }
+    body.theme-nuka-cola {
+      --color-bg-primary: #1a0a0a;
+      --color-bg-secondary: #2a1515;
+      --color-accent: #FF3131;
+      --color-accent-hover: #FF5555;
+      --color-success: #FF6B6B;
+      --color-warning: #FFA500;
+      --color-danger: #FF0000;
+      --color-text-primary: #FFE8E8;
+      --color-text-secondary: #CC9999;
+      --color-border: #5c1a1a;
+      --color-scanline: rgba(255, 49, 49, 0.02);
+    }
+    body.theme-brotherhood {
+      --color-bg-primary: #0a0a1a;
+      --color-bg-secondary: #12122a;
+      --color-accent: #4A90D9;
+      --color-accent-hover: #6AAAF9;
+      --color-success: #87CEEB;
+      --color-warning: #FFD700;
+      --color-danger: #FF4444;
+      --color-text-primary: #E8E8FF;
+      --color-text-secondary: #9999CC;
+      --color-border: #2a2a5c;
+      --color-scanline: rgba(74, 144, 217, 0.02);
+    }
+    body.theme-institute {
+      --color-bg-primary: #f0f0f0;
+      --color-bg-secondary: #e0e0e0;
+      --color-accent: #00A0A0;
+      --color-accent-hover: #00C0C0;
+      --color-success: #00CED1;
+      --color-warning: #FF8C00;
+      --color-danger: #DC143C;
+      --color-text-primary: #1a1a1a;
+      --color-text-secondary: #555555;
+      --color-border: #b0b0b0;
+      --color-scanline: rgba(0, 160, 160, 0.02);
+    }
+    body.theme-ncr {
+      --color-bg-primary: #1a1408;
+      --color-bg-secondary: #2a2010;
+      --color-accent: #C4A35A;
+      --color-accent-hover: #D4B36A;
+      --color-success: #8B7355;
+      --color-warning: #DAA520;
+      --color-danger: #CD5C5C;
+      --color-text-primary: #F5DEB3;
+      --color-text-secondary: #C4A060;
+      --color-border: #5c4a2a;
+      --color-scanline: rgba(196, 163, 90, 0.02);
+    }
+    body.theme-enclave {
+      --color-bg-primary: #0a0a14;
+      --color-bg-secondary: #141420;
+      --color-accent: #B22222;
+      --color-accent-hover: #D22222;
+      --color-success: #FFD700;
+      --color-warning: #FF6347;
+      --color-danger: #FF0000;
+      --color-text-primary: #F0F0F5;
+      --color-text-secondary: #9090A0;
+      --color-border: #3a3a5c;
+      --color-scanline: rgba(178, 34, 34, 0.02);
+    }
+
+    /* Apply CSS variables to elements */
+    body { background: var(--color-bg-primary); color: var(--color-text-primary); }
+    body::before { background: repeating-linear-gradient(0deg, transparent 0px, transparent 2px, var(--color-scanline) 2px, var(--color-scanline) 4px); }
+    .card { background: var(--color-bg-secondary); border-color: var(--color-border); }
+    .card::before { background: linear-gradient(90deg, transparent, var(--color-accent), transparent); }
+    .btn-primary { background: linear-gradient(180deg, var(--color-accent), var(--color-accent-hover)); color: var(--color-bg-primary); border-color: var(--color-accent); }
+    .btn-primary:hover { box-shadow: 0 0 20px color-mix(in srgb, var(--color-accent) 50%, transparent); }
+    .btn-secondary { color: var(--color-text-secondary); border-color: var(--color-border); }
+    .btn-secondary:hover { border-color: var(--color-accent); color: var(--color-accent); }
+    .accent { color: var(--color-accent); }
+    .success { color: var(--color-success); }
+    .warning { color: var(--color-warning); }
+    .danger { color: var(--color-danger); }
+    .logo, .device-name, .modal-title { color: var(--color-accent); }
+    .stat-label, .device-ip, .secondary-stat-label, .detail-label, .metric-label { color: var(--color-text-secondary); }
+    .status-dot.online { background: var(--color-success); box-shadow: 0 0 10px var(--color-success); }
+    .input { border-color: var(--color-border); background: var(--color-bg-primary); color: var(--color-text-primary); }
+    .input:focus { border-color: var(--color-accent); box-shadow: 0 0 10px color-mix(in srgb, var(--color-accent) 30%, transparent); }
+    .header { border-bottom-color: var(--color-border); }
+    .secondary-stats, .device-control-bar { border-top-color: var(--color-border); }
+    .modal { border-color: var(--color-accent); }
+    .modal::before { background: linear-gradient(90deg, var(--color-accent), var(--color-success), var(--color-accent)); }
+    .modal-header { border-bottom-color: var(--color-border); }
+    .detail-item { background: var(--color-bg-primary); border-color: var(--color-border); }
+    .section-title { color: var(--color-accent); border-bottom-color: var(--color-border); }
+    .crypto-ticker { background: var(--color-bg-secondary); border-color: var(--color-border); }
+    .crypto-ticker::before { background: linear-gradient(90deg, transparent, var(--color-accent), transparent); }
+    .profitability-widget { background: var(--color-bg-secondary); border-color: var(--color-border); }
+    ::-webkit-scrollbar-track { background: var(--color-bg-secondary); border-left-color: var(--color-border); }
+    ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, var(--color-accent), var(--color-accent-hover)); border-color: var(--color-accent); }
+    * { scrollbar-color: var(--color-accent) var(--color-bg-secondary); }
+
+    /* Theme selector dropdown */
+    .theme-selector { position: relative; }
+    .theme-btn { display: flex; align-items: center; gap: 6px; padding: 8px 12px; }
+    .theme-dropdown {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      margin-top: 4px;
+      background: var(--color-bg-secondary);
+      border: 2px solid var(--color-border);
+      min-width: 180px;
+      z-index: 100;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-10px);
+      transition: all 0.2s ease;
+    }
+    .theme-dropdown.show { opacity: 1; visibility: visible; transform: translateY(0); }
+    .theme-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+      transition: background 0.2s;
+      border: none;
+      background: transparent;
+      width: 100%;
+      text-align: left;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 12px;
+      color: var(--color-text-primary);
+    }
+    .theme-option:hover { background: var(--color-bg-primary); }
+    .theme-option.active { background: var(--color-bg-primary); color: var(--color-accent); }
+    .theme-swatch {
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      border: 2px solid rgba(255,255,255,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .theme-swatch-inner { width: 8px; height: 8px; border-radius: 2px; }
   </style>
 </head>
 <body>
   <canvas id="network-canvas"></canvas>
   <div id="login-view" class="container login-container">
     <div class="card">
-      ${logoBase64 ? `<img src="${logoBase64}" alt="AxeOS VPN" style="max-width: 200px; height: auto; display: block; margin: 0 auto 24px; filter: drop-shadow(0 0 10px rgba(255,176,0,0.4));">` : `<h2 style="margin-bottom: 24px; text-align: center; color: #FFB000; text-transform: uppercase; letter-spacing: 2px;">AxeOS VPN</h2>`}
+      ${logoBase64 ? `<img src="${logoBase64}" alt="AxeOS VPN" style="max-width: 200px; height: auto; display: block; margin: 0 auto 24px; filter: drop-shadow(0 0 10px color-mix(in srgb, var(--color-accent) 40%, transparent));">` : `<h2 style="margin-bottom: 24px; text-align: center; color: var(--color-accent); text-transform: uppercase; letter-spacing: 2px;">AxeOS VPN</h2>`}
       <div id="setup-form" class="hidden">
-        <p style="color: #8BA88B; margin-bottom: 16px; text-align: center;">Create a password to secure remote access:</p>
+        <p style="color: var(--color-text-secondary); margin-bottom: 16px; text-align: center;">Create a password to secure remote access:</p>
         <input type="password" id="setup-password" class="input" placeholder="Create password (min 6 characters)">
         <input type="password" id="setup-confirm" class="input" placeholder="Confirm password">
         <div id="setup-error" class="error hidden"></div>
@@ -974,7 +1132,7 @@ function getWebDashboardHtml(): string {
 
   <div id="dashboard-view" class="container hidden">
     <div class="header">
-      ${logoBase64 ? `<img src="${logoBase64}" alt="AxeOS VPN" style="height: 60px; width: auto; filter: drop-shadow(0 0 10px rgba(255,176,0,0.4));">` : `<div class="logo">AxeOS VPN Monitor</div>`}
+      ${logoBase64 ? `<img src="${logoBase64}" alt="AxeOS VPN" style="height: 60px; width: auto; filter: drop-shadow(0 0 10px color-mix(in srgb, var(--color-accent) 40%, transparent));">` : `<div class="logo">AxeOS VPN Monitor</div>`}
       <div style="display: flex; gap: 10px; align-items: center;">
         <button id="bg-toggle" onclick="toggleBackground()" class="btn btn-secondary" title="Toggle animated background" style="padding: 8px 12px; display: flex; align-items: center; gap: 6px;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -982,6 +1140,40 @@ function getWebDashboardHtml(): string {
           </svg>
           <span id="bg-toggle-text">FX</span>
         </button>
+        <div class="theme-selector">
+          <button onclick="toggleThemeDropdown()" class="btn btn-secondary theme-btn" title="Change theme">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20V2z" fill="currentColor"/>
+            </svg>
+            <span>Theme</span>
+          </button>
+          <div id="theme-dropdown" class="theme-dropdown">
+            <button class="theme-option" onclick="setTheme('vault-tec')">
+              <div class="theme-swatch" style="background:#0a1929;"><div class="theme-swatch-inner" style="background:#FFB000;"></div></div>
+              <span>Vault-Tec</span>
+            </button>
+            <button class="theme-option" onclick="setTheme('nuka-cola')">
+              <div class="theme-swatch" style="background:#1a0a0a;"><div class="theme-swatch-inner" style="background:#FF3131;"></div></div>
+              <span>Nuka-Cola</span>
+            </button>
+            <button class="theme-option" onclick="setTheme('brotherhood')">
+              <div class="theme-swatch" style="background:#0a0a1a;"><div class="theme-swatch-inner" style="background:#4A90D9;"></div></div>
+              <span>Brotherhood</span>
+            </button>
+            <button class="theme-option" onclick="setTheme('institute')">
+              <div class="theme-swatch" style="background:#f0f0f0;"><div class="theme-swatch-inner" style="background:#00A0A0;"></div></div>
+              <span>Institute</span>
+            </button>
+            <button class="theme-option" onclick="setTheme('ncr')">
+              <div class="theme-swatch" style="background:#1a1408;"><div class="theme-swatch-inner" style="background:#C4A35A;"></div></div>
+              <span>NCR</span>
+            </button>
+            <button class="theme-option" onclick="setTheme('enclave')">
+              <div class="theme-swatch" style="background:#0a0a14;"><div class="theme-swatch-inner" style="background:#B22222;"></div></div>
+              <span>Enclave</span>
+            </button>
+          </div>
+        </div>
         <button onclick="doLogout()" class="btn btn-danger">Logout</button>
       </div>
     </div>
@@ -1257,6 +1449,52 @@ function getWebDashboardHtml(): string {
   <script>
     let token = localStorage.getItem('token');
     let devices = [];
+
+    // Theme system
+    const themes = ['vault-tec', 'nuka-cola', 'brotherhood', 'institute', 'ncr', 'enclave'];
+    let currentTheme = localStorage.getItem('theme') || 'vault-tec';
+
+    function initTheme() {
+      setTheme(currentTheme, false);
+    }
+
+    function setTheme(theme, save = true) {
+      themes.forEach(t => document.body.classList.remove('theme-' + t));
+      document.body.classList.add('theme-' + theme);
+      currentTheme = theme;
+      if (save) localStorage.setItem('theme', theme);
+      updateThemeDropdown();
+      closeThemeDropdown();
+    }
+
+    function toggleThemeDropdown() {
+      const dropdown = document.getElementById('theme-dropdown');
+      dropdown.classList.toggle('show');
+    }
+
+    function closeThemeDropdown() {
+      const dropdown = document.getElementById('theme-dropdown');
+      if (dropdown) dropdown.classList.remove('show');
+    }
+
+    function updateThemeDropdown() {
+      document.querySelectorAll('.theme-option').forEach(opt => {
+        opt.classList.remove('active');
+        if (opt.onclick && opt.onclick.toString().includes(currentTheme)) {
+          opt.classList.add('active');
+        }
+      });
+    }
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.theme-selector')) {
+        closeThemeDropdown();
+      }
+    });
+
+    // Initialize theme on page load
+    initTheme();
 
     async function init() {
       try {
