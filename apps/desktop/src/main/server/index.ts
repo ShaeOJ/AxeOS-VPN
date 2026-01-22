@@ -2,8 +2,9 @@ import express from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
 import { networkInterfaces } from 'os';
-import { readFileSync } from 'fs';
-import { join } from 'path';
+import { readFileSync, readdirSync, existsSync } from 'fs';
+import { join, dirname } from 'path';
+import { app } from 'electron';
 import * as devices from '../database/devices';
 import * as metrics from '../database/metrics';
 import * as settings from '../database/settings';
@@ -12,7 +13,6 @@ import * as poller from '../axeos-poller';
 import * as bitcoin from '../bitcoin-price';
 import * as profitability from '../profitability';
 import * as deviceControl from '../device-control';
-import { readdirSync } from 'fs';
 
 // Load logo as base64 for embedding in HTML
 let logoBase64 = '';
@@ -31,11 +31,21 @@ function findLogoInDir(dir: string): string | null {
   return null;
 }
 
+// Get app path for packaged app
+const appPath = app.isPackaged ? dirname(app.getPath('exe')) : process.cwd();
+const resourcesPath = app.isPackaged ? join(appPath, 'resources') : '';
+
 const possibleLogoDirs = [
-  join(__dirname, '../../renderer/assets'),  // Production build
+  join(__dirname, '../renderer/assets'),  // Production build (dist/main -> dist/renderer/assets)
+  join(__dirname, '../../renderer/assets'),  // Alternative production path
+  resourcesPath ? join(resourcesPath, 'app.asar', 'dist', 'renderer', 'assets') : '',  // Inside asar
   join(__dirname, '../../../src/renderer/assets'),  // Dev mode from dist
   join(process.cwd(), 'src/renderer/assets'),  // Dev mode from project root
-];
+  join(process.cwd(), 'dist/renderer/assets'),  // Dev mode built assets
+].filter(Boolean);
+
+console.log('App packaged:', app.isPackaged);
+console.log('Looking for logo in directories:', possibleLogoDirs);
 
 for (const dir of possibleLogoDirs) {
   const logoPath = findLogoInDir(dir);
