@@ -1552,7 +1552,7 @@ function getWebDashboardHtml(): string {
       if (!backdrop) {
         backdrop = document.createElement('div');
         backdrop.id = 'theme-backdrop';
-        backdrop.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;opacity:0;transition:opacity 0.2s;';
+        backdrop.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;opacity:0;transition:opacity 0.2s;';
         backdrop.onclick = closeThemeDropdown;
         document.body.appendChild(backdrop);
       }
