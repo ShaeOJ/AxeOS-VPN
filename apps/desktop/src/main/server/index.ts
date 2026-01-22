@@ -1355,9 +1355,10 @@ function getWebDashboardHtml(): string {
             <span style="color:#8BA88B;font-size:11px;">$/kWh</span>
             <button class="btn btn-secondary" style="padding:4px 8px;font-size:10px;" onclick="saveElectricityCost()">Save</button>
           </div>
-          <div style="margin-top:8px;font-size:10px;color:#8BA88B;">
-            <span>Network Difficulty: <span id="profit-difficulty" style="color:#FFB000;">--</span></span>
+          <div id="profit-network-stats" style="margin-top:8px;font-size:10px;color:#8BA88B;">
+            <span>BTC Difficulty: <span id="profit-difficulty" style="color:#FFB000;">--</span></span>
             <span style="margin-left:12px;">Block Reward: <span id="profit-block-reward" style="color:#FFB000;">--</span> BTC</span>
+            <div id="profit-btc-only-note" class="hidden" style="margin-top:4px;color:#FF8C00;font-size:9px;">Note: Profitability calculated using Bitcoin network stats</div>
           </div>
         </div>
       </div>
@@ -2798,6 +2799,16 @@ function getWebDashboardHtml(): string {
       // Update currency label
       const currencyLabelEl = document.getElementById('profit-currency-label');
       if (currencyLabelEl) currencyLabelEl.textContent = selectedCurrency.code.toUpperCase();
+
+      // Show note if non-BTC coin selected (profitability uses BTC network stats)
+      const btcNoteEl = document.getElementById('profit-btc-only-note');
+      if (btcNoteEl) {
+        if (selectedCoin.id !== 'bitcoin') {
+          btcNoteEl.classList.remove('hidden');
+        } else {
+          btcNoteEl.classList.add('hidden');
+        }
+      }
     }
 
     async function calculateProfitability() {

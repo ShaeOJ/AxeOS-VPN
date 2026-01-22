@@ -306,10 +306,14 @@ export function ProfitabilityDisplay() {
           {/* Network stats */}
           {networkStats && (
             <div>
-              <div className="text-xs text-text-secondary uppercase tracking-wider mb-1">Network</div>
+              <div className="text-xs text-text-secondary uppercase tracking-wider mb-1">BTC Network</div>
               <div className="flex justify-between text-xs">
                 <span className="text-text-secondary">Difficulty:</span>
                 <span className="font-mono text-text-terminal">{formatDifficulty(networkStats.difficulty)}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-text-secondary">Block Reward:</span>
+                <span className="font-mono text-text-terminal">{networkStats.blockReward} BTC</span>
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-text-secondary">Block:</span>
@@ -319,6 +323,11 @@ export function ProfitabilityDisplay() {
                 <div className="flex justify-between text-xs">
                   <span className="text-text-secondary">Network HR:</span>
                   <span className="font-mono text-text-terminal">{blockChance.networkHashrateEH.toFixed(2)} EH/s</span>
+                </div>
+              )}
+              {selectedCoin?.id !== 'bitcoin' && (
+                <div className="text-[10px] text-warning mt-1">
+                  Note: Profitability calculated using Bitcoin network stats
                 </div>
               )}
             </div>
