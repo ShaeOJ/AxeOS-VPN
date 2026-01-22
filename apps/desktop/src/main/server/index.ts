@@ -1064,28 +1064,29 @@ function getWebDashboardHtml(): string {
     * { scrollbar-color: var(--color-accent) var(--color-bg-secondary); }
 
     /* Theme selector dropdown */
-    .theme-selector { position: relative; }
-    .theme-btn { display: flex; align-items: center; gap: 6px; padding: 8px 12px; }
+    .theme-selector { position: relative; z-index: 10001; }
+    .theme-btn { display: flex; align-items: center; gap: 6px; padding: 8px 12px; min-height: 44px; }
     .theme-dropdown {
       position: absolute;
       top: 100%;
       right: 0;
       margin-top: 4px;
       background: var(--color-bg-secondary);
-      border: 2px solid var(--color-border);
-      min-width: 180px;
-      z-index: 100;
+      border: 2px solid var(--color-accent);
+      min-width: 200px;
+      z-index: 10002;
       opacity: 0;
       visibility: hidden;
       transform: translateY(-10px);
       transition: all 0.2s ease;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
     }
     .theme-dropdown.show { opacity: 1; visibility: visible; transform: translateY(0); }
     .theme-option {
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 10px 14px;
+      gap: 12px;
+      padding: 14px 16px;
       cursor: pointer;
       transition: background 0.2s;
       border: none;
@@ -1093,21 +1094,78 @@ function getWebDashboardHtml(): string {
       width: 100%;
       text-align: left;
       font-family: 'Share Tech Mono', monospace;
-      font-size: 12px;
+      font-size: 14px;
       color: var(--color-text-primary);
+      min-height: 48px;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
     }
-    .theme-option:hover { background: var(--color-bg-primary); }
-    .theme-option.active { background: var(--color-bg-primary); color: var(--color-accent); }
+    .theme-option:hover, .theme-option:active { background: var(--color-bg-primary); }
+    .theme-option.active { background: var(--color-bg-primary); color: var(--color-accent); border-left: 3px solid var(--color-accent); }
     .theme-swatch {
-      width: 20px;
-      height: 20px;
+      width: 28px;
+      height: 28px;
       border-radius: 4px;
-      border: 2px solid rgba(255,255,255,0.2);
+      border: 2px solid rgba(255,255,255,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .theme-swatch-inner { width: 12px; height: 12px; border-radius: 2px; }
+    .theme-dropdown-header {
+      display: none;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 2px solid var(--color-border);
+      font-size: 16px;
+      font-weight: bold;
+      color: var(--color-accent);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .theme-close-btn {
+      background: transparent;
+      border: none;
+      color: var(--color-text-secondary);
+      font-size: 28px;
+      cursor: pointer;
+      padding: 0 8px;
+      line-height: 1;
+      min-width: 44px;
+      min-height: 44px;
       display: flex;
       align-items: center;
       justify-content: center;
     }
-    .theme-swatch-inner { width: 8px; height: 8px; border-radius: 2px; }
+    .theme-close-btn:hover, .theme-close-btn:active { color: var(--color-accent); }
+    /* Mobile theme dropdown */
+    @media (max-width: 768px) {
+      .theme-dropdown {
+        position: fixed;
+        top: auto;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        min-width: 100%;
+        border-radius: 16px 16px 0 0;
+        border-bottom: none;
+        padding-bottom: env(safe-area-inset-bottom, 20px);
+        transform: translateY(100%);
+      }
+      .theme-dropdown.show { transform: translateY(0); }
+      .theme-dropdown-header { display: flex; }
+      .theme-option {
+        padding: 18px 20px;
+        font-size: 16px;
+        min-height: 56px;
+        border-bottom: 1px solid var(--color-border);
+      }
+      .theme-option:last-child { border-bottom: none; }
+      .theme-swatch { width: 32px; height: 32px; }
+      .theme-swatch-inner { width: 14px; height: 14px; }
+    }
   </style>
 </head>
 <body>
@@ -1148,6 +1206,10 @@ function getWebDashboardHtml(): string {
             <span>Theme</span>
           </button>
           <div id="theme-dropdown" class="theme-dropdown">
+            <div class="theme-dropdown-header">
+              <span>Select Theme</span>
+              <button onclick="closeThemeDropdown()" class="theme-close-btn">&times;</button>
+            </div>
             <button class="theme-option" onclick="setTheme('vault-tec')">
               <div class="theme-swatch" style="background:#0a1929;"><div class="theme-swatch-inner" style="background:#FFB000;"></div></div>
               <span>Vault-Tec</span>
@@ -1467,14 +1529,42 @@ function getWebDashboardHtml(): string {
       closeThemeDropdown();
     }
 
-    function toggleThemeDropdown() {
+    function toggleThemeDropdown(e) {
+      if (e) e.stopPropagation();
       const dropdown = document.getElementById('theme-dropdown');
-      dropdown.classList.toggle('show');
+      const isOpen = dropdown.classList.contains('show');
+      if (isOpen) {
+        closeThemeDropdown();
+      } else {
+        dropdown.classList.add('show');
+        showThemeBackdrop();
+      }
     }
 
     function closeThemeDropdown() {
       const dropdown = document.getElementById('theme-dropdown');
       if (dropdown) dropdown.classList.remove('show');
+      hideThemeBackdrop();
+    }
+
+    function showThemeBackdrop() {
+      let backdrop = document.getElementById('theme-backdrop');
+      if (!backdrop) {
+        backdrop = document.createElement('div');
+        backdrop.id = 'theme-backdrop';
+        backdrop.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;opacity:0;transition:opacity 0.2s;';
+        backdrop.onclick = closeThemeDropdown;
+        document.body.appendChild(backdrop);
+      }
+      requestAnimationFrame(() => backdrop.style.opacity = '1');
+    }
+
+    function hideThemeBackdrop() {
+      const backdrop = document.getElementById('theme-backdrop');
+      if (backdrop) {
+        backdrop.style.opacity = '0';
+        setTimeout(() => backdrop.remove(), 200);
+      }
     }
 
     function updateThemeDropdown() {
@@ -1486,9 +1576,9 @@ function getWebDashboardHtml(): string {
       });
     }
 
-    // Close dropdown when clicking outside
+    // Close dropdown when clicking outside (desktop)
     document.addEventListener('click', function(e) {
-      if (!e.target.closest('.theme-selector')) {
+      if (!e.target.closest('.theme-selector') && !e.target.closest('#theme-backdrop')) {
         closeThemeDropdown();
       }
     });
