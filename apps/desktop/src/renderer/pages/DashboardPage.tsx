@@ -35,12 +35,29 @@ export function DashboardPage() {
   const [showDiscoveryModal, setShowDiscoveryModal] = useState(false);
   const [showGroupManager, setShowGroupManager] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [networkStats, setNetworkStats] = useState<{ difficulty: number; blockReward: number; blockHeight: number } | null>(null);
 
   useEffect(() => {
     // Initial fetch - Layout handles the metrics listener
     fetchDevices();
     fetchStatus();
     fetchGroups();
+
+    // Fetch network stats for block chance calculations
+    const fetchNetworkStats = async () => {
+      try {
+        const stats = await window.electronAPI.getNetworkStats();
+        if (stats) {
+          setNetworkStats(stats);
+        }
+      } catch (err) {
+        console.error('Failed to fetch network stats:', err);
+      }
+    };
+    fetchNetworkStats();
+    // Refresh network stats every 5 minutes
+    const interval = setInterval(fetchNetworkStats, 300000);
+    return () => clearInterval(interval);
   }, []);
 
   const toggleGroupCollapse = (groupId: string) => {
@@ -280,6 +297,7 @@ export function DashboardPage() {
                           device={device}
                           groups={groups}
                           onGroupChange={(groupId) => setDeviceGroup(device.id, groupId)}
+                          networkStats={networkStats}
                         />
                       ))}
                     </div>
@@ -324,6 +342,7 @@ export function DashboardPage() {
                         device={device}
                         groups={groups}
                         onGroupChange={(groupId) => setDeviceGroup(device.id, groupId)}
+                        networkStats={networkStats}
                       />
                     ))}
                   </div>

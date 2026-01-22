@@ -1754,7 +1754,7 @@ function getWebDashboardHtml(): string {
       if (m) {
         html += '<div class="detail-item"><div class="detail-label">' + (isCluster ? 'Cluster Hashrate' : 'Hashrate') + '</div><div class="detail-value accent">' + formatHashrate(m.hashRate) + '</div></div>';
         html += '<div class="detail-item"><div class="detail-label">Temperature</div><div class="detail-value ' + getTempClass(m.temp) + '">' + formatTemp(m.temp) + '</div></div>';
-        html += '<div class="detail-item"><div class="detail-label">' + (isCluster ? 'Cluster Power' : 'Power') + '</div><div class="detail-value">' + formatPower(m.power) + '</div></div>';
+        html += '<div class="detail-item"><div class="detail-label">' + (isCluster ? 'Cluster Power' : 'Power') + '</div><div class="detail-value">' + formatPower(m.power) + '<div style="font-size:11px;color:#8BA88B;margin-top:2px;">' + formatAmps(m.current, m.power, m.voltage) + '</div></div></div>';
         html += '<div class="detail-item"><div class="detail-label">' + (isCluster ? 'Cluster Efficiency' : 'Efficiency') + '</div><div class="detail-value">' + (m.efficiency ? m.efficiency.toFixed(1) + ' J/TH' : '--') + '</div></div>';
         html += '</div>';
 
@@ -1773,6 +1773,19 @@ function getWebDashboardHtml(): string {
         html += '<div class="detail-item"><div class="detail-label">Best Difficulty</div><div class="detail-value accent">' + (m.bestDiff && typeof m.bestDiff === 'number' ? (m.bestDiff >= 1e9 ? (m.bestDiff / 1e9).toFixed(2) + 'B' : m.bestDiff >= 1e6 ? (m.bestDiff / 1e6).toFixed(2) + 'M' : m.bestDiff >= 1e3 ? (m.bestDiff / 1e3).toFixed(2) + 'K' : m.bestDiff.toLocaleString()) : (m.bestDiff || '--')) + '</div></div>';
         html += '<div class="detail-item"><div class="detail-label">Uptime</div><div class="detail-value">' + formatUptime(m.uptimeSeconds) + '</div></div>';
         html += '</div>';
+
+        // Solo Block Chance
+        var detailBlockChance = networkStats ? calculateBlockChance(m.hashRate, networkStats.difficulty) : null;
+        if (detailBlockChance) {
+          html += '<div class="section-title" style="display:flex;align-items:center;gap:8px;">';
+          html += '<svg width="16" height="16" viewBox="0 0 20 20" fill="#FF8C00"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>';
+          html += 'Solo Block Chance</div>';
+          html += '<div class="detail-grid">';
+          html += '<div class="detail-item"><div class="detail-label">Expected Time</div><div class="detail-value" style="color:#FF8C00;">' + formatTimeToBlock(detailBlockChance.daysToBlock) + '</div></div>';
+          html += '<div class="detail-item"><div class="detail-label">Daily Odds</div><div class="detail-value">' + formatOdds(detailBlockChance.dailyOdds) + '</div></div>';
+          html += '</div>';
+          html += '<div style="font-size:10px;color:#8BA88B;margin-top:4px;font-style:italic;">Solo mining is a lottery - these are statistical averages</div>';
+        }
 
         html += '<div class="section-title">Pool</div><div class="detail-grid">';
         html += '<div class="detail-item" style="grid-column: span 2;"><div class="detail-label">Stratum URL</div><div class="detail-value" style="font-size:12px;word-break:break-all;">' + (m.stratumURL || 'Not configured') + '</div></div>';
@@ -1909,6 +1922,7 @@ function getWebDashboardHtml(): string {
       container.innerHTML = [...onlineDevices, ...offlineDevices].map(d => {
         const m = d.latestMetrics;
         const isCluster = m && m.isClusterMaster && m.clusterInfo;
+        const blockChance = m && m.hashRate && networkStats ? calculateBlockChance(m.hashRate, networkStats.difficulty) : null;
         return '<div class="card clickable" onclick="showDeviceDetail(' + "'" + d.id + "'" + ')">' +
           '<div class="device-header"><div><div class="device-name">' + d.name + '</div><div class="device-ip">' + d.ipAddress + '</div>' +
           (m ? '<div class="device-model" style="display:flex;align-items:center;gap:6px;">' + (m.ASICModel || 'BitAxe') +
@@ -1918,12 +1932,17 @@ function getWebDashboardHtml(): string {
           (d.isOnline && m ?
             '<div class="metrics-grid"><div class="metric"><div class="metric-label">Hashrate</div><div class="metric-value accent">' + formatHashrate(m.hashRate) + '</div></div>' +
             '<div class="metric"><div class="metric-label">Temp</div><div class="metric-value ' + getTempClass(m.temp) + '">' + formatTemp(m.temp) + '</div></div>' +
-            '<div class="metric"><div class="metric-label">Power</div><div class="metric-value">' + formatPower(m.power) + '</div></div></div>' +
+            '<div class="metric"><div class="metric-label">Power</div><div class="metric-value">' + formatPower(m.power) + '<div style="font-size:10px;color:#8BA88B;margin-top:2px;">' + formatAmps(m.current, m.power, m.voltage) + '</div></div></div></div>' +
             '<div class="secondary-stats"><div class="secondary-stat"><div class="secondary-stat-label">Efficiency</div><div class="secondary-stat-value">' + (m.efficiency ? m.efficiency.toFixed(1) + ' J/TH' : '--') + '</div></div>' +
             '<div class="secondary-stat"><div class="secondary-stat-label">Freq</div><div class="secondary-stat-value">' + (m.frequency ? m.frequency + ' MHz' : '--') + '</div></div>' +
             '<div class="secondary-stat"><div class="secondary-stat-label">Voltage</div><div class="secondary-stat-value">' + (m.coreVoltage ? m.coreVoltage + ' mV' : '--') + '</div></div>' +
             '<div class="secondary-stat"><div class="secondary-stat-label">Fan</div><div class="secondary-stat-value">' + (m.fanspeed ? m.fanspeed + '%' : '--') + '</div></div>' +
             '<div class="secondary-stat"><div class="secondary-stat-label">Shares</div><div class="secondary-stat-value success">' + (m.sharesAccepted || 0).toLocaleString() + '</div></div></div>' +
+            (blockChance ? '<div style="padding:8px 12px;border-top:1px solid rgba(58,90,110,0.3);display:flex;align-items:center;justify-content:space-between;">' +
+              '<div style="display:flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 20 20" fill="#FF8C00"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>' +
+              '<span style="font-size:10px;color:#8BA88B;">Solo Block</span></div>' +
+              '<div style="text-align:right;"><span style="font-size:11px;font-family:monospace;color:#FF8C00;">' + formatTimeToBlock(blockChance.daysToBlock) + '</span>' +
+              '<span style="font-size:9px;color:#8BA88B;margin-left:4px;">(' + formatOdds(blockChance.dailyOdds) + '/day)</span></div></div>' : '') +
             '<div class="device-control-bar" onclick="event.stopPropagation();"><button class="restart-btn" data-device-id="' + d.id + '" onclick="handleRestartClick(this, event)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Restart</button></div>'
           : '<div style="color:#8BA88B;margin-top:8px;">' + (d.isOnline ? 'Waiting for metrics...' : 'Offline') + '</div>') +
         '</div>';
@@ -1985,8 +2004,40 @@ function getWebDashboardHtml(): string {
     function formatHashrate(h) { if (!h) return '--'; return h >= 1000 ? (h / 1000).toFixed(2) + ' TH/s' : h.toFixed(2) + ' GH/s'; }
     function formatTemp(t) { return t ? t.toFixed(1) + '°C' : '--'; }
     function formatPower(p) { return p ? p.toFixed(1) + ' W' : '--'; }
+    function formatAmps(current, power, voltage) {
+      if (current && current > 0) return current.toFixed(2) + ' A';
+      if (power && voltage && voltage > 0) return (power / voltage).toFixed(2) + ' A';
+      return '--';
+    }
     function formatUptime(s) { if (!s) return '--'; const d = Math.floor(s/86400), h = Math.floor((s%86400)/3600), m = Math.floor((s%3600)/60); return d > 0 ? d+'d '+h+'h' : h > 0 ? h+'h '+m+'m' : m+'m'; }
     function getTempClass(t) { if (!t) return ''; return t > 80 ? 'danger' : t > 70 ? 'warning' : 'success'; }
+
+    function calculateBlockChance(hashRateGH, difficulty) {
+      if (!hashRateGH || !difficulty || hashRateGH <= 0 || difficulty <= 0) return null;
+      const networkHashrateHs = (difficulty * Math.pow(2, 32)) / 600;
+      const ourHashrateHs = hashRateGH * 1e9;
+      const probPerBlock = ourHashrateHs / networkHashrateHs;
+      const blocksPerDay = 144;
+      const daysToBlock = 1 / (probPerBlock * blocksPerDay);
+      const dailyOdds = 1 - Math.pow(1 - probPerBlock, blocksPerDay);
+      return { daysToBlock, dailyOdds };
+    }
+
+    function formatTimeToBlock(days) {
+      if (days < 1) return Math.round(days * 24) + 'h';
+      if (days < 30) return Math.round(days) + 'd';
+      if (days < 365) return (days / 30).toFixed(1) + 'mo';
+      if (days < 3650) return (days / 365).toFixed(1) + 'y';
+      if (days < 36500) return Math.round(days / 365) + 'y';
+      if (days < 365000) return (days / 365 / 1000).toFixed(1) + 'ky';
+      return (days / 365 / 1e6).toFixed(1) + 'My';
+    }
+
+    function formatOdds(prob) {
+      if (prob >= 0.01) return (prob * 100).toFixed(2) + '%';
+      if (prob >= 0.0001) return (prob * 100).toFixed(4) + '%';
+      return (prob * 100).toExponential(1) + '%';
+    }
 
     // ============ DEVICE CONTROL ============
     const restartConfirmState = new Map();

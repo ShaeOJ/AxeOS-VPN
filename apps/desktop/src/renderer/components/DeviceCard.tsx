@@ -15,6 +15,8 @@ interface ClusterInfo {
 // AxeOS system info
 interface AxeOSSystemInfo {
   power: number;
+  voltage: number;
+  current: number;
   temp: number;
   hashRate: number;
   efficiency: number;
@@ -25,6 +27,12 @@ interface AxeOSSystemInfo {
   isClusterMaster?: boolean;
   clusterInfo?: ClusterInfo;
   [key: string]: unknown;
+}
+
+interface NetworkStats {
+  difficulty: number;
+  blockReward: number;
+  blockHeight: number;
 }
 
 interface DeviceGroup {
@@ -50,6 +58,7 @@ interface DeviceCardProps {
   device: Device;
   groups?: DeviceGroup[];
   onGroupChange?: (groupId: string | null) => void;
+  networkStats?: NetworkStats | null;
 }
 
 function formatHashrate(hashrate: number | null | undefined): string {
@@ -69,6 +78,53 @@ function formatPower(power: number | null | undefined): string {
   return `${power.toFixed(1)} W`;
 }
 
+function formatAmps(current: number | null | undefined, power?: number, voltage?: number): string {
+  // Use reported current if available
+  if (current && current > 0) {
+    return `${current.toFixed(2)} A`;
+  }
+  // Calculate from power/voltage as fallback
+  if (power && voltage && voltage > 0) {
+    return `${(power / voltage).toFixed(2)} A`;
+  }
+  return '--';
+}
+
+function calculateBlockChance(hashRateGH: number, difficulty: number): { daysToBlock: number; dailyOdds: number } | null {
+  if (!hashRateGH || !difficulty || hashRateGH <= 0 || difficulty <= 0) return null;
+
+  // Network hashrate in H/s: difficulty * 2^32 / 600 (average block time)
+  const networkHashrateHs = (difficulty * Math.pow(2, 32)) / 600;
+  // Convert hashrate from GH/s to H/s
+  const ourHashrateHs = hashRateGH * 1e9;
+  // Probability of finding any given block
+  const probPerBlock = ourHashrateHs / networkHashrateHs;
+  // Blocks per day (144 on average)
+  const blocksPerDay = 144;
+  // Expected time to find a block (in days)
+  const daysToBlock = 1 / (probPerBlock * blocksPerDay);
+  // Daily odds
+  const dailyOdds = 1 - Math.pow(1 - probPerBlock, blocksPerDay);
+
+  return { daysToBlock, dailyOdds };
+}
+
+function formatTimeToBlock(days: number): string {
+  if (days < 1) return `${Math.round(days * 24)}h`;
+  if (days < 30) return `${Math.round(days)}d`;
+  if (days < 365) return `${(days / 30).toFixed(1)}mo`;
+  if (days < 3650) return `${(days / 365).toFixed(1)}y`;
+  if (days < 36500) return `${Math.round(days / 365)}y`;
+  if (days < 365000) return `${(days / 365 / 1000).toFixed(1)}ky`;
+  return `${(days / 365 / 1e6).toFixed(1)}My`;
+}
+
+function formatOdds(prob: number): string {
+  if (prob >= 0.01) return `${(prob * 100).toFixed(2)}%`;
+  if (prob >= 0.0001) return `${(prob * 100).toFixed(4)}%`;
+  return `${(prob * 100).toExponential(1)}%`;
+}
+
 function formatRelativeTime(timestamp: number | null): string {
   if (!timestamp) return 'Never';
   const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -78,8 +134,11 @@ function formatRelativeTime(timestamp: number | null): string {
   return `${Math.floor(seconds / 86400)}d ago`;
 }
 
-export function DeviceCard({ device, groups, onGroupChange }: DeviceCardProps) {
+export function DeviceCard({ device, groups, onGroupChange, networkStats }: DeviceCardProps) {
   const metrics = device.latestMetrics;
+  const blockChance = metrics?.hashRate && networkStats?.difficulty
+    ? calculateBlockChance(metrics.hashRate, networkStats.difficulty)
+    : null;
   const [isRestarting, setIsRestarting] = useState(false);
   const [showRestartConfirm, setShowRestartConfirm] = useState(false);
   const [showGroupDropdown, setShowGroupDropdown] = useState(false);
@@ -174,6 +233,9 @@ export function DeviceCard({ device, groups, onGroupChange }: DeviceCardProps) {
               <div className="text-sm font-medium text-text-primary">
                 {formatPower(metrics.power)}
               </div>
+              <div className="text-[10px] text-text-secondary">
+                {formatAmps(metrics.current, metrics.power, metrics.voltage)}
+              </div>
             </div>
           </div>
 
@@ -198,6 +260,24 @@ export function DeviceCard({ device, groups, onGroupChange }: DeviceCardProps) {
               </div>
             </div>
           </div>
+
+          {/* Block Chance */}
+          {blockChance && (
+            <div className="pt-2 border-t border-border/50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1">
+                  <svg className="w-3 h-3 text-warning" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                  </svg>
+                  <span className="text-[10px] text-text-secondary">Solo Block</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs font-mono text-warning">{formatTimeToBlock(blockChance.daysToBlock)}</span>
+                  <span className="text-[10px] text-text-secondary ml-1">({formatOdds(blockChance.dailyOdds)}/day)</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div className="text-sm text-text-secondary">

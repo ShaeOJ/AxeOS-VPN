@@ -10,7 +10,41 @@ Vault-Tec Mining Operations Division - BitAxe Monitoring System for managing mul
 - **Charts**: Recharts
 - **Build**: electron-vite + electron-builder
 
-## Recent Changes (v1.5.0)
+## Recent Changes (v1.5.2)
+
+### Device Card Enhancements
+Added per-device statistics to miner cards in both desktop and web UI:
+
+**Amps Display:**
+- Shows calculated amperage next to power consumption
+- Uses reported `current` field from AxeOS API when available
+- Falls back to calculated value (power / voltage) if not reported
+- Displayed in both device cards and detail views
+
+**Solo Block Chance:**
+- Per-device block probability based on individual hashrate
+- Uses Bitcoin network difficulty to calculate:
+  - Expected time to find a block
+  - Daily odds percentage
+- Shows on device cards (compact) and detail modal (expanded)
+- Network stats fetched every 5 minutes
+
+**Files modified:**
+- `components/DeviceCard.tsx` - Added amps display, block chance calculation
+- `pages/DashboardPage.tsx` - Fetches network stats, passes to DeviceCard
+- `main/server/index.ts` - Added amps and block chance to web UI cards and detail modal
+
+**Block Chance Formula:**
+```typescript
+networkHashrateHs = (difficulty * 2^32) / 600
+probPerBlock = deviceHashrateHs / networkHashrateHs
+daysToBlock = 1 / (probPerBlock * 144)  // 144 blocks per day
+dailyOdds = 1 - (1 - probPerBlock)^144
+```
+
+---
+
+## Previous Changes (v1.5.0)
 
 ### Web UI Theme Support
 Extended the 6 Fallout-inspired themes to the web interface:
