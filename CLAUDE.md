@@ -10,112 +10,107 @@ Vault-Tec Mining Operations Division - BitAxe Monitoring System for managing mul
 - **Charts**: Recharts
 - **Build**: electron-vite + electron-builder
 
-## Recent Changes (v1.5.2)
+## Current Version: v1.5.3
+
+---
+
+## Complete Feature List
+
+### Device Management
+| Feature | Description |
+|---------|-------------|
+| Add Devices | Manually add devices by IP address |
+| Auto-Discovery | Scan local network for BitAxe devices |
+| QR Code Pairing | Pair devices via QR code |
+| Device Groups | Organize miners into color-coded groups |
+| Device Detail Page | Full device info and controls |
+
+### Device Monitoring
+| Feature | Description |
+|---------|-------------|
+| Real-time Metrics | Hashrate, temperature, power, efficiency |
+| Amps Display | Shows current draw (from API or calculated) |
+| Solo Block Chance | Per-device probability to find a block |
+| Best Diff Tracking | All-time best difficulty with "NEW!" badge |
+| Online/Offline Status | Live status indicators |
+
+### Device Control
+| Feature | Description |
+|---------|-------------|
+| Restart Device | Remote restart via API |
+| Set Frequency | Adjust ASIC frequency (MHz) |
+| Set Core Voltage | Adjust core voltage (mV) |
+| Set Fan Speed | Adjust fan speed (0-100%) |
+| Pool Settings | Update stratum URL/user/password |
+
+### Alerts & Notifications
+| Feature | Description |
+|---------|-------------|
+| Device Offline Alerts | Notification when device goes offline |
+| Temperature Alerts | Warning when temp exceeds threshold |
+| Hashrate Drop Alerts | Alert on significant hashrate decrease |
+| Configurable Thresholds | Customize alert triggers |
+| Desktop Notifications | Native OS notifications |
+| In-App Alerts | Alert display in the UI |
+
+### Financial Tools
+| Feature | Description |
+|---------|-------------|
+| Bitcoin Price Ticker | Live BTC price display |
+| Profitability Calculator | Estimate earnings based on hashrate/power |
+| Network Stats | Bitcoin network difficulty and hashrate |
+
+### Theming & UI
+| Feature | Description |
+|---------|-------------|
+| 6 Fallout Themes | Vault-Tec, Nuka-Cola, Brotherhood, Institute, NCR, Enclave |
+| Vault-Tec Style Icons | Themed icons on dashboard cards |
+| CRT Scanline Effects | Retro terminal aesthetic |
+| Responsive Design | Works on desktop and mobile (web UI) |
+
+### Remote Access
+| Feature | Description |
+|---------|-------------|
+| Web UI | Access dashboard from any browser |
+| Mobile Support | Responsive web interface |
+| Theme Support | All themes available in web UI |
+| Password Protection | Secure remote access |
+
+---
+
+## Recent Changes (v1.5.3)
+
+### Best Diff Tracking
+- Track all-time best difficulty per device
+- "NEW!" badge when current session beats all-time record
+- Stored in database for persistence
+
+### Theme System Fix
+- Updated Tailwind config to use CSS variables
+- All colors now change correctly with theme selection
+- Fixed hardcoded colors in dashboard cards and components
+
+### Vault-Tec Style Icons
+- Added themed icons to dashboard summary cards
+- Icons for: Hashrate, Temperature, Power, Efficiency, Shares
+- Web UI icons updated to match desktop style
+
+---
+
+## Previous Changes (v1.5.2)
 
 ### Device Card Enhancements
-Added per-device statistics to miner cards in both desktop and web UI:
-
 **Amps Display:**
 - Shows calculated amperage next to power consumption
 - Uses reported `current` field from AxeOS API when available
 - Falls back to calculated value (power / voltage) if not reported
-- Displayed in both device cards and detail views
 
 **Solo Block Chance:**
 - Per-device block probability based on individual hashrate
-- Uses Bitcoin network difficulty to calculate:
-  - Expected time to find a block
-  - Daily odds percentage
-- Shows on device cards (compact) and detail modal (expanded)
-- Network stats fetched every 5 minutes
-
-**Files modified:**
-- `components/DeviceCard.tsx` - Added amps display, block chance calculation
-- `pages/DashboardPage.tsx` - Fetches network stats, passes to DeviceCard
-- `main/server/index.ts` - Added amps and block chance to web UI cards and detail modal
-
-**Block Chance Formula:**
-```typescript
-networkHashrateHs = (difficulty * 2^32) / 600
-probPerBlock = deviceHashrateHs / networkHashrateHs
-daysToBlock = 1 / (probPerBlock * 144)  // 144 blocks per day
-dailyOdds = 1 - (1 - probPerBlock)^144
-```
+- Uses Bitcoin network difficulty for calculations
+- Shows expected time to find a block and daily odds
 
 ---
-
-## Previous Changes (v1.5.0)
-
-### Web UI Theme Support
-Extended the 6 Fallout-inspired themes to the web interface:
-- All desktop themes now available in web UI
-- Improved mobile UX for theme selection
-- Fixed z-index stacking issues with theme dropdown
-- Theme persistence across sessions
-
-### Bug Fixes & Improvements
-- **Logo Loading**: Fixed logo not appearing in web UI production builds and packaged app
-- **Modal Fixes**: Resolved modal being cut off by header
-- **Dropdown UX**: Fixed backdrop blocking theme dropdown clicks
-- **Database**: Fixed migration order for group_id index
-- **IPC Handlers**: Fixed missing get-app-version handler that prevented app launch
-- **Profitability Calculator**: Clarified that calculations use Bitcoin network stats
-
----
-
-## Previous Changes (v1.3.0)
-
-### Theme Selector Feature
-Added 6 Fallout-inspired color themes with live switching:
-
-| Theme | Description | Primary Colors |
-|-------|-------------|----------------|
-| Vault-Tec (default) | Classic yellow/green | #FFB000, #00FF41 |
-| Nuka-Cola | Red/pink tones | #FF3131, #FF6B6B |
-| Brotherhood of Steel | Blue/silver military | #4A90D9, #87CEEB |
-| Institute | Clean white/teal (light) | #00A0A0, #00CED1 |
-| NCR | Desert tan/brown | #C4A35A, #8B7355 |
-| Enclave | Dark patriotic | #B22222, #FFD700 |
-
-**Files modified:**
-- `globals.css` - CSS custom property overrides per theme
-- `SettingsPage.tsx` - Theme selector UI with preview cards
-- `Layout.tsx` - Loads saved theme on startup
-
-### Device Groups Feature
-Organize miners into custom groups with color coding:
-
-**Database schema:**
-```sql
-CREATE TABLE device_groups (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL UNIQUE,
-  color TEXT DEFAULT '#FFB000',
-  sort_order INTEGER DEFAULT 0,
-  created_at INTEGER NOT NULL
-);
-
-ALTER TABLE devices ADD COLUMN group_id TEXT REFERENCES device_groups(id) ON DELETE SET NULL;
-```
-
-**Files created:**
-- `database/groups.ts` - CRUD operations for groups
-
-**Files modified:**
-- `database/index.ts` - Added device_groups table, migration
-- `database/devices.ts` - Added group_id field, setDeviceGroup()
-- `main/index.ts` - IPC handlers for group operations
-- `preload/index.ts` - Group API methods and types
-- `stores/deviceStore.ts` - Groups state and actions
-- `components/GroupManager.tsx` - Modal for managing groups
-- `components/DeviceCard.tsx` - Group selector dropdown
-- `pages/DashboardPage.tsx` - Collapsible grouped device display
-
-### Solo Mining Statistics
-Added "Block Chance" display showing:
-- Time to find a block based on current hashrate
-- Daily/weekly/monthly/yearly block probability
-- Network hashrate comparison
 
 ## Architecture Notes
 
@@ -124,20 +119,62 @@ Added "Block Chance" display showing:
 Renderer -> Preload (electronAPI) -> Main (ipcMain.handle) -> Database/Service
 ```
 
-### Device Polling
-- `axeos-poller.ts` polls each device at configurable intervals
-- Metrics stored in SQLite with timestamp
-- Real-time updates sent to renderer via `device-metrics` event
+### Key Modules
+| Module | Purpose |
+|--------|---------|
+| `axeos-poller.ts` | Polls devices at configurable intervals |
+| `device-control.ts` | Remote control (restart, settings) |
+| `device-discovery.ts` | Network scanning for devices |
+| `alert-system.ts` | Notifications and alerts |
+| `profitability.ts` | Earnings calculations |
+| `database/` | SQLite operations |
 
 ### Theme System
-- CSS custom properties defined in `:root`
-- Theme classes override properties (`.theme-nuka-cola`, etc.)
+- CSS custom properties defined in `:root` and theme classes
+- Tailwind config references CSS variables for dynamic theming
 - Theme saved to settings table, applied to `document.documentElement`
 
-### Group System
-- Groups stored in `device_groups` table
-- Devices reference groups via `group_id` foreign key
-- ON DELETE SET NULL ensures devices become ungrouped when group deleted
+### Database Schema
+```sql
+-- Devices
+CREATE TABLE devices (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  ip_address TEXT NOT NULL UNIQUE,
+  is_online INTEGER DEFAULT 0,
+  last_seen INTEGER,
+  created_at INTEGER NOT NULL,
+  group_id TEXT REFERENCES device_groups(id) ON DELETE SET NULL,
+  all_time_best_diff REAL,
+  all_time_best_diff_at INTEGER
+);
+
+-- Device Groups
+CREATE TABLE device_groups (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  color TEXT DEFAULT '#FFB000',
+  sort_order INTEGER DEFAULT 0,
+  created_at INTEGER NOT NULL
+);
+
+-- Settings
+CREATE TABLE settings (
+  key TEXT PRIMARY KEY,
+  value TEXT
+);
+
+-- Metrics History
+CREATE TABLE metrics (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  device_id TEXT NOT NULL,
+  timestamp INTEGER NOT NULL,
+  data TEXT NOT NULL,
+  FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE
+);
+```
+
+---
 
 ## Common Commands
 ```bash
@@ -157,15 +194,35 @@ npm run typecheck
 ```
 apps/desktop/
 ├── src/
-│   ├── main/           # Electron main process
-│   │   ├── database/   # SQLite operations
-│   │   ├── server.ts   # Express web server
-│   │   └── index.ts    # Main entry, IPC handlers
-│   ├── preload/        # Context bridge
-│   └── renderer/       # React UI
+│   ├── main/              # Electron main process
+│   │   ├── database/      # SQLite operations
+│   │   ├── alert-system.ts
+│   │   ├── axeos-poller.ts
+│   │   ├── device-control.ts
+│   │   ├── device-discovery.ts
+│   │   ├── profitability.ts
+│   │   ├── server/        # Express web server
+│   │   └── index.ts       # Main entry, IPC handlers
+│   ├── preload/           # Context bridge
+│   └── renderer/          # React UI
 │       ├── components/
+│       │   ├── DeviceCard.tsx
+│       │   ├── DiscoveryModal.tsx
+│       │   ├── GroupManager.tsx
+│       │   ├── ProfitabilityDisplay.tsx
+│       │   └── ...
 │       ├── pages/
-│       ├── stores/     # Zustand stores
+│       │   ├── DashboardPage.tsx
+│       │   ├── DeviceDetailPage.tsx
+│       │   └── SettingsPage.tsx
+│       ├── stores/        # Zustand stores
 │       └── styles/
-└── resources/          # App icons
+└── resources/             # App icons
 ```
+
+---
+
+## Roadmap (Potential Future Features)
+- Historical Charts (hashrate/temp graphs over time)
+- Export Data (CSV/JSON)
+- Batch Operations (multi-device actions)
