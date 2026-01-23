@@ -4,6 +4,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 contextBridge.exposeInMainWorld('electronAPI', {
   // App info
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
 
   // Window controls
   minimizeWindow: () => ipcRenderer.invoke('minimize-window'),
@@ -326,10 +327,18 @@ export interface ProfitabilityResult {
   electricityCost: number;
 }
 
+interface UpdateCheckResult {
+  hasUpdate: boolean;
+  latestVersion: string | null;
+  downloadUrl: string | null;
+  error?: string;
+}
+
 declare global {
   interface Window {
     electronAPI: {
       getAppVersion: () => Promise<string>;
+      checkForUpdates: () => Promise<UpdateCheckResult>;
       minimizeWindow: () => Promise<void>;
       maximizeWindow: () => Promise<void>;
       closeWindow: () => Promise<void>;

@@ -185,6 +185,74 @@ ipcMain.handle('get-app-version', () => {
   return app.getVersion();
 });
 
+ipcMain.handle('check-for-updates', async () => {
+  try {
+    const currentVersion = app.getVersion();
+    const response = await fetch('https://api.github.com/repos/ShaeOJ/AxeOS-VPN/releases/latest', {
+      headers: {
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'AxeOS-VPN-Monitor'
+      }
+    });
+
+    if (!response.ok) {
+      return {
+        hasUpdate: false,
+        latestVersion: null,
+        downloadUrl: null,
+        error: `GitHub API error: ${response.status}`
+      };
+    }
+
+    const release = await response.json();
+    const latestVersion = release.tag_name?.replace(/^v/, '') || release.name?.replace(/^v/, '');
+
+    if (!latestVersion) {
+      return {
+        hasUpdate: false,
+        latestVersion: null,
+        downloadUrl: null,
+        error: 'Could not parse version from release'
+      };
+    }
+
+    // Compare versions (simple semver comparison)
+    const currentParts = currentVersion.split('.').map(Number);
+    const latestParts = latestVersion.split('.').map(Number);
+
+    let hasUpdate = false;
+    for (let i = 0; i < 3; i++) {
+      const current = currentParts[i] || 0;
+      const latest = latestParts[i] || 0;
+      if (latest > current) {
+        hasUpdate = true;
+        break;
+      } else if (current > latest) {
+        break;
+      }
+    }
+
+    // Find Windows installer asset
+    const windowsAsset = release.assets?.find((a: { name: string }) =>
+      a.name.endsWith('.exe') || a.name.endsWith('-Setup.exe')
+    );
+
+    return {
+      hasUpdate,
+      latestVersion,
+      downloadUrl: windowsAsset?.browser_download_url || release.html_url,
+      error: undefined
+    };
+  } catch (err) {
+    return {
+      hasUpdate: false,
+      latestVersion: null,
+      downloadUrl: null,
+      error: err instanceof Error ? err.message : 'Failed to check for updates'
+    };
+  }
+});
+
 // IPC Handlers - Auth
 ipcMain.handle('check-setup', async () => {
   return !auth.isPasswordSet();

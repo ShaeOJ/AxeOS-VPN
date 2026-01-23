@@ -110,6 +110,21 @@ export function SettingsPage() {
   // Theme state
   const [currentTheme, setCurrentTheme] = useState('vault-tec');
 
+  // Update check state
+  const [updateStatus, setUpdateStatus] = useState<{
+    checking: boolean;
+    hasUpdate: boolean;
+    latestVersion: string | null;
+    downloadUrl: string | null;
+    error: string | null;
+  }>({
+    checking: false,
+    hasUpdate: false,
+    latestVersion: null,
+    downloadUrl: null,
+    error: null
+  });
+
   useEffect(() => {
     window.electronAPI.getAppVersion().then(setAppVersion);
     fetchStatus();
@@ -124,6 +139,26 @@ export function SettingsPage() {
     const settings = await window.electronAPI.getSettings();
     if (settings.theme) {
       setCurrentTheme(settings.theme);
+    }
+  };
+
+  const checkForUpdates = async () => {
+    setUpdateStatus(prev => ({ ...prev, checking: true, error: null }));
+    try {
+      const result = await window.electronAPI.checkForUpdates();
+      setUpdateStatus({
+        checking: false,
+        hasUpdate: result.hasUpdate,
+        latestVersion: result.latestVersion,
+        downloadUrl: result.downloadUrl,
+        error: result.error || null
+      });
+    } catch (err) {
+      setUpdateStatus(prev => ({
+        ...prev,
+        checking: false,
+        error: err instanceof Error ? err.message : 'Failed to check for updates'
+      }));
     }
   };
 
@@ -555,23 +590,6 @@ export function SettingsPage() {
         </div>
       </section>
 
-      {/* About Section */}
-      <section className="rounded-xl bg-bg-secondary border border-border overflow-hidden">
-        <div className="p-4 border-b border-border">
-          <h2 className="text-lg font-medium text-text-primary">About</h2>
-        </div>
-        <div className="p-4 space-y-4">
-          <div>
-            <label className="block text-sm text-text-secondary mb-1">Version</label>
-            <div className="text-text-primary">{appVersion || 'Unknown'}</div>
-          </div>
-          <div>
-            <label className="block text-sm text-text-secondary mb-1">Platform</label>
-            <div className="text-text-primary capitalize">{navigator.platform}</div>
-          </div>
-        </div>
-      </section>
-
       {/* Appearance / Theme Selector */}
       <section className="rounded-xl bg-bg-secondary border border-border overflow-hidden">
         <div className="p-4 border-b border-border">
@@ -799,6 +817,100 @@ export function SettingsPage() {
                 <span className="text-xs text-text-secondary">%</span>
               </div>
             )}
+          </div>
+        </div>
+      </section>
+
+      {/* About Section */}
+      <section className="rounded-xl bg-bg-secondary border border-border overflow-hidden">
+        <div className="p-4 border-b border-border">
+          <h2 className="text-lg font-medium text-text-primary">About</h2>
+        </div>
+        <div className="p-4 space-y-4">
+          <div className="flex items-start justify-between">
+            <div>
+              <label className="block text-sm text-text-secondary mb-1">Version</label>
+              <div className="text-text-primary font-mono text-lg">{appVersion || 'Unknown'}</div>
+            </div>
+            <button
+              onClick={checkForUpdates}
+              disabled={updateStatus.checking}
+              className="px-4 py-2 rounded-lg border border-border text-text-secondary hover:bg-bg-tertiary hover:text-accent transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              {updateStatus.checking ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Checking...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Check for Updates
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Update Status */}
+          {updateStatus.error && (
+            <div className="p-3 rounded-lg bg-warning/10 border border-warning/20 text-warning text-sm">
+              {updateStatus.error}
+            </div>
+          )}
+
+          {updateStatus.hasUpdate && updateStatus.latestVersion && (
+            <div className="p-4 rounded-lg bg-accent/10 border border-accent/30">
+              <div className="flex items-center gap-2 text-accent mb-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                </svg>
+                <span className="font-medium">Update Available!</span>
+              </div>
+              <p className="text-sm text-text-secondary mb-3">
+                Version <span className="text-accent font-mono">{updateStatus.latestVersion}</span> is available.
+                You are currently running <span className="font-mono">{appVersion}</span>.
+              </p>
+              {updateStatus.downloadUrl && (
+                <button
+                  onClick={() => window.electronAPI.openExternal(updateStatus.downloadUrl!)}
+                  className="px-4 py-2 rounded-lg bg-accent text-bg-primary font-medium hover:bg-accent-hover transition-colors"
+                >
+                  Download Update
+                </button>
+              )}
+            </div>
+          )}
+
+          {!updateStatus.checking && !updateStatus.hasUpdate && updateStatus.latestVersion && (
+            <div className="p-3 rounded-lg bg-success/10 border border-success/20 flex items-center gap-2 text-success text-sm">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              You're running the latest version!
+            </div>
+          )}
+
+          <div className="pt-2 border-t border-border/30">
+            <label className="block text-sm text-text-secondary mb-1">Platform</label>
+            <div className="text-text-primary">{navigator.platform}</div>
+          </div>
+
+          <div>
+            <label className="block text-sm text-text-secondary mb-1">GitHub</label>
+            <button
+              onClick={() => window.electronAPI.openExternal('https://github.com/ShaeOJ/AxeOS-VPN')}
+              className="text-accent hover:underline text-sm flex items-center gap-1"
+            >
+              ShaeOJ/AxeOS-VPN
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </button>
           </div>
         </div>
       </section>
