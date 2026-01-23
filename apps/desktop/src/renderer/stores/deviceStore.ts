@@ -52,6 +52,8 @@ interface Device {
   lastSeen: number | null;
   createdAt: number;
   groupId: string | null;
+  allTimeBestDiff: number | null;
+  allTimeBestDiffAt: number | null;
   latestMetrics?: AxeOSSystemInfo | null;
 }
 

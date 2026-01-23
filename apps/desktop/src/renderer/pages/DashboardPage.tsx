@@ -36,6 +36,7 @@ export function DashboardPage() {
   const [showGroupManager, setShowGroupManager] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [networkStats, setNetworkStats] = useState<{ difficulty: number; blockReward: number; blockHeight: number } | null>(null);
+  const [newRecordDevices, setNewRecordDevices] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     // Initial fetch - Layout handles the metrics listener
@@ -57,6 +58,23 @@ export function DashboardPage() {
     fetchNetworkStats();
     // Refresh network stats every 5 minutes
     const interval = setInterval(fetchNetworkStats, 300000);
+
+    // Listen for new best diff records
+    window.electronAPI.onNewBestDiff(({ deviceId, deviceName, newBestDiff }) => {
+      console.log(`New record for ${deviceName}: ${newBestDiff}`);
+      setNewRecordDevices(prev => new Set(prev).add(deviceId));
+      // Refresh devices to get updated all_time_best_diff
+      fetchDevices();
+      // Clear the "new" indicator after 30 seconds
+      setTimeout(() => {
+        setNewRecordDevices(prev => {
+          const next = new Set(prev);
+          next.delete(deviceId);
+          return next;
+        });
+      }, 30000);
+    });
+
     return () => clearInterval(interval);
   }, []);
 
@@ -180,29 +198,81 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* Summary Cards */}
+      {/* Summary Cards - Vault-Tec Style */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div className="p-4 rounded-xl bg-bg-secondary border border-border">
-          <div className="text-sm text-text-secondary mb-1">Total Hashrate</div>
-          <div className="text-2xl font-bold text-accent">{formatHashrate(totalHashrate)}</div>
+        {/* Hashrate Card */}
+        <div className="vault-card p-4 hover-glitch">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2 rounded-lg bg-accent/15 border border-accent/30">
+              <svg className="w-5 h-5 text-accent" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <div className="text-xs text-text-secondary uppercase tracking-wider">Hashrate</div>
+          </div>
+          <div className="text-2xl font-bold text-accent" style={{ textShadow: '0 0 8px var(--color-accent)' }}>
+            {formatHashrate(totalHashrate)}
+          </div>
         </div>
-        <div className="p-4 rounded-xl bg-bg-secondary border border-border">
-          <div className="text-sm text-text-secondary mb-1">Avg Temperature</div>
+
+        {/* Temperature Card */}
+        <div className="vault-card p-4 hover-glitch">
+          <div className="flex items-center gap-3 mb-3">
+            <div className={`p-2 rounded-lg ${avgTemperature > 80 ? 'bg-danger/15 border-danger/30' : avgTemperature > 70 ? 'bg-warning/15 border-warning/30' : 'bg-success/15 border-success/30'} border`}>
+              <svg className={`w-5 h-5 ${avgTemperature > 80 ? 'text-danger' : avgTemperature > 70 ? 'text-warning' : 'text-success'}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z" />
+              </svg>
+            </div>
+            <div className="text-xs text-text-secondary uppercase tracking-wider">Temperature</div>
+          </div>
           <div className={`text-2xl font-bold ${avgTemperature > 80 ? 'text-danger' : avgTemperature > 70 ? 'text-warning' : 'text-success'}`}>
             {avgTemperature > 0 ? formatTemperature(avgTemperature) : '--'}
           </div>
         </div>
-        <div className="p-4 rounded-xl bg-bg-secondary border border-border">
-          <div className="text-sm text-text-secondary mb-1">Total Power</div>
-          <div className="text-2xl font-bold text-text-primary">{formatPower(totalPower)}</div>
+
+        {/* Power Card */}
+        <div className="vault-card p-4 hover-glitch">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2 rounded-lg bg-border-highlight/15 border border-border-highlight/30">
+              <svg className="w-5 h-5 text-border-highlight" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+              </svg>
+            </div>
+            <div className="text-xs text-text-secondary uppercase tracking-wider">Power</div>
+          </div>
+          <div className="text-2xl font-bold text-border-highlight" style={{ textShadow: '0 0 8px var(--color-border-highlight)' }}>
+            {formatPower(totalPower)}
+          </div>
         </div>
-        <div className="p-4 rounded-xl bg-bg-secondary border border-border">
-          <div className="text-sm text-text-secondary mb-1">Efficiency</div>
-          <div className="text-2xl font-bold text-text-primary">{formatEfficiency(avgEfficiency)}</div>
+
+        {/* Efficiency Card */}
+        <div className="vault-card p-4 hover-glitch">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2 rounded-lg bg-success/15 border border-success/30">
+              <svg className="w-5 h-5 text-success" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6" />
+              </svg>
+            </div>
+            <div className="text-xs text-text-secondary uppercase tracking-wider">Efficiency</div>
+          </div>
+          <div className="text-2xl font-bold text-success" style={{ textShadow: '0 0 8px var(--color-success)' }}>
+            {formatEfficiency(avgEfficiency)}
+          </div>
         </div>
-        <div className="p-4 rounded-xl bg-bg-secondary border border-border">
-          <div className="text-sm text-text-secondary mb-1">Shares Accepted</div>
-          <div className="text-2xl font-bold text-success">{totalShares.toLocaleString()}</div>
+
+        {/* Shares Card */}
+        <div className="vault-card p-4 hover-glitch">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2 rounded-lg bg-success/15 border border-success/30">
+              <svg className="w-5 h-5 text-success" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div className="text-xs text-text-secondary uppercase tracking-wider">Shares</div>
+          </div>
+          <div className="text-2xl font-bold text-success" style={{ textShadow: '0 0 8px var(--color-success)' }}>
+            {totalShares.toLocaleString()}
+          </div>
         </div>
       </div>
 
@@ -298,6 +368,7 @@ export function DashboardPage() {
                           groups={groups}
                           onGroupChange={(groupId) => setDeviceGroup(device.id, groupId)}
                           networkStats={networkStats}
+                          isNewRecord={newRecordDevices.has(device.id)}
                         />
                       ))}
                     </div>
@@ -343,6 +414,7 @@ export function DashboardPage() {
                         groups={groups}
                         onGroupChange={(groupId) => setDeviceGroup(device.id, groupId)}
                         networkStats={networkStats}
+                        isNewRecord={newRecordDevices.has(device.id)}
                       />
                     ))}
                   </div>

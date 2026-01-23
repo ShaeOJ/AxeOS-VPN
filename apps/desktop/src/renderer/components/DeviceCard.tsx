@@ -51,6 +51,8 @@ interface Device {
   lastSeen: number | null;
   createdAt: number;
   groupId?: string | null;
+  allTimeBestDiff?: number | null;
+  allTimeBestDiffAt?: number | null;
   latestMetrics?: AxeOSSystemInfo | null;
 }
 
@@ -58,6 +60,7 @@ interface DeviceCardProps {
   device: Device;
   groups?: DeviceGroup[];
   onGroupChange?: (groupId: string | null) => void;
+  isNewRecord?: boolean;
   networkStats?: NetworkStats | null;
 }
 
@@ -120,9 +123,12 @@ function formatTimeToBlock(days: number): string {
 }
 
 function formatOdds(prob: number): string {
-  if (prob >= 0.01) return `${(prob * 100).toFixed(2)}%`;
-  if (prob >= 0.0001) return `${(prob * 100).toFixed(4)}%`;
-  return `${(prob * 100).toExponential(1)}%`;
+  const pct = prob * 100;
+  if (pct >= 1) return `${pct.toFixed(2)}%`;
+  if (pct >= 0.01) return `${pct.toFixed(4)}%`;
+  if (pct >= 0.0001) return `${pct.toFixed(6)}%`;
+  if (pct >= 0.000001) return `${pct.toFixed(8)}%`;
+  return `${pct.toFixed(10)}%`;
 }
 
 function formatRelativeTime(timestamp: number | null): string {
@@ -134,7 +140,16 @@ function formatRelativeTime(timestamp: number | null): string {
   return `${Math.floor(seconds / 86400)}d ago`;
 }
 
-export function DeviceCard({ device, groups, onGroupChange, networkStats }: DeviceCardProps) {
+function formatDifficulty(diff: number | null | undefined): string {
+  if (!diff) return '--';
+  if (diff >= 1e12) return `${(diff / 1e12).toFixed(2)}T`;
+  if (diff >= 1e9) return `${(diff / 1e9).toFixed(2)}B`;
+  if (diff >= 1e6) return `${(diff / 1e6).toFixed(2)}M`;
+  if (diff >= 1e3) return `${(diff / 1e3).toFixed(2)}K`;
+  return diff.toLocaleString();
+}
+
+export function DeviceCard({ device, groups, onGroupChange, networkStats, isNewRecord }: DeviceCardProps) {
   const metrics = device.latestMetrics;
   const blockChance = metrics?.hashRate && networkStats?.difficulty
     ? calculateBlockChance(metrics.hashRate, networkStats.difficulty)
@@ -142,6 +157,11 @@ export function DeviceCard({ device, groups, onGroupChange, networkStats }: Devi
   const [isRestarting, setIsRestarting] = useState(false);
   const [showRestartConfirm, setShowRestartConfirm] = useState(false);
   const [showGroupDropdown, setShowGroupDropdown] = useState(false);
+
+  // Check if current session best diff equals all-time best (new record achieved this session)
+  const currentBestDiff = metrics?.bestDiff as number | undefined;
+  const allTimeBest = device.allTimeBestDiff;
+  const isCurrentSessionRecord = currentBestDiff && allTimeBest && currentBestDiff >= allTimeBest;
 
   const currentGroup = groups?.find(g => g.id === device.groupId);
 
@@ -177,7 +197,7 @@ export function DeviceCard({ device, groups, onGroupChange, networkStats }: Devi
   };
 
   return (
-    <div className="vault-card block hover:border-accent/50 hover-glitch transition-all duration-200 hover:shadow-[0_0_20px_rgba(255,176,0,0.2)]">
+    <div className="vault-card block hover:border-accent/50 hover-glitch transition-all duration-200 hover:shadow-vault-glow">
       <Link to={`/devices/${device.id}`} className="block p-4">
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1 min-w-0">
@@ -274,6 +294,34 @@ export function DeviceCard({ device, groups, onGroupChange, networkStats }: Devi
                 <div className="text-right">
                   <span className="text-xs font-mono text-warning">{formatTimeToBlock(blockChance.daysToBlock)}</span>
                   <span className="text-[10px] text-text-secondary ml-1">({formatOdds(blockChance.dailyOdds)}/day)</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Best Difficulty */}
+          {(allTimeBest || currentBestDiff) && (
+            <div className="pt-2 border-t border-border/50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1">
+                  {(isNewRecord || isCurrentSessionRecord) ? (
+                    <svg className="w-3 h-3 text-yellow-400 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 1l2.928 6.856 6.072.514-4.928 4.286 1.5 6.344L10 15.572 4.428 19l1.5-6.344L1 8.37l6.072-.514L10 1z" clipRule="evenodd" />
+                    </svg>
+                  ) : (
+                    <svg className="w-3 h-3 text-accent" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 1l2.928 6.856 6.072.514-4.928 4.286 1.5 6.344L10 15.572 4.428 19l1.5-6.344L1 8.37l6.072-.514L10 1z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                  <span className="text-[10px] text-text-secondary">Best Diff</span>
+                  {(isNewRecord || isCurrentSessionRecord) && (
+                    <span className="text-[9px] px-1 py-0.5 bg-yellow-500/20 text-yellow-400 rounded uppercase font-bold animate-pulse">NEW!</span>
+                  )}
+                </div>
+                <div className="text-right">
+                  <span className={`text-xs font-mono ${(isNewRecord || isCurrentSessionRecord) ? 'text-yellow-400' : 'text-accent'}`}>
+                    {formatDifficulty(allTimeBest || currentBestDiff)}
+                  </span>
                 </div>
               </div>
             </div>

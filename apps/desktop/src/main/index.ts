@@ -95,6 +95,11 @@ function createWindow(): void {
       );
     }
   });
+
+  // Set up callback for new best difficulty records
+  poller.setNewBestDiffCallback((deviceId, deviceName, newBestDiff, previousBest) => {
+    mainWindow?.webContents.send('new-best-diff', { deviceId, deviceName, newBestDiff, previousBest });
+  });
 }
 
 // Register app:// as privileged scheme (must be before app ready)
@@ -312,6 +317,8 @@ ipcMain.handle('get-devices', async () => {
     lastSeen: d.last_seen,
     createdAt: d.created_at,
     groupId: d.group_id,
+    allTimeBestDiff: d.all_time_best_diff,
+    allTimeBestDiffAt: d.all_time_best_diff_at,
     latestMetrics: poller.getLatestMetrics(d.id)?.data || null,
   }));
 });

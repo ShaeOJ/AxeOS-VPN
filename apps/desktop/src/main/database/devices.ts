@@ -8,6 +8,8 @@ export interface Device {
   last_seen: number | null;
   is_online: number;
   group_id: string | null;
+  all_time_best_diff: number | null;
+  all_time_best_diff_at: number | null;
   created_at: number;
 }
 
@@ -43,6 +45,9 @@ export function createDevice(name: string, ipAddress: string): Device {
     poll_interval: 5000,
     last_seen: null,
     is_online: 0,
+    group_id: null,
+    all_time_best_diff: null,
+    all_time_best_diff_at: null,
     created_at: createdAt,
   };
 }
@@ -87,4 +92,26 @@ export function getDevicesByGroup(groupId: string | null): Device[] {
     return db.prepare('SELECT * FROM devices WHERE group_id IS NULL ORDER BY created_at DESC').all() as Device[];
   }
   return db.prepare('SELECT * FROM devices WHERE group_id = ? ORDER BY created_at DESC').all(groupId) as Device[];
+}
+
+// Update all-time best difficulty if the new value is higher
+// Returns true if a new record was set
+export function updateAllTimeBestDiff(id: string, bestDiff: number): boolean {
+  const db = getDatabase();
+  const device = getDeviceById(id);
+
+  if (!device) return false;
+
+  const currentBest = device.all_time_best_diff || 0;
+
+  if (bestDiff > currentBest) {
+    db.prepare(`
+      UPDATE devices
+      SET all_time_best_diff = ?, all_time_best_diff_at = ?
+      WHERE id = ?
+    `).run(bestDiff, Date.now(), id);
+    return true;
+  }
+
+  return false;
 }

@@ -132,6 +132,15 @@ export function initDatabase(): Database.Database {
   // Create group_id index after migration ensures column exists
   db.exec('CREATE INDEX IF NOT EXISTS idx_devices_group ON devices(group_id)');
 
+  // Migration: Add all_time_best_diff column to devices table if missing
+  const hasAllTimeBestDiff = devicesTableInfo.some((col) => col.name === 'all_time_best_diff');
+  if (!hasAllTimeBestDiff) {
+    console.log('Migrating devices table: adding all_time_best_diff column...');
+    db.exec('ALTER TABLE devices ADD COLUMN all_time_best_diff REAL DEFAULT 0');
+    db.exec('ALTER TABLE devices ADD COLUMN all_time_best_diff_at INTEGER');
+    console.log('Migration complete: all_time_best_diff columns added');
+  }
+
   // Initialize default settings
   const initSetting = db.prepare(`
     INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)

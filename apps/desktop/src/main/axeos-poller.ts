@@ -98,8 +98,16 @@ const pollIntervals = new Map<string, ReturnType<typeof setInterval>>();
 type MetricsCallback = (deviceId: string, data: AxeOSSystemInfo, isOnline: boolean) => void;
 let metricsCallback: MetricsCallback | null = null;
 
+// Callback for new best diff records
+type NewBestDiffCallback = (deviceId: string, deviceName: string, newBestDiff: number, previousBest: number) => void;
+let newBestDiffCallback: NewBestDiffCallback | null = null;
+
 export function setMetricsCallback(callback: MetricsCallback): void {
   metricsCallback = callback;
+}
+
+export function setNewBestDiffCallback(callback: NewBestDiffCallback): void {
+  newBestDiffCallback = callback;
 }
 
 // Check if firmware is ClusterAxe
@@ -189,6 +197,16 @@ async function pollDevice(device: devices.Device): Promise<void> {
   if (data) {
     // Update device status to online
     devices.updateDeviceStatus(device.id, true);
+
+    // Check for new all-time best difficulty
+    if (data.bestDiff && data.bestDiff > 0) {
+      const previousBest = device.all_time_best_diff || 0;
+      const isNewRecord = devices.updateAllTimeBestDiff(device.id, data.bestDiff);
+      if (isNewRecord) {
+        console.log(`[Poller] 🏆 NEW RECORD! ${device.name}: bestDiff=${data.bestDiff} (previous: ${previousBest})`);
+        newBestDiffCallback?.(device.id, device.name, data.bestDiff, previousBest);
+      }
+    }
 
     // Store latest metrics
     latestMetrics.set(device.id, { data, timestamp: Date.now() });

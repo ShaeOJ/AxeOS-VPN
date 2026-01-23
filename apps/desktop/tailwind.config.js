@@ -4,41 +4,41 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Vault-Tec Theme - Retro-futuristic
-        'bg-primary': '#0a1929',      // Deep navy blue
-        'bg-secondary': '#0d2137',    // Slightly lighter navy
-        'bg-tertiary': '#112a45',     // Card backgrounds
-        'bg-terminal': '#001a0d',     // Terminal green background
+        // Use CSS variables for theme support
+        'bg-primary': 'var(--color-bg-primary)',
+        'bg-secondary': 'var(--color-bg-secondary)',
+        'bg-tertiary': 'var(--color-bg-tertiary)',
+        'bg-terminal': 'var(--color-bg-terminal)',
 
-        // Vault-Tec Yellow/Amber - Primary accent
-        accent: '#FFB000',
-        'accent-hover': '#FFC940',
-        'accent-dim': '#CC8C00',
+        // Primary accent (changes with theme)
+        accent: 'var(--color-accent)',
+        'accent-hover': 'var(--color-accent-hover)',
+        'accent-dim': 'var(--color-accent-dim)',
 
-        // Pip-Boy Green - Success/Terminal
-        success: '#00FF41',
-        'success-dim': '#00CC33',
+        // Success/Terminal green (changes with theme)
+        success: 'var(--color-success)',
+        'success-dim': 'var(--color-success-dim)',
 
-        // Warning - Orange
-        warning: '#FF8C00',
+        // Warning
+        warning: 'var(--color-warning)',
 
-        // Danger - Red
-        danger: '#FF3131',
+        // Danger
+        danger: 'var(--color-danger)',
 
-        // Text colors
-        'text-primary': '#E8F4E8',    // Slight green tint
-        'text-secondary': '#8BA88B',  // Muted green-gray
-        'text-terminal': '#00FF41',   // Bright terminal green
+        // Text colors (change with theme)
+        'text-primary': 'var(--color-text-primary)',
+        'text-secondary': 'var(--color-text-secondary)',
+        'text-terminal': 'var(--color-text-terminal)',
 
-        // Borders - Teal/Cyan accents
-        border: '#1a4a5c',
-        'border-highlight': '#00CED1',
-        'border-glow': '#20B2AA',
+        // Borders (change with theme)
+        border: 'var(--color-border)',
+        'border-highlight': 'var(--color-border-highlight)',
+        'border-glow': 'var(--color-border-glow)',
 
-        // Special Vault-Tec colors
-        'vault-yellow': '#FFB000',
-        'vault-blue': '#0055AA',
-        'pip-green': '#00FF41',
+        // Special colors (change with theme)
+        'vault-yellow': 'var(--color-vault-yellow)',
+        'vault-blue': 'var(--color-vault-blue)',
+        'pip-green': 'var(--color-pip-green)',
       },
       fontFamily: {
         sans: ['Share Tech Mono', 'JetBrains Mono', 'Consolas', 'monospace'],
@@ -46,10 +46,10 @@ export default {
         display: ['Orbitron', 'Share Tech Mono', 'monospace'],
       },
       boxShadow: {
-        'vault': '0 0 10px rgba(255, 176, 0, 0.3), inset 0 0 20px rgba(0, 0, 0, 0.5)',
-        'vault-glow': '0 0 20px rgba(255, 176, 0, 0.5)',
-        'terminal': '0 0 10px rgba(0, 255, 65, 0.3)',
-        'terminal-glow': '0 0 20px rgba(0, 255, 65, 0.5)',
+        'vault': '0 0 10px color-mix(in srgb, var(--color-accent) 30%, transparent), inset 0 0 20px rgba(0, 0, 0, 0.5)',
+        'vault-glow': '0 0 20px color-mix(in srgb, var(--color-accent) 50%, transparent)',
+        'terminal': '0 0 10px color-mix(in srgb, var(--color-success) 30%, transparent)',
+        'terminal-glow': '0 0 20px color-mix(in srgb, var(--color-success) 50%, transparent)',
       },
       animation: {
         'scanline': 'scanline 8s linear infinite',

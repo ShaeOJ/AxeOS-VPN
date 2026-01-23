@@ -188,6 +188,8 @@ export function startServer(): { port: number; addresses: string[] } {
           isOnline: d.is_online === 1,
           lastSeen: d.last_seen,
           createdAt: d.created_at,
+          allTimeBestDiff: d.all_time_best_diff,
+          allTimeBestDiffAt: d.all_time_best_diff_at,
           latestMetrics: latestData?.data || null,
         };
       }),
@@ -1436,7 +1438,7 @@ function getWebDashboardHtml(): string {
         <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
           <div style="padding: 10px; background: rgba(0,206,209,0.15); border: 1px solid rgba(0,206,209,0.3); border-radius: 8px;">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00CED1" stroke-width="2">
-              <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </div>
           <div class="stat-label" style="margin: 0;">Total Power</div>
@@ -1450,8 +1452,8 @@ function getWebDashboardHtml(): string {
       <div class="summary-card">
         <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
           <div style="padding: 10px; background: rgba(0,255,65,0.15); border: 1px solid rgba(0,255,65,0.3); border-radius: 8px;">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00FF41" stroke-width="2">
-              <path d="M22 12h-4l-3 9L9 3l-3 9H2" stroke-linecap="round" stroke-linejoin="round"/>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00FF41" stroke-width="1.5">
+              <path d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </div>
           <div class="stat-label" style="margin: 0;">Efficiency</div>
@@ -1465,8 +1467,8 @@ function getWebDashboardHtml(): string {
       <div class="summary-card">
         <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
           <div style="padding: 10px; background: rgba(0,255,65,0.15); border: 1px solid rgba(0,255,65,0.3); border-radius: 8px;">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00FF41" stroke-width="2">
-              <polyline points="20 6 9 17 4 12"/>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00FF41" stroke-width="1.5">
+              <path d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </div>
           <div class="stat-label" style="margin: 0;">Shares Accepted</div>
@@ -1943,6 +1945,13 @@ function getWebDashboardHtml(): string {
               '<span style="font-size:10px;color:#8BA88B;">Solo Block</span></div>' +
               '<div style="text-align:right;"><span style="font-size:11px;font-family:monospace;color:#FF8C00;">' + formatTimeToBlock(blockChance.daysToBlock) + '</span>' +
               '<span style="font-size:9px;color:#8BA88B;margin-left:4px;">(' + formatOdds(blockChance.dailyOdds) + '/day)</span></div></div>' : '') +
+            ((d.allTimeBestDiff || m.bestDiff) ? '<div style="padding:8px 12px;border-top:1px solid rgba(58,90,110,0.3);display:flex;align-items:center;justify-content:space-between;">' +
+              '<div style="display:flex;align-items:center;gap:4px;">' +
+              '<svg width="12" height="12" viewBox="0 0 20 20" fill="' + (m.bestDiff && d.allTimeBestDiff && m.bestDiff >= d.allTimeBestDiff ? '#FBBF24' : '#FFB000') + '"><path fill-rule="evenodd" d="M10 1l2.928 6.856 6.072.514-4.928 4.286 1.5 6.344L10 15.572 4.428 19l1.5-6.344L1 8.37l6.072-.514L10 1z" clip-rule="evenodd"/></svg>' +
+              '<span style="font-size:10px;color:#8BA88B;">Best Diff</span>' +
+              (m.bestDiff && d.allTimeBestDiff && m.bestDiff >= d.allTimeBestDiff ? '<span style="font-size:8px;padding:1px 4px;background:rgba(251,191,36,0.2);color:#FBBF24;border-radius:2px;text-transform:uppercase;font-weight:bold;">NEW!</span>' : '') +
+              '</div>' +
+              '<div style="text-align:right;"><span style="font-size:11px;font-family:monospace;color:' + (m.bestDiff && d.allTimeBestDiff && m.bestDiff >= d.allTimeBestDiff ? '#FBBF24' : '#FFB000') + ';">' + formatDifficulty(d.allTimeBestDiff || m.bestDiff) + '</span></div></div>' : '') +
             '<div class="device-control-bar" onclick="event.stopPropagation();"><button class="restart-btn" data-device-id="' + d.id + '" onclick="handleRestartClick(this, event)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Restart</button></div>'
           : '<div style="color:#8BA88B;margin-top:8px;">' + (d.isOnline ? 'Waiting for metrics...' : 'Offline') + '</div>') +
         '</div>';
@@ -2035,9 +2044,21 @@ function getWebDashboardHtml(): string {
     }
 
     function formatOdds(prob) {
-      if (prob >= 0.01) return (prob * 100).toFixed(2) + '%';
-      if (prob >= 0.0001) return (prob * 100).toFixed(4) + '%';
-      return (prob * 100).toExponential(1) + '%';
+      var pct = prob * 100;
+      if (pct >= 1) return pct.toFixed(2) + '%';
+      if (pct >= 0.01) return pct.toFixed(4) + '%';
+      if (pct >= 0.0001) return pct.toFixed(6) + '%';
+      if (pct >= 0.000001) return pct.toFixed(8) + '%';
+      return pct.toFixed(10) + '%';
+    }
+
+    function formatDifficulty(diff) {
+      if (!diff) return '--';
+      if (diff >= 1e12) return (diff / 1e12).toFixed(2) + 'T';
+      if (diff >= 1e9) return (diff / 1e9).toFixed(2) + 'B';
+      if (diff >= 1e6) return (diff / 1e6).toFixed(2) + 'M';
+      if (diff >= 1e3) return (diff / 1e3).toFixed(2) + 'K';
+      return diff.toLocaleString();
     }
 
     // ============ DEVICE CONTROL ============

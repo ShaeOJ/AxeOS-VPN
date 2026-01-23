@@ -94,6 +94,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onDeviceMetrics: (callback: (data: { deviceId: string; data: AxeOSSystemInfo; isOnline: boolean }) => void) => {
     ipcRenderer.on('device-metrics', (_, data) => callback(data));
   },
+  onNewBestDiff: (callback: (data: { deviceId: string; deviceName: string; newBestDiff: number; previousBest: number }) => void) => {
+    ipcRenderer.on('new-best-diff', (_, data) => callback(data));
+  },
   onWindowMaximized: (callback: (isMaximized: boolean) => void) => {
     ipcRenderer.on('window-maximized', (_, isMaximized) => callback(isMaximized));
   },
@@ -170,6 +173,8 @@ export interface Device {
   lastSeen: number | null;
   createdAt: number;
   groupId: string | null;
+  allTimeBestDiff: number | null;
+  allTimeBestDiffAt: number | null;
   latestMetrics?: AxeOSSystemInfo | null;
 }
 
@@ -393,6 +398,7 @@ declare global {
       updatePoolSettings: (ipAddress: string, stratumURL: string, stratumUser: string, stratumPassword?: string) => Promise<DeviceControlResult>;
 
       onDeviceMetrics: (callback: (data: { deviceId: string; data: AxeOSSystemInfo; isOnline: boolean }) => void) => void;
+      onNewBestDiff: (callback: (data: { deviceId: string; deviceName: string; newBestDiff: number; previousBest: number }) => void) => void;
       onWindowMaximized: (callback: (isMaximized: boolean) => void) => void;
       onDiscoveryProgress: (callback: (progress: DiscoveryProgress) => void) => void;
       onDeviceAlert: (callback: (alert: DeviceAlert) => void) => void;
