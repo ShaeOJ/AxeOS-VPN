@@ -10,7 +10,7 @@ Vault-Tec Mining Operations Division - BitAxe Monitoring System for managing mul
 - **Charts**: Recharts
 - **Build**: electron-vite + electron-builder
 
-## Current Version: v1.5.5
+## Current Version: v1.5.6
 
 ---
 
@@ -60,6 +60,15 @@ Vault-Tec Mining Operations Division - BitAxe Monitoring System for managing mul
 | Profitability Calculator | Estimate earnings based on hashrate/power |
 | Network Stats | Bitcoin network difficulty and hashrate |
 
+### Analytics & Charts
+| Feature | Description |
+|---------|-------------|
+| Performance Charts | Historical charts for hashrate, temp, power, efficiency |
+| Multi-Device Comparison | Compare metrics across multiple devices |
+| Time Range Selection | 1h, 6h, 24h, 7d, 30d historical data |
+| Statistics Table | Min/max/avg per device for selected metric |
+| Chart Type Toggle | Switch between line and area charts |
+
 ### Theming & UI
 | Feature | Description |
 |---------|-------------|
@@ -78,7 +87,25 @@ Vault-Tec Mining Operations Division - BitAxe Monitoring System for managing mul
 
 ---
 
-## Recent Changes (v1.5.5)
+## Recent Changes (v1.5.6)
+
+### Performance Charts Page
+- New **Charts** navigation item between Dashboard and Settings
+- Multi-device comparison with color-coded lines
+- 4 metric types: Hashrate, Temperature, Power, Efficiency
+- 5 time ranges: 1h, 6h, 24h, 7d, 30d
+- Toggle between Line and Area chart styles
+- Statistics table showing min/max/avg per device
+- Auto-selects first 3 online devices on page load
+
+### macOS Compatibility Fix
+- Now builds separate DMG/ZIP for Intel (x64) and Apple Silicon (arm64)
+- Fixed compatibility with macOS Sequoia 15.x
+- Minimum macOS version set to 10.15 (Catalina)
+
+---
+
+## Previous Changes (v1.5.5)
 
 ### Support Development
 - Added **Buy Me a Coffee** donate button in Settings > About
@@ -235,6 +262,7 @@ apps/desktop/
 │       │   └── ...
 │       ├── pages/
 │       │   ├── DashboardPage.tsx
+│       │   ├── ChartsPage.tsx
 │       │   ├── DeviceDetailPage.tsx
 │       │   └── SettingsPage.tsx
 │       ├── stores/        # Zustand stores
@@ -245,6 +273,5 @@ apps/desktop/
 ---
 
 ## Roadmap (Potential Future Features)
-- Historical Charts (hashrate/temp graphs over time)
 - Export Data (CSV/JSON)
 - Batch Operations (multi-device actions)

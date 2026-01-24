@@ -1,6 +1,6 @@
 {
   "name": "@axeos-vpn/desktop",
-  "version": "1.5.5",
+  "version": "1.5.6",
   "description": "Vault-Tec Mining Operations Division - BitAxe Monitoring System",
   "author": "Vault-Tec Industries <vault-tec@example.com>",
   "repository": {
@@ -105,11 +105,18 @@
     },
     "mac": {
       "target": [
-        "dmg",
-        "zip"
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["x64", "arm64"]
+        }
       ],
-      "artifactName": "AxeOS-VPN-Monitor-${version}-macOS.${ext}",
-      "category": "public.app-category.utilities"
+      "artifactName": "AxeOS-VPN-Monitor-${version}-macOS-${arch}.${ext}",
+      "category": "public.app-category.utilities",
+      "minimumSystemVersion": "10.15"
     },
     "linux": {
       "target": [

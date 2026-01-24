@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { TitleBar } from './components/TitleBar';
 import { DashboardPage } from './pages/DashboardPage';
 import { DeviceDetailPage } from './pages/DeviceDetailPage';
+import { ChartsPage } from './pages/ChartsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { Layout } from './components/Layout';
 
@@ -14,6 +15,7 @@ export function App() {
           <Route path="/" element={<Layout />}>
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<DashboardPage />} />
+            <Route path="charts" element={<ChartsPage />} />
             <Route path="devices/:deviceId" element={<DeviceDetailPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
