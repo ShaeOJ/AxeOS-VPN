@@ -10,7 +10,7 @@ Vault-Tec Mining Operations Division - BitAxe Monitoring System for managing mul
 - **Charts**: Recharts
 - **Build**: electron-vite + electron-builder
 
-## Current Version: v1.5.3
+## Current Version: v1.5.5
 
 ---
 
@@ -78,7 +78,29 @@ Vault-Tec Mining Operations Division - BitAxe Monitoring System for managing mul
 
 ---
 
-## Recent Changes (v1.5.3)
+## Recent Changes (v1.5.5)
+
+### Support Development
+- Added **Buy Me a Coffee** donate button in Settings > About
+- Link to https://buymeacoffee.com/shaeoj
+
+---
+
+## Previous Changes (v1.5.4)
+
+### Update Checker
+- Added "Check for Updates" button in Settings > About
+- Queries GitHub releases API for latest version
+- Shows notification when update is available with download link
+- Displays "You're running the latest version" when up to date
+
+### Settings Page Reorganization
+- Moved About section to the bottom of Settings page
+- Added GitHub repo link
+
+---
+
+## Previous Changes (v1.5.3)
 
 ### Best Diff Tracking
 - Track all-time best difficulty per device
