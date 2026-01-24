@@ -1,5 +1,53 @@
 import * as devices from './database/devices';
 import * as metrics from './database/metrics';
+import { DeviceType } from './database/devices';
+
+// Bitmain S9 API response type (BETA)
+export interface BitmainMinerStatus {
+  summary: {
+    elapsed: number;
+    stale: number;
+    ghs5s: string;
+    ghsav: number;
+    foundblocks: number;
+    accepted: number;
+    rejected: number;
+    hw: number;
+    utility: number;
+    bestshare: number;
+  };
+  pools: Array<{
+    index: number;
+    url: string;
+    user: string;
+    status: string;
+    priority: number;
+    accepted: number;
+    rejected: number;
+    diff: string;
+  }>;
+  devs: Array<{
+    index: string;
+    chain_acn: string;
+    freq: string;
+    freqavg: string;
+    fan1?: string;
+    fan2?: string;
+    fan3?: string;
+    fan4?: string;
+    fan5?: string;
+    fan6?: string;
+    fan7?: string;
+    fan8?: string;
+    temp: string;
+    temp2: string;
+    hw: string;
+    rate: string;
+    chain_vol: string;
+    chain_consumption: string;
+    chain_acs: string;
+  }>;
+}
 
 // AxeOS API response type
 export interface AxeOSSystemInfo {
@@ -192,7 +240,10 @@ export async function fetchDeviceMetrics(ipAddress: string): Promise<AxeOSSystem
 }
 
 async function pollDevice(device: devices.Device): Promise<void> {
-  const data = await fetchDeviceMetrics(device.ip_address);
+  // Fetch metrics based on device type
+  const data = device.device_type === 'bitmain'
+    ? await fetchBitmainMetrics(device.ip_address)
+    : await fetchDeviceMetrics(device.ip_address);
 
   if (data) {
     // Update device status to online
@@ -284,6 +335,159 @@ export async function testConnection(ipAddress: string): Promise<{ success: bool
       return { success: true, data };
     }
     return { success: false, error: 'No response from device' };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Connection failed' };
+  }
+}
+
+// ============================================
+// BITMAIN S9 SUPPORT (BETA)
+// ============================================
+
+// Fetch metrics from Bitmain S9/Antminer
+export async function fetchBitmainMetrics(ipAddress: string): Promise<AxeOSSystemInfo | null> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    const response = await fetch(`http://${ipAddress}/cgi-bin/get_miner_status.cgi`, {
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      console.error(`[Bitmain] Failed to fetch from ${ipAddress}: ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json() as BitmainMinerStatus;
+    return transformBitmainToAxeOS(data, ipAddress);
+  } catch (error) {
+    console.error(`[Bitmain] Error fetching from ${ipAddress}:`, error instanceof Error ? error.message : error);
+    return null;
+  }
+}
+
+// Transform Bitmain S9 data to AxeOSSystemInfo format
+function transformBitmainToAxeOS(data: BitmainMinerStatus, ipAddress: string): AxeOSSystemInfo {
+  // Calculate totals from all chains
+  let totalPower = 0;
+  let maxTemp = 0;
+  let maxTemp2 = 0;
+  let totalFreq = 0;
+  let totalVoltage = 0;
+  let maxFanRpm = 0;
+  let chainCount = 0;
+
+  for (const dev of data.devs) {
+    totalPower += parseFloat(dev.chain_consumption) || 0;
+    maxTemp = Math.max(maxTemp, parseFloat(dev.temp) || 0);
+    maxTemp2 = Math.max(maxTemp2, parseFloat(dev.temp2) || 0);
+    totalFreq += parseFloat(dev.freq) || 0;
+    totalVoltage += parseFloat(dev.chain_vol) || 0;
+    chainCount++;
+
+    // Find max fan RPM from any fan slot
+    for (let i = 1; i <= 8; i++) {
+      const fanKey = `fan${i}` as keyof typeof dev;
+      const fanVal = parseFloat(dev[fanKey] as string) || 0;
+      if (fanVal > maxFanRpm) maxFanRpm = fanVal;
+    }
+  }
+
+  const avgFreq = chainCount > 0 ? totalFreq / chainCount : 0;
+  const avgVoltage = chainCount > 0 ? totalVoltage / chainCount : 0;
+  const hashRateGH = parseFloat(data.summary.ghs5s) || 0;
+
+  // Calculate efficiency (J/TH)
+  const hashrateTH = hashRateGH / 1000;
+  const efficiency = hashrateTH > 0 ? totalPower / hashrateTH : 0;
+
+  // Get active pool info
+  const activePool = data.pools.find(p => p.status === 'Alive' && p.priority === 0) || data.pools[0];
+
+  return {
+    // Core metrics
+    power: totalPower,
+    voltage: avgVoltage / 1000, // Convert mV to V
+    current: avgVoltage > 0 ? (totalPower / (avgVoltage / 1000)) : 0, // Calculate amps
+    efficiency: efficiency,
+    temp: maxTemp,
+    temp2: maxTemp2,
+    vrTemp: 0, // S9 doesn't report VR temp
+
+    // Hashrate
+    hashRate: hashRateGH,
+    hashRate_1m: hashRateGH,
+    hashRate_10m: hashRateGH,
+    hashRate_1h: data.summary.ghsav,
+    expectedHashrate: hashRateGH,
+
+    // Shares and difficulty
+    bestDiff: data.summary.bestshare,
+    bestSessionDiff: data.summary.bestshare,
+    sharesAccepted: data.summary.accepted,
+    sharesRejected: data.summary.rejected,
+
+    // System info
+    uptimeSeconds: data.summary.elapsed,
+    hostname: `S9-${ipAddress.split('.').pop()}`,
+    ipv4: ipAddress,
+    ASICModel: 'Bitmain Antminer S9',
+    version: 'Bitmain (BETA)',
+
+    // Fan and frequency
+    fanspeed: 100, // S9 reports RPM, not percentage
+    fanrpm: maxFanRpm,
+    frequency: avgFreq,
+    coreVoltage: avgVoltage,
+
+    // Pool info
+    poolDifficulty: parseFloat(activePool?.diff?.replace('K', '000').replace('M', '000000') || '0'),
+    stratumURL: activePool?.url || '',
+    stratumUser: activePool?.user || '',
+
+    // System
+    wifiStatus: 'Ethernet',
+    freeHeap: 0,
+    smallCoreCount: chainCount * 63, // S9 has 63 chips per chain
+
+    // Extra S9-specific fields
+    hwErrors: data.summary.hw,
+    chainCount: chainCount,
+    isBitmain: true,
+  };
+}
+
+// Detect device type by trying both APIs
+export async function detectDeviceType(ipAddress: string): Promise<{ type: DeviceType; data: AxeOSSystemInfo } | null> {
+  // Try BitAxe/AxeOS first (more common in this app)
+  const axeosData = await fetchDeviceMetrics(ipAddress);
+  if (axeosData && axeosData.ASICModel) {
+    console.log(`[Detection] ${ipAddress} is BitAxe: ${axeosData.ASICModel}`);
+    return { type: 'bitaxe', data: axeosData };
+  }
+
+  // Try Bitmain/CGMiner
+  const bitmainData = await fetchBitmainMetrics(ipAddress);
+  if (bitmainData) {
+    console.log(`[Detection] ${ipAddress} is Bitmain: ${bitmainData.ASICModel}`);
+    return { type: 'bitmain', data: bitmainData };
+  }
+
+  console.log(`[Detection] ${ipAddress} - no compatible device found`);
+  return null;
+}
+
+// Test connection with auto-detection
+export async function testConnectionWithDetection(ipAddress: string): Promise<{ success: boolean; data?: AxeOSSystemInfo; deviceType?: DeviceType; error?: string }> {
+  try {
+    const result = await detectDeviceType(ipAddress);
+    if (result) {
+      return { success: true, data: result.data, deviceType: result.type };
+    }
+    return { success: false, error: 'No compatible device found at this address' };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'Connection failed' };
   }

@@ -43,10 +43,13 @@ interface DeviceGroup {
   createdAt: number;
 }
 
+type DeviceType = 'bitaxe' | 'bitmain';
+
 interface Device {
   id: string;
   name: string;
   ipAddress: string;
+  deviceType?: DeviceType;
   isOnline: boolean;
   lastSeen: number | null;
   createdAt: number;
@@ -217,6 +220,11 @@ export function DeviceCard({ device, groups, onGroupChange, networkStats, isNewR
           <div className="flex items-center justify-between text-xs text-text-secondary">
             <div className="flex items-center gap-2">
               <span>{metrics.ASICModel || 'BitAxe'}</span>
+              {device.deviceType === 'bitmain' && (
+                <span className="px-1.5 py-0.5 text-[10px] bg-warning/20 border border-warning/40 text-warning uppercase font-bold">
+                  BETA
+                </span>
+              )}
               {metrics.isClusterMaster && metrics.clusterInfo && (
                 <span className="px-1.5 py-0.5 text-[10px] bg-accent/20 border border-accent/40 text-accent uppercase font-bold">
                   Cluster ({metrics.clusterInfo.activeSlaves})

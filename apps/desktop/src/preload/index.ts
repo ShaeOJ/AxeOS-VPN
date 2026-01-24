@@ -166,10 +166,13 @@ export interface DeviceGroup {
   createdAt: number;
 }
 
+export type DeviceType = 'bitaxe' | 'bitmain';
+
 export interface Device {
   id: string;
   name: string;
   ipAddress: string;
+  deviceType: DeviceType;
   isOnline: boolean;
   lastSeen: number | null;
   createdAt: number;

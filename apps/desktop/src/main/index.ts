@@ -381,6 +381,7 @@ ipcMain.handle('get-devices', async () => {
     id: d.id,
     name: d.name,
     ipAddress: d.ip_address,
+    deviceType: d.device_type || 'bitaxe',
     isOnline: d.is_online === 1,
     lastSeen: d.last_seen,
     createdAt: d.created_at,
@@ -392,19 +393,24 @@ ipcMain.handle('get-devices', async () => {
 });
 
 ipcMain.handle('test-device-connection', async (_, ipAddress: string) => {
-  return poller.testConnection(ipAddress);
+  // Use auto-detection to find device type
+  return poller.testConnectionWithDetection(ipAddress);
 });
 
 ipcMain.handle('add-device', async (_, ipAddress: string, name?: string) => {
-  // Test connection first
-  const testResult = await poller.testConnection(ipAddress);
+  // Test connection with auto-detection
+  const testResult = await poller.testConnectionWithDetection(ipAddress);
   if (!testResult.success) {
     return { success: false, error: testResult.error || 'Could not connect to device' };
   }
 
   // Use hostname from device if no name provided
   const deviceName = name || testResult.data?.hostname || ipAddress;
-  const newDevice = devices.createDevice(deviceName, ipAddress);
+  const deviceType = testResult.deviceType || 'bitaxe';
+
+  console.log(`[Add Device] Adding ${deviceName} (${ipAddress}) as ${deviceType}`);
+
+  const newDevice = devices.createDevice(deviceName, ipAddress, deviceType);
   if (newDevice) {
     poller.startPolling(newDevice);
     return { success: true, device: newDevice };

@@ -10,7 +10,7 @@ Vault-Tec Mining Operations Division - BitAxe Monitoring System for managing mul
 - **Charts**: Recharts
 - **Build**: electron-vite + electron-builder
 
-## Current Version: v1.5.7
+## Current Version: v1.5.8
 
 ---
 
@@ -87,7 +87,24 @@ Vault-Tec Mining Operations Division - BitAxe Monitoring System for managing mul
 
 ---
 
-## Recent Changes (v1.5.7)
+## Recent Changes (v1.5.8)
+
+### Bitmain S9/Antminer Support (BETA)
+- **Auto-detection** - Automatically detects BitAxe vs Bitmain miners
+- **S9 API Integration** - Fetches data from `/cgi-bin/get_miner_status.cgi`
+- **Transformed Metrics** - Maps S9 data to unified display format:
+  - Hashrate from all 3 chains combined
+  - Max temperature across chains
+  - Total power consumption
+  - Calculated efficiency (J/TH)
+  - Fan RPM
+  - Shares and best difficulty
+- **BETA Badge** - Bitmain devices show "BETA" tag
+- **Database Migration** - New `device_type` column for multi-miner support
+
+---
+
+## Previous Changes (v1.5.7)
 
 ### Charts Y-Axis Improvements
 - Y-axis now displays unit label (GH/s, °C, W, J/TH)

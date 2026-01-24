@@ -1,9 +1,12 @@
 import { getDatabase, generateId } from './index';
 
+export type DeviceType = 'bitaxe' | 'bitmain';
+
 export interface Device {
   id: string;
   name: string;
   ip_address: string;
+  device_type: DeviceType;
   poll_interval: number;
   last_seen: number | null;
   is_online: number;
@@ -28,20 +31,21 @@ export function getDeviceByIp(ipAddress: string): Device | undefined {
   return db.prepare('SELECT * FROM devices WHERE ip_address = ?').get(ipAddress) as Device | undefined;
 }
 
-export function createDevice(name: string, ipAddress: string): Device {
+export function createDevice(name: string, ipAddress: string, deviceType: DeviceType = 'bitaxe'): Device {
   const db = getDatabase();
   const id = generateId();
   const createdAt = Date.now();
 
   db.prepare(`
-    INSERT INTO devices (id, name, ip_address, created_at)
-    VALUES (?, ?, ?, ?)
-  `).run(id, name, ipAddress, createdAt);
+    INSERT INTO devices (id, name, ip_address, device_type, created_at)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(id, name, ipAddress, deviceType, createdAt);
 
   return {
     id,
     name,
     ip_address: ipAddress,
+    device_type: deviceType,
     poll_interval: 5000,
     last_seen: null,
     is_online: 0,

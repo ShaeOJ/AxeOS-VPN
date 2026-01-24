@@ -141,6 +141,14 @@ export function initDatabase(): Database.Database {
     console.log('Migration complete: all_time_best_diff columns added');
   }
 
+  // Migration: Add device_type column for multi-miner support (BETA)
+  const hasDeviceType = devicesTableInfo.some((col) => col.name === 'device_type');
+  if (!hasDeviceType) {
+    console.log('Migrating devices table: adding device_type column...');
+    db.exec("ALTER TABLE devices ADD COLUMN device_type TEXT DEFAULT 'bitaxe'");
+    console.log('Migration complete: device_type column added');
+  }
+
   // Initialize default settings
   const initSetting = db.prepare(`
     INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)
