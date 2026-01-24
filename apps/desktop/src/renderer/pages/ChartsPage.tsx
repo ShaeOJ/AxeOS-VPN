@@ -380,6 +380,13 @@ export function ChartsPage() {
                     stroke="var(--color-text-secondary)"
                     tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
                     tickFormatter={(value) => formatValue(value, metricType)}
+                    label={{
+                      value: currentMetricInfo.unit,
+                      angle: -90,
+                      position: 'insideLeft',
+                      style: { fill: 'var(--color-text-secondary)', fontSize: 12 }
+                    }}
+                    domain={['auto', 'auto']}
                   />
                   <Tooltip
                     contentStyle={{
@@ -420,6 +427,13 @@ export function ChartsPage() {
                     stroke="var(--color-text-secondary)"
                     tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
                     tickFormatter={(value) => formatValue(value, metricType)}
+                    label={{
+                      value: currentMetricInfo.unit,
+                      angle: -90,
+                      position: 'insideLeft',
+                      style: { fill: 'var(--color-text-secondary)', fontSize: 12 }
+                    }}
+                    domain={['auto', 'auto']}
                   />
                   <Tooltip
                     contentStyle={{

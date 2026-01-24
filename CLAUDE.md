@@ -10,7 +10,7 @@ Vault-Tec Mining Operations Division - BitAxe Monitoring System for managing mul
 - **Charts**: Recharts
 - **Build**: electron-vite + electron-builder
 
-## Current Version: v1.5.6
+## Current Version: v1.5.7
 
 ---
 
@@ -87,7 +87,16 @@ Vault-Tec Mining Operations Division - BitAxe Monitoring System for managing mul
 
 ---
 
-## Recent Changes (v1.5.6)
+## Recent Changes (v1.5.7)
+
+### Charts Y-Axis Improvements
+- Y-axis now displays unit label (GH/s, °C, W, J/TH)
+- Auto-scaling domain for proper data visualization
+- Unit label rotated vertically for better readability
+
+---
+
+## Previous Changes (v1.5.6)
 
 ### Performance Charts Page
 - New **Charts** navigation item between Dashboard and Settings
