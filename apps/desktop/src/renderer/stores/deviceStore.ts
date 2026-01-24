@@ -76,12 +76,12 @@ interface DeviceState {
 
   // IPC-based actions
   fetchDevices: () => Promise<void>;
-  addDeviceByIp: (ipAddress: string, name?: string) => Promise<Device>;
+  addDeviceByIp: (ipAddress: string, name?: string, username?: string, password?: string) => Promise<{ success: boolean; device?: Device; error?: string; requiresAuth?: boolean }>;
   deleteDevice: (deviceId: string) => Promise<void>;
   updateDeviceName: (deviceId: string, name: string) => Promise<void>;
   updateDeviceIp: (deviceId: string, ipAddress: string) => Promise<void>;
   refreshDevice: (deviceId: string) => Promise<void>;
-  testConnection: (ipAddress: string) => Promise<{ success: boolean; data?: AxeOSSystemInfo; error?: string }>;
+  testConnection: (ipAddress: string, username?: string, password?: string) => Promise<{ success: boolean; data?: AxeOSSystemInfo; error?: string; deviceType?: string; requiresAuth?: boolean }>;
   setupMetricsListener: () => void;
 
   // Group actions
@@ -158,22 +158,27 @@ export const useDeviceStore = create<DeviceState>()((set, get) => ({
     }
   },
 
-  addDeviceByIp: async (ipAddress: string, name?: string) => {
+  addDeviceByIp: async (ipAddress: string, name?: string, username?: string, password?: string) => {
     set({ isLoading: true, error: null });
     try {
-      const result = await window.electronAPI.addDevice(ipAddress, name);
+      const result = await window.electronAPI.addDevice(ipAddress, name, username, password);
+      if (result.requiresAuth) {
+        set({ isLoading: false });
+        return { success: false, requiresAuth: true, error: result.error };
+      }
       if (!result.success || !result.device) {
-        throw new Error(result.error || 'Failed to add device');
+        set({ isLoading: false, error: result.error || 'Failed to add device' });
+        return { success: false, error: result.error || 'Failed to add device' };
       }
       set((state) => ({
         devices: [...state.devices, result.device!],
         isLoading: false,
       }));
-      return result.device;
+      return { success: true, device: result.device };
     } catch (err) {
       const error = err instanceof Error ? err.message : 'Failed to add device';
       set({ error, isLoading: false });
-      throw new Error(error);
+      return { success: false, error };
     }
   },
 
@@ -242,8 +247,8 @@ export const useDeviceStore = create<DeviceState>()((set, get) => ({
     }
   },
 
-  testConnection: async (ipAddress: string) => {
-    return window.electronAPI.testDeviceConnection(ipAddress);
+  testConnection: async (ipAddress: string, username?: string, password?: string) => {
+    return window.electronAPI.testDeviceConnection(ipAddress, username, password);
   },
 
   setupMetricsListener: () => {

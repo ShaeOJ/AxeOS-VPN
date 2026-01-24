@@ -25,8 +25,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Devices (IP-based BitAxe devices)
   getDevices: () => ipcRenderer.invoke('get-devices'),
-  addDevice: (ipAddress: string, name?: string) => ipcRenderer.invoke('add-device', ipAddress, name),
-  testDeviceConnection: (ipAddress: string) => ipcRenderer.invoke('test-device-connection', ipAddress),
+  addDevice: (ipAddress: string, name?: string, username?: string, password?: string) => ipcRenderer.invoke('add-device', ipAddress, name, username, password),
+  testDeviceConnection: (ipAddress: string, username?: string, password?: string) => ipcRenderer.invoke('test-device-connection', ipAddress, username, password),
   deleteDevice: (id: string) => ipcRenderer.invoke('delete-device', id),
   updateDeviceName: (id: string, name: string) => ipcRenderer.invoke('update-device-name', id, name),
   updateDeviceIp: (id: string, ipAddress: string) => ipcRenderer.invoke('update-device-ip', id, ipAddress),
@@ -194,12 +194,15 @@ export interface AddDeviceResult {
   success: boolean;
   device?: Device;
   error?: string;
+  requiresAuth?: boolean;
 }
 
 export interface TestConnectionResult {
   success: boolean;
   data?: AxeOSSystemInfo;
   error?: string;
+  deviceType?: DeviceType;
+  requiresAuth?: boolean;
 }
 
 export interface TunnelStatus {
@@ -358,8 +361,8 @@ declare global {
       setDeviceGroup: (deviceId: string, groupId: string | null) => Promise<{ success: boolean }>;
 
       getDevices: () => Promise<Device[]>;
-      addDevice: (ipAddress: string, name?: string) => Promise<AddDeviceResult>;
-      testDeviceConnection: (ipAddress: string) => Promise<TestConnectionResult>;
+      addDevice: (ipAddress: string, name?: string, username?: string, password?: string) => Promise<AddDeviceResult>;
+      testDeviceConnection: (ipAddress: string, username?: string, password?: string) => Promise<TestConnectionResult>;
       deleteDevice: (id: string) => Promise<{ success: boolean }>;
       updateDeviceName: (id: string, name: string) => Promise<{ success: boolean }>;
       updateDeviceIp: (id: string, ipAddress: string) => Promise<{ success: boolean }>;

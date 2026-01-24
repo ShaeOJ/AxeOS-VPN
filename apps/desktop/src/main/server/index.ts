@@ -185,6 +185,7 @@ export function startServer(): { port: number; addresses: string[] } {
           id: d.id,
           name: d.name,
           ipAddress: d.ip_address,
+          deviceType: d.device_type || 'bitaxe',
           isOnline: d.is_online === 1,
           lastSeen: d.last_seen,
           createdAt: d.created_at,
@@ -210,6 +211,7 @@ export function startServer(): { port: number; addresses: string[] } {
       id: device.id,
       name: device.name,
       ipAddress: device.ip_address,
+      deviceType: device.device_type || 'bitaxe',
       isOnline: device.is_online === 1,
       lastSeen: device.last_seen,
       createdAt: device.created_at,
@@ -1475,6 +1477,44 @@ function getWebDashboardHtml(): string {
         </div>
         <div id="total-shares" class="stat-value success" style="text-shadow: 0 0 4px rgba(0,255,65,0.3);">--</div>
       </div>
+      <!-- Best Difficulty Card -->
+      <div class="summary-card">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+          <div style="padding: 10px; background: rgba(255,140,0,0.15); border: 1px solid rgba(255,140,0,0.3); border-radius: 8px;">
+            <svg width="24" height="24" viewBox="0 0 20 20" fill="#FF8C00">
+              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+            </svg>
+          </div>
+          <div class="stat-label" style="margin: 0;">Best Difficulty</div>
+        </div>
+        <div id="best-difficulty" class="stat-value" style="color: #FF8C00; text-shadow: 0 0 4px rgba(255,140,0,0.3);">--</div>
+      </div>
+      <!-- Power Cost Card -->
+      <div class="summary-card">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+          <div style="padding: 10px; background: rgba(255,49,49,0.15); border: 1px solid rgba(255,49,49,0.3); border-radius: 8px;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FF3131" stroke-width="1.5">
+              <path d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="stat-label" style="margin: 0;">Power Cost</div>
+        </div>
+        <div id="power-cost" class="stat-value" style="color: #FF3131; text-shadow: 0 0 4px rgba(255,49,49,0.3);">--</div>
+        <div id="power-cost-rate" style="font-size: 11px; color: #8BA88B; margin-top: 4px;">@ $0.10/kWh</div>
+      </div>
+      <!-- Block Time Card -->
+      <div class="summary-card">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+          <div style="padding: 10px; background: rgba(255,176,0,0.15); border: 1px solid rgba(255,176,0,0.3); border-radius: 8px;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFB000" stroke-width="1.5">
+              <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="stat-label" style="margin: 0;">Block Time</div>
+        </div>
+        <div id="block-time" class="stat-value accent" style="text-shadow: 0 0 4px rgba(255,176,0,0.3);">--</div>
+        <div id="network-difficulty" style="font-size: 11px; color: #8BA88B; margin-top: 4px;">Loading...</div>
+      </div>
     </div>
 
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
@@ -1763,7 +1803,7 @@ function getWebDashboardHtml(): string {
         html += '<div class="section-title">Hardware</div><div class="detail-grid">';
         html += '<div class="detail-item"><div class="detail-label">Model</div><div class="detail-value">' + (m.ASICModel || 'Unknown') + '</div></div>';
         html += '<div class="detail-item"><div class="detail-label">Firmware</div><div class="detail-value">' + (m.version || 'Unknown') + '</div></div>';
-        html += '<div class="detail-item"><div class="detail-label">Frequency</div><div class="detail-value">' + (m.frequency ? m.frequency + ' MHz' : '--') + '</div></div>';
+        html += '<div class="detail-item"><div class="detail-label">Frequency</div><div class="detail-value">' + (m.frequency ? Math.round(m.frequency) + ' MHz' : '--') + '</div></div>';
         html += '<div class="detail-item"><div class="detail-label">Core Voltage</div><div class="detail-value">' + (m.coreVoltage ? m.coreVoltage + ' mV' : '--') + '</div></div>';
         html += '<div class="detail-item"><div class="detail-label">Fan Speed</div><div class="detail-value">' + (m.fanspeed ? m.fanspeed + '%' : '--') + '</div></div>';
         html += '<div class="detail-item"><div class="detail-label">VR Temp</div><div class="detail-value">' + formatTemp(m.vrTemp) + '</div></div>';
@@ -1772,7 +1812,8 @@ function getWebDashboardHtml(): string {
         html += '<div class="section-title">Mining Stats</div><div class="detail-grid">';
         html += '<div class="detail-item"><div class="detail-label">' + (isCluster ? 'Cluster Accepted' : 'Shares Accepted') + '</div><div class="detail-value success">' + (m.sharesAccepted || 0).toLocaleString() + '</div></div>';
         html += '<div class="detail-item"><div class="detail-label">' + (isCluster ? 'Cluster Rejected' : 'Shares Rejected') + '</div><div class="detail-value danger">' + (m.sharesRejected || 0).toLocaleString() + '</div></div>';
-        html += '<div class="detail-item"><div class="detail-label">Best Difficulty</div><div class="detail-value accent">' + (m.bestDiff && typeof m.bestDiff === 'number' ? (m.bestDiff >= 1e9 ? (m.bestDiff / 1e9).toFixed(2) + 'B' : m.bestDiff >= 1e6 ? (m.bestDiff / 1e6).toFixed(2) + 'M' : m.bestDiff >= 1e3 ? (m.bestDiff / 1e3).toFixed(2) + 'K' : m.bestDiff.toLocaleString()) : (m.bestDiff || '--')) + '</div></div>';
+        var detailBestDiff = Math.max(parseDifficulty(m.bestDiff), device.allTimeBestDiff || 0);
+        html += '<div class="detail-item"><div class="detail-label">Best Difficulty</div><div class="detail-value accent">' + formatDifficulty(detailBestDiff) + '</div></div>';
         html += '<div class="detail-item"><div class="detail-label">Uptime</div><div class="detail-value">' + formatUptime(m.uptimeSeconds) + '</div></div>';
         html += '</div>';
 
@@ -1875,9 +1916,9 @@ function getWebDashboardHtml(): string {
         html += '<div style="margin-bottom:16px;">';
         html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
         html += '<label style="color:#8BA88B;font-size:12px;">Frequency</label>';
-        html += '<span id="freq-value" style="color:#FFB000;font-size:12px;">' + (m.frequency || 485) + ' MHz</span>';
+        html += '<span id="freq-value" style="color:#FFB000;font-size:12px;">' + Math.round(m.frequency || 485) + ' MHz</span>';
         html += '</div>';
-        html += '<input type="range" id="freq-slider" min="400" max="900" step="5" value="' + (m.frequency || 485) + '" style="width:100%;cursor:pointer;" oninput="document.getElementById(\\'freq-value\\').textContent=this.value+\\' MHz\\'">';
+        html += '<input type="range" id="freq-slider" min="400" max="900" step="5" value="' + Math.round(m.frequency || 485) + '" style="width:100%;cursor:pointer;" oninput="document.getElementById(\\'freq-value\\').textContent=this.value+\\' MHz\\'">';
         html += '<button onclick="applyFrequency()" style="margin-top:8px;padding:12px 16px;background:#1a4a5c;border:1px solid #00CED1;color:#00CED1;cursor:pointer;font-size:14px;min-height:44px;width:100%;touch-action:manipulation;">Apply Frequency</button>';
         html += '</div>';
 
@@ -1913,21 +1954,38 @@ function getWebDashboardHtml(): string {
 
     function renderDevices() {
       const container = document.getElementById('devices-list');
-      let totalHashrate = 0, totalPower = 0, tempSum = 0, onlineCount = 0, totalShares = 0;
+      let totalHashrate = 0, totalPower = 0, tempSum = 0, onlineCount = 0, totalShares = 0, bestDiff = 0;
       const onlineDevices = devices.filter(d => d.isOnline);
       const offlineDevices = devices.filter(d => !d.isOnline);
       onlineDevices.forEach(d => {
         const m = d.latestMetrics;
         if (m) { totalHashrate += m.hashRate || 0; totalPower += m.power || 0; if (m.temp) { tempSum += m.temp; onlineCount++; } totalShares += m.sharesAccepted || 0; }
+        // Track best difficulty across all devices - check multiple field name variants
+        // Use parseDifficulty to handle formatted strings like "56.4M" from AxeOS
+        const sessionBest = parseDifficulty(m?.bestDiff || m?.bestdiff || m?.best_diff || m?.BestDiff);
+        const sessionBest2 = parseDifficulty(m?.bestSessionDiff || m?.bestsessiondiff || m?.best_session_diff);
+        const deviceBest = Math.max(d.allTimeBestDiff || 0, sessionBest, sessionBest2);
+        if (deviceBest > bestDiff) bestDiff = deviceBest;
+      });
+      // Also check offline devices for all-time best
+      offlineDevices.forEach(d => {
+        if (d.allTimeBestDiff && d.allTimeBestDiff > bestDiff) bestDiff = d.allTimeBestDiff;
       });
 
       container.innerHTML = [...onlineDevices, ...offlineDevices].map(d => {
         const m = d.latestMetrics;
         const isCluster = m && m.isClusterMaster && m.clusterInfo;
+        const isBitmain = d.deviceType === 'bitmain';
         const blockChance = m && m.hashRate && networkStats ? calculateBlockChance(m.hashRate, networkStats.difficulty) : null;
+        // Parse best diff - handles formatted strings like "56.4M" from AxeOS
+        const currentBestDiff = m ? parseDifficulty(m.bestDiff) : 0;
+        const allTimeBest = d.allTimeBestDiff || 0;
+        const displayBestDiff = Math.max(currentBestDiff, allTimeBest);
+        const isNewRecord = currentBestDiff > 0 && currentBestDiff >= allTimeBest;
         return '<div class="card clickable" onclick="showDeviceDetail(' + "'" + d.id + "'" + ')">' +
           '<div class="device-header"><div><div class="device-name">' + d.name + '</div><div class="device-ip">' + d.ipAddress + '</div>' +
           (m ? '<div class="device-model" style="display:flex;align-items:center;gap:6px;">' + (m.ASICModel || 'BitAxe') +
+            (isBitmain ? '<span style="padding:1px 6px;font-size:9px;background:rgba(255,140,0,0.2);border:1px solid rgba(255,140,0,0.4);color:#FF8C00;text-transform:uppercase;font-weight:bold;">BETA</span>' : '') +
             (isCluster ? '<span style="padding:1px 6px;font-size:9px;background:rgba(255,176,0,0.2);border:1px solid rgba(255,176,0,0.4);color:#FFB000;text-transform:uppercase;">Cluster (' + m.clusterInfo.activeSlaves + ')</span>' : '') +
           '</div>' : '') +
           '</div><div class="status-dot ' + (d.isOnline ? 'online' : 'offline') + '"></div></div>' +
@@ -1936,7 +1994,7 @@ function getWebDashboardHtml(): string {
             '<div class="metric"><div class="metric-label">Temp</div><div class="metric-value ' + getTempClass(m.temp) + '">' + formatTemp(m.temp) + '</div></div>' +
             '<div class="metric"><div class="metric-label">Power</div><div class="metric-value">' + formatPower(m.power) + '<div style="font-size:10px;color:#8BA88B;margin-top:2px;">' + formatAmps(m.current, m.power, m.voltage) + '</div></div></div></div>' +
             '<div class="secondary-stats"><div class="secondary-stat"><div class="secondary-stat-label">Efficiency</div><div class="secondary-stat-value">' + (m.efficiency ? m.efficiency.toFixed(1) + ' J/TH' : '--') + '</div></div>' +
-            '<div class="secondary-stat"><div class="secondary-stat-label">Freq</div><div class="secondary-stat-value">' + (m.frequency ? m.frequency + ' MHz' : '--') + '</div></div>' +
+            '<div class="secondary-stat"><div class="secondary-stat-label">Freq</div><div class="secondary-stat-value">' + (m.frequency ? Math.round(m.frequency) + ' MHz' : '--') + '</div></div>' +
             '<div class="secondary-stat"><div class="secondary-stat-label">Voltage</div><div class="secondary-stat-value">' + (m.coreVoltage ? m.coreVoltage + ' mV' : '--') + '</div></div>' +
             '<div class="secondary-stat"><div class="secondary-stat-label">Fan</div><div class="secondary-stat-value">' + (m.fanspeed ? m.fanspeed + '%' : '--') + '</div></div>' +
             '<div class="secondary-stat"><div class="secondary-stat-label">Shares</div><div class="secondary-stat-value success">' + (m.sharesAccepted || 0).toLocaleString() + '</div></div></div>' +
@@ -1945,13 +2003,13 @@ function getWebDashboardHtml(): string {
               '<span style="font-size:10px;color:#8BA88B;">Solo Block</span></div>' +
               '<div style="text-align:right;"><span style="font-size:11px;font-family:monospace;color:#FF8C00;">' + formatTimeToBlock(blockChance.daysToBlock) + '</span>' +
               '<span style="font-size:9px;color:#8BA88B;margin-left:4px;">(' + formatOdds(blockChance.dailyOdds) + '/day)</span></div></div>' : '') +
-            ((d.allTimeBestDiff || m.bestDiff) ? '<div style="padding:8px 12px;border-top:1px solid rgba(58,90,110,0.3);display:flex;align-items:center;justify-content:space-between;">' +
+            (displayBestDiff > 0 ? '<div style="padding:8px 12px;border-top:1px solid rgba(58,90,110,0.3);display:flex;align-items:center;justify-content:space-between;">' +
               '<div style="display:flex;align-items:center;gap:4px;">' +
-              '<svg width="12" height="12" viewBox="0 0 20 20" fill="' + (m.bestDiff && d.allTimeBestDiff && m.bestDiff >= d.allTimeBestDiff ? '#FBBF24' : '#FFB000') + '"><path fill-rule="evenodd" d="M10 1l2.928 6.856 6.072.514-4.928 4.286 1.5 6.344L10 15.572 4.428 19l1.5-6.344L1 8.37l6.072-.514L10 1z" clip-rule="evenodd"/></svg>' +
+              '<svg width="12" height="12" viewBox="0 0 20 20" fill="' + (isNewRecord ? '#FBBF24' : '#FFB000') + '"><path fill-rule="evenodd" d="M10 1l2.928 6.856 6.072.514-4.928 4.286 1.5 6.344L10 15.572 4.428 19l1.5-6.344L1 8.37l6.072-.514L10 1z" clip-rule="evenodd"/></svg>' +
               '<span style="font-size:10px;color:#8BA88B;">Best Diff</span>' +
-              (m.bestDiff && d.allTimeBestDiff && m.bestDiff >= d.allTimeBestDiff ? '<span style="font-size:8px;padding:1px 4px;background:rgba(251,191,36,0.2);color:#FBBF24;border-radius:2px;text-transform:uppercase;font-weight:bold;">NEW!</span>' : '') +
+              (isNewRecord ? '<span style="font-size:8px;padding:1px 4px;background:rgba(251,191,36,0.2);color:#FBBF24;border-radius:2px;text-transform:uppercase;font-weight:bold;">NEW!</span>' : '') +
               '</div>' +
-              '<div style="text-align:right;"><span style="font-size:11px;font-family:monospace;color:' + (m.bestDiff && d.allTimeBestDiff && m.bestDiff >= d.allTimeBestDiff ? '#FBBF24' : '#FFB000') + ';">' + formatDifficulty(d.allTimeBestDiff || m.bestDiff) + '</span></div></div>' : '') +
+              '<div style="text-align:right;"><span style="font-size:11px;font-family:monospace;color:' + (isNewRecord ? '#FBBF24' : '#FFB000') + ';">' + formatDifficulty(displayBestDiff) + '</span></div></div>' : '') +
             '<div class="device-control-bar" onclick="event.stopPropagation();"><button class="restart-btn" data-device-id="' + d.id + '" onclick="handleRestartClick(this, event)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Restart</button></div>'
           : '<div style="color:#8BA88B;margin-top:8px;">' + (d.isOnline ? 'Waiting for metrics...' : 'Offline') + '</div>') +
         '</div>';
@@ -2008,6 +2066,28 @@ function getWebDashboardHtml(): string {
         tempIconBg.style.borderColor = 'rgba(0,255,65,0.4)';
         tempIcon.setAttribute('stroke', '#00FF41');
       }
+
+      // Update Best Difficulty
+      document.getElementById('best-difficulty').textContent = bestDiff > 0 ? formatDifficulty(bestDiff) : '--';
+
+      // Update Power Cost
+      const electricityCost = parseFloat(document.getElementById('electricity-cost-input')?.value || '0.10');
+      const dailyKwh = (totalPower * 24) / 1000;
+      const dailyPowerCost = dailyKwh * electricityCost;
+      document.getElementById('power-cost').textContent = dailyPowerCost > 0 ? '$' + dailyPowerCost.toFixed(2) + '/day' : '--';
+      document.getElementById('power-cost-rate').textContent = '@ $' + electricityCost.toFixed(2) + '/kWh';
+
+      // Update Block Time
+      if (networkStats && totalHashrate > 0) {
+        const blockChance = calculateBlockChance(totalHashrate, networkStats.difficulty);
+        if (blockChance) {
+          document.getElementById('block-time').textContent = formatTimeToBlock(blockChance.daysToBlock);
+          document.getElementById('network-difficulty').textContent = 'Diff: ' + formatDifficulty(networkStats.difficulty);
+        }
+      } else {
+        document.getElementById('block-time').textContent = '--';
+        document.getElementById('network-difficulty').textContent = totalHashrate > 0 ? 'Loading network stats...' : 'No active miners';
+      }
     }
 
     function formatHashrate(h) { if (!h) return '--'; return h >= 1000 ? (h / 1000).toFixed(2) + ' TH/s' : h.toFixed(2) + ' GH/s'; }
@@ -2059,6 +2139,23 @@ function getWebDashboardHtml(): string {
       if (diff >= 1e6) return (diff / 1e6).toFixed(2) + 'M';
       if (diff >= 1e3) return (diff / 1e3).toFixed(2) + 'K';
       return diff.toLocaleString();
+    }
+
+    // Parse difficulty from various formats - handles both raw numbers and formatted strings like "56.4M"
+    function parseDifficulty(value) {
+      if (typeof value === 'number' && !isNaN(value)) return value;
+      if (typeof value === 'string') {
+        var match = value.match(/^([\\d.]+)\\s*([KMGBT])?$/i);
+        if (match) {
+          var num = parseFloat(match[1]);
+          var suffix = match[2] ? match[2].toUpperCase() : null;
+          var multipliers = { K: 1e3, M: 1e6, G: 1e9, B: 1e9, T: 1e12 };
+          return num * (multipliers[suffix] || 1);
+        }
+        var parsed = parseFloat(value);
+        if (!isNaN(parsed)) return parsed;
+      }
+      return 0;
     }
 
     // ============ DEVICE CONTROL ============

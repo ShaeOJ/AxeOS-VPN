@@ -1,6 +1,74 @@
+import * as crypto from 'crypto';
 import * as devices from './database/devices';
 import * as metrics from './database/metrics';
 import { DeviceType } from './database/devices';
+
+// Digest Authentication Helper
+interface DigestAuthParams {
+  realm: string;
+  nonce: string;
+  qop?: string;
+  algorithm?: string;
+}
+
+function parseDigestChallenge(wwwAuthenticate: string): DigestAuthParams | null {
+  const params: Partial<DigestAuthParams> = {};
+  const regex = /(\w+)="([^"]+)"/g;
+  let match;
+  while ((match = regex.exec(wwwAuthenticate)) !== null) {
+    const key = match[1].toLowerCase();
+    if (key === 'realm') params.realm = match[2];
+    else if (key === 'nonce') params.nonce = match[2];
+    else if (key === 'qop') params.qop = match[2];
+    else if (key === 'algorithm') params.algorithm = match[2];
+  }
+  if (params.realm && params.nonce) {
+    return params as DigestAuthParams;
+  }
+  return null;
+}
+
+function createDigestHeader(
+  method: string,
+  uri: string,
+  username: string,
+  password: string,
+  params: DigestAuthParams
+): string {
+  const nc = '00000001';
+  const cnonce = crypto.randomBytes(8).toString('hex');
+  const algorithm = params.algorithm || 'MD5';
+
+  // Calculate HA1 = MD5(username:realm:password)
+  const ha1 = crypto.createHash('md5')
+    .update(`${username}:${params.realm}:${password}`)
+    .digest('hex');
+
+  // Calculate HA2 = MD5(method:uri)
+  const ha2 = crypto.createHash('md5')
+    .update(`${method}:${uri}`)
+    .digest('hex');
+
+  // Calculate response
+  let response: string;
+  if (params.qop) {
+    response = crypto.createHash('md5')
+      .update(`${ha1}:${params.nonce}:${nc}:${cnonce}:${params.qop}:${ha2}`)
+      .digest('hex');
+  } else {
+    response = crypto.createHash('md5')
+      .update(`${ha1}:${params.nonce}:${ha2}`)
+      .digest('hex');
+  }
+
+  let header = `Digest username="${username}", realm="${params.realm}", nonce="${params.nonce}", uri="${uri}", algorithm=${algorithm}, response="${response}"`;
+
+  if (params.qop) {
+    header += `, qop=${params.qop}, nc=${nc}, cnonce="${cnonce}"`;
+  }
+
+  return header;
+}
 
 // Bitmain S9 API response type (BETA)
 export interface BitmainMinerStatus {
@@ -242,7 +310,7 @@ export async function fetchDeviceMetrics(ipAddress: string): Promise<AxeOSSystem
 async function pollDevice(device: devices.Device): Promise<void> {
   // Fetch metrics based on device type
   const data = device.device_type === 'bitmain'
-    ? await fetchBitmainMetrics(device.ip_address)
+    ? await fetchBitmainMetrics(device.ip_address, device.auth_user || undefined, device.auth_pass || undefined)
     : await fetchDeviceMetrics(device.ip_address);
 
   if (data) {
@@ -344,24 +412,73 @@ export async function testConnection(ipAddress: string): Promise<{ success: bool
 // BITMAIN S9 SUPPORT (BETA)
 // ============================================
 
-// Fetch metrics from Bitmain S9/Antminer
-export async function fetchBitmainMetrics(ipAddress: string): Promise<AxeOSSystemInfo | null> {
+// Fetch metrics from Bitmain S9/Antminer with Digest Authentication
+export async function fetchBitmainMetrics(ipAddress: string, username?: string, password?: string): Promise<AxeOSSystemInfo | null> {
+  const url = `http://${ipAddress}/cgi-bin/get_miner_status.cgi`;
+  const uri = '/cgi-bin/get_miner_status.cgi';
+
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-    const response = await fetch(`http://${ipAddress}/cgi-bin/get_miner_status.cgi`, {
+    // First request to get the challenge
+    const initialResponse = await fetch(url, {
       signal: controller.signal,
     });
 
     clearTimeout(timeoutId);
 
-    if (!response.ok) {
-      console.error(`[Bitmain] Failed to fetch from ${ipAddress}: ${response.status}`);
+    // If we get 401, we need to authenticate
+    if (initialResponse.status === 401) {
+      if (!username || !password) {
+        console.error(`[Bitmain] ${ipAddress} requires authentication but no credentials provided`);
+        return null;
+      }
+
+      const wwwAuth = initialResponse.headers.get('www-authenticate');
+      if (!wwwAuth) {
+        console.error(`[Bitmain] ${ipAddress} returned 401 but no WWW-Authenticate header`);
+        return null;
+      }
+
+      const digestParams = parseDigestChallenge(wwwAuth);
+      if (!digestParams) {
+        console.error(`[Bitmain] ${ipAddress} failed to parse digest challenge`);
+        return null;
+      }
+
+      // Create digest authorization header
+      const authHeader = createDigestHeader('GET', uri, username, password, digestParams);
+
+      // Second request with authentication
+      const controller2 = new AbortController();
+      const timeoutId2 = setTimeout(() => controller2.abort(), 8000);
+
+      const authResponse = await fetch(url, {
+        signal: controller2.signal,
+        headers: {
+          'Authorization': authHeader,
+        },
+      });
+
+      clearTimeout(timeoutId2);
+
+      if (!authResponse.ok) {
+        console.error(`[Bitmain] Authentication failed for ${ipAddress}: ${authResponse.status}`);
+        return null;
+      }
+
+      const data = await authResponse.json() as BitmainMinerStatus;
+      return transformBitmainToAxeOS(data, ipAddress);
+    }
+
+    // If no auth required (shouldn't happen with S9)
+    if (!initialResponse.ok) {
+      console.error(`[Bitmain] Failed to fetch from ${ipAddress}: ${initialResponse.status}`);
       return null;
     }
 
-    const data = await response.json() as BitmainMinerStatus;
+    const data = await initialResponse.json() as BitmainMinerStatus;
     return transformBitmainToAxeOS(data, ipAddress);
   } catch (error) {
     console.error(`[Bitmain] Error fetching from ${ipAddress}:`, error instanceof Error ? error.message : error);
@@ -460,8 +577,25 @@ function transformBitmainToAxeOS(data: BitmainMinerStatus, ipAddress: string): A
   };
 }
 
+// Check if a Bitmain device requires authentication
+export async function checkBitmainAuth(ipAddress: string): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    const response = await fetch(`http://${ipAddress}/cgi-bin/get_miner_status.cgi`, {
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    return response.status === 401;
+  } catch {
+    return false;
+  }
+}
+
 // Detect device type by trying both APIs
-export async function detectDeviceType(ipAddress: string): Promise<{ type: DeviceType; data: AxeOSSystemInfo } | null> {
+export async function detectDeviceType(ipAddress: string, username?: string, password?: string): Promise<{ type: DeviceType; data: AxeOSSystemInfo; requiresAuth?: boolean } | null> {
   // Try BitAxe/AxeOS first (more common in this app)
   const axeosData = await fetchDeviceMetrics(ipAddress);
   if (axeosData && axeosData.ASICModel) {
@@ -470,10 +604,17 @@ export async function detectDeviceType(ipAddress: string): Promise<{ type: Devic
   }
 
   // Try Bitmain/CGMiner
-  const bitmainData = await fetchBitmainMetrics(ipAddress);
+  const bitmainData = await fetchBitmainMetrics(ipAddress, username, password);
   if (bitmainData) {
     console.log(`[Detection] ${ipAddress} is Bitmain: ${bitmainData.ASICModel}`);
     return { type: 'bitmain', data: bitmainData };
+  }
+
+  // Check if it's a Bitmain that needs auth
+  const needsAuth = await checkBitmainAuth(ipAddress);
+  if (needsAuth) {
+    console.log(`[Detection] ${ipAddress} appears to be Bitmain requiring authentication`);
+    return { type: 'bitmain', data: {} as AxeOSSystemInfo, requiresAuth: true };
   }
 
   console.log(`[Detection] ${ipAddress} - no compatible device found`);
@@ -481,10 +622,13 @@ export async function detectDeviceType(ipAddress: string): Promise<{ type: Devic
 }
 
 // Test connection with auto-detection
-export async function testConnectionWithDetection(ipAddress: string): Promise<{ success: boolean; data?: AxeOSSystemInfo; deviceType?: DeviceType; error?: string }> {
+export async function testConnectionWithDetection(ipAddress: string, username?: string, password?: string): Promise<{ success: boolean; data?: AxeOSSystemInfo; deviceType?: DeviceType; requiresAuth?: boolean; error?: string }> {
   try {
-    const result = await detectDeviceType(ipAddress);
+    const result = await detectDeviceType(ipAddress, username, password);
     if (result) {
+      if (result.requiresAuth) {
+        return { success: false, deviceType: 'bitmain', requiresAuth: true, error: 'Authentication required' };
+      }
       return { success: true, data: result.data, deviceType: result.type };
     }
     return { success: false, error: 'No compatible device found at this address' };

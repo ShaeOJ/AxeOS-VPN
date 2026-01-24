@@ -153,7 +153,8 @@ export function ChartsPage() {
 
           switch (metricType) {
             case 'hashrate':
-              value = metric.hashrate;
+              // Hashrate stored in H/s, convert to GH/s for display
+              value = metric.hashrate ? metric.hashrate / 1e9 : null;
               break;
             case 'temperature':
               value = metric.temperature;
@@ -163,7 +164,9 @@ export function ChartsPage() {
               break;
             case 'efficiency':
               if (metric.power && metric.hashrate && metric.hashrate > 0) {
-                value = metric.power / (metric.hashrate / 1000); // J/TH
+                // Hashrate in H/s, convert to TH/s for efficiency calc
+                const hashrateTH = metric.hashrate / 1e12;
+                value = hashrateTH > 0 ? metric.power / hashrateTH : null; // J/TH
               }
               break;
           }
@@ -184,12 +187,14 @@ export function ChartsPage() {
       const values = dm.metrics
         .map(m => {
           switch (metricType) {
-            case 'hashrate': return m.hashrate;
+            case 'hashrate': return m.hashrate ? m.hashrate / 1e9 : null; // Convert H/s to GH/s
             case 'temperature': return m.temperature;
             case 'power': return m.power;
             case 'efficiency':
               if (m.power && m.hashrate && m.hashrate > 0) {
-                return m.power / (m.hashrate / 1000);
+                // Hashrate in H/s, convert to TH/s for efficiency calc
+                const hashrateTH = m.hashrate / 1e12;
+                return hashrateTH > 0 ? m.power / hashrateTH : null; // J/TH
               }
               return null;
           }
@@ -228,6 +233,18 @@ export function ChartsPage() {
   };
 
   const currentMetricInfo = METRIC_TYPES.find(m => m.value === metricType)!;
+
+  // Determine the appropriate unit for hashrate based on data values
+  const hashrateUnit = useMemo(() => {
+    if (metricType !== 'hashrate') return currentMetricInfo.unit;
+    const allValues = chartData
+      .flatMap(d => deviceMetrics.map(dm => d[dm.deviceId] as number))
+      .filter(v => v !== null && v !== undefined && !isNaN(v));
+    return allValues.length > 0 && Math.max(...allValues) >= 1000 ? 'TH/s' : 'GH/s';
+  }, [chartData, deviceMetrics, metricType, currentMetricInfo.unit]);
+
+  const useTHUnit = hashrateUnit === 'TH/s';
+  const displayUnit = metricType === 'hashrate' ? hashrateUnit : currentMetricInfo.unit;
 
   return (
     <div className="p-6 space-y-6 animate-page-glitch">
@@ -379,9 +396,9 @@ export function ChartsPage() {
                   <YAxis
                     stroke="var(--color-text-secondary)"
                     tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
-                    tickFormatter={(value) => formatValue(value, metricType)}
+                    tickFormatter={(value) => metricType === 'hashrate' ? formatHashrateForDisplay(value, useTHUnit) : formatValue(value, metricType)}
                     label={{
-                      value: currentMetricInfo.unit,
+                      value: displayUnit,
                       angle: -90,
                       position: 'insideLeft',
                       style: { fill: 'var(--color-text-secondary)', fontSize: 12 }
@@ -396,7 +413,7 @@ export function ChartsPage() {
                     }}
                     labelStyle={{ color: 'var(--color-text-primary)' }}
                     formatter={(value: number) => [
-                      `${formatValue(value, metricType)} ${currentMetricInfo.unit}`,
+                      `${metricType === 'hashrate' ? formatHashrateForDisplay(value, useTHUnit) : formatValue(value, metricType)} ${displayUnit}`,
                     ]}
                   />
                   <Legend />
@@ -426,9 +443,9 @@ export function ChartsPage() {
                   <YAxis
                     stroke="var(--color-text-secondary)"
                     tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
-                    tickFormatter={(value) => formatValue(value, metricType)}
+                    tickFormatter={(value) => metricType === 'hashrate' ? formatHashrateForDisplay(value, useTHUnit) : formatValue(value, metricType)}
                     label={{
-                      value: currentMetricInfo.unit,
+                      value: displayUnit,
                       angle: -90,
                       position: 'insideLeft',
                       style: { fill: 'var(--color-text-secondary)', fontSize: 12 }
@@ -443,7 +460,7 @@ export function ChartsPage() {
                     }}
                     labelStyle={{ color: 'var(--color-text-primary)' }}
                     formatter={(value: number) => [
-                      `${formatValue(value, metricType)} ${currentMetricInfo.unit}`,
+                      `${metricType === 'hashrate' ? formatHashrateForDisplay(value, useTHUnit) : formatValue(value, metricType)} ${displayUnit}`,
                     ]}
                   />
                   <Legend />
@@ -497,13 +514,13 @@ export function ChartsPage() {
                       </div>
                     </td>
                     <td className="text-right p-3 font-mono text-text-secondary">
-                      {formatValue(stat.min, metricType)} {currentMetricInfo.unit}
+                      {metricType === 'hashrate' ? formatHashrateForDisplay(stat.min, useTHUnit) : formatValue(stat.min, metricType)} {displayUnit}
                     </td>
                     <td className="text-right p-3 font-mono text-text-secondary">
-                      {formatValue(stat.max, metricType)} {currentMetricInfo.unit}
+                      {metricType === 'hashrate' ? formatHashrateForDisplay(stat.max, useTHUnit) : formatValue(stat.max, metricType)} {displayUnit}
                     </td>
                     <td className="text-right p-3 font-mono text-accent">
-                      {formatValue(stat.avg, metricType)} {currentMetricInfo.unit}
+                      {metricType === 'hashrate' ? formatHashrateForDisplay(stat.avg, useTHUnit) : formatValue(stat.avg, metricType)} {displayUnit}
                     </td>
                   </tr>
                 ))}
@@ -528,11 +545,15 @@ function formatTime(timestamp: number, timeRange: TimeRange): string {
   }
 }
 
-function formatValue(value: number | null, metricType: MetricType): string {
+function formatValue(value: number | null, metricType: MetricType, forAxis = false): string {
   if (value === null || value === undefined) return '--';
 
   switch (metricType) {
     case 'hashrate':
+      // Values are in GH/s, convert to TH/s if >= 1000 GH/s
+      if (value >= 1000) {
+        return (value / 1000).toFixed(2);
+      }
       return value.toFixed(1);
     case 'temperature':
       return value.toFixed(1);
@@ -543,4 +564,18 @@ function formatValue(value: number | null, metricType: MetricType): string {
     default:
       return value.toFixed(2);
   }
+}
+
+function getHashrateUnit(values: number[]): string {
+  // Check if any value is >= 1000 GH/s (1 TH/s)
+  const maxValue = Math.max(...values.filter(v => v !== null && !isNaN(v)));
+  return maxValue >= 1000 ? 'TH/s' : 'GH/s';
+}
+
+function formatHashrateForDisplay(value: number | null, useTH: boolean): string {
+  if (value === null || value === undefined) return '--';
+  if (useTH) {
+    return (value / 1000).toFixed(2);
+  }
+  return value.toFixed(1);
 }

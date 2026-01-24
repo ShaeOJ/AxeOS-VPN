@@ -28,6 +28,49 @@ function formatEfficiency(efficiency: number | null | undefined): string {
   return `${efficiency.toFixed(1)} J/TH`;
 }
 
+function formatDifficulty(diff: number | null | undefined): string {
+  if (!diff) return '--';
+  if (diff >= 1e12) return `${(diff / 1e12).toFixed(2)}T`;
+  if (diff >= 1e9) return `${(diff / 1e9).toFixed(2)}B`;
+  if (diff >= 1e6) return `${(diff / 1e6).toFixed(2)}M`;
+  if (diff >= 1e3) return `${(diff / 1e3).toFixed(2)}K`;
+  return diff.toLocaleString();
+}
+
+// Parse difficulty from various formats - handles both raw numbers and formatted strings like "56.4M", "18.6G"
+function parseDifficulty(value: unknown): number {
+  if (typeof value === 'number' && !isNaN(value)) return value;
+  if (typeof value === 'string') {
+    // Try to parse formatted strings like "56.4M", "18.6G", "3.31G", "1.2T", "500K"
+    const match = value.match(/^([\d.]+)\s*([KMGBT])?$/i);
+    if (match) {
+      const num = parseFloat(match[1]);
+      const suffix = match[2]?.toUpperCase();
+      const multipliers: Record<string, number> = { K: 1e3, M: 1e6, G: 1e9, B: 1e9, T: 1e12 };
+      return num * (multipliers[suffix] || 1);
+    }
+    // Try plain number string
+    const parsed = parseFloat(value);
+    if (!isNaN(parsed)) return parsed;
+  }
+  return 0;
+}
+
+function formatTimeToBlock(days: number): string {
+  if (days < 1) return `${Math.round(days * 24)} hours`;
+  if (days < 30) return `${Math.round(days)} days`;
+  if (days < 365) return `${(days / 30).toFixed(1)} months`;
+  if (days < 3650) return `${(days / 365).toFixed(1)} years`;
+  if (days < 36500) return `${Math.round(days / 365)} years`;
+  if (days < 365000) return `${(days / 365 / 1000).toFixed(1)}k years`;
+  return `${(days / 365 / 1e6).toFixed(1)}M years`;
+}
+
+function formatCost(cost: number | null | undefined): string {
+  if (cost === null || cost === undefined) return '--';
+  return `$${cost.toFixed(2)}/day`;
+}
+
 export function DashboardPage() {
   const { devices, groups, isLoading, error, fetchDevices, fetchGroups, setDeviceGroup } = useDeviceStore();
   const { status, fetchStatus } = useServerStore();
@@ -37,12 +80,26 @@ export function DashboardPage() {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [networkStats, setNetworkStats] = useState<{ difficulty: number; blockReward: number; blockHeight: number } | null>(null);
   const [newRecordDevices, setNewRecordDevices] = useState<Set<string>>(new Set());
+  const [electricityCost, setElectricityCost] = useState(0.10);
 
   useEffect(() => {
     // Initial fetch - Layout handles the metrics listener
     fetchDevices();
     fetchStatus();
     fetchGroups();
+
+    // Load electricity cost setting
+    const loadSettings = async () => {
+      try {
+        const settings = await window.electronAPI.getSettings();
+        if (settings['electricity_cost']) {
+          setElectricityCost(parseFloat(settings['electricity_cost']));
+        }
+      } catch (err) {
+        console.error('Failed to load electricity cost:', err);
+      }
+    };
+    loadSettings();
 
     // Fetch network stats for block chance calculations
     const fetchNetworkStats = async () => {
@@ -129,6 +186,47 @@ export function DashboardPage() {
     ? (totalPower / (totalHashrate / 1000))
     : 0;
 
+  // Best difficulty from all devices (session best or all-time best)
+  const bestDifficulty = devices.reduce((max, d) => {
+    // Get all possible best diff values - check multiple field name variants
+    const metrics = d.latestMetrics as Record<string, unknown> | null | undefined;
+    const allTimeBest = parseDifficulty(d.allTimeBestDiff);
+    // Check various field name formats that AxeOS might use - use parseDifficulty to handle formatted strings like "56.4M"
+    const sessionBest = parseDifficulty(metrics?.bestDiff ?? metrics?.bestdiff ?? metrics?.best_diff ?? metrics?.BestDiff);
+    const currentSessionBest = parseDifficulty(metrics?.bestSessionDiff ?? metrics?.bestsessiondiff ?? metrics?.best_session_diff);
+
+    const deviceBest = Math.max(allTimeBest, sessionBest, currentSessionBest);
+
+    // Debug: log what we found for each device
+    if (metrics) {
+      console.log(`[BestDiff] ${d.name}: allTimeBest=${allTimeBest}, sessionBest=${sessionBest}, currentSessionBest=${currentSessionBest}, raw bestDiff=${metrics?.bestDiff}, deviceBest=${deviceBest}`);
+    }
+
+    return Math.max(max, deviceBest);
+  }, 0);
+
+  console.log(`[BestDiff] Summary: ${bestDifficulty} (${formatDifficulty(bestDifficulty)})`);
+
+  // Daily power cost calculation
+  const dailyKwh = (totalPower * 24) / 1000;
+  const dailyPowerCost = dailyKwh * electricityCost;
+
+  // Calculate block chance (time to find a block)
+  const calculateDaysToBlock = () => {
+    if (!networkStats || totalHashrate <= 0) return null;
+    // Network hashrate in H/s: difficulty * 2^32 / 600 (average block time)
+    const networkHashrateHs = (networkStats.difficulty * Math.pow(2, 32)) / 600;
+    // Convert our hashrate from GH/s to H/s
+    const ourHashrateHs = totalHashrate * 1e9;
+    // Probability of finding any given block
+    const probPerBlock = ourHashrateHs / networkHashrateHs;
+    // Blocks per day (144 on average)
+    const blocksPerDay = 144;
+    // Expected time to find a block (in days)
+    return 1 / (probPerBlock * blocksPerDay);
+  };
+  const daysToBlock = calculateDaysToBlock();
+
   return (
     <div className="p-6 space-y-6 animate-page-glitch">
       {/* Header */}
@@ -199,7 +297,7 @@ export function DashboardPage() {
       )}
 
       {/* Summary Cards - Vault-Tec Style */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {/* Hashrate Card */}
         <div className="vault-card p-4 hover-glitch">
           <div className="flex items-center gap-3 mb-3">
@@ -272,6 +370,57 @@ export function DashboardPage() {
           </div>
           <div className="text-2xl font-bold text-success" style={{ textShadow: '0 0 8px var(--color-success)' }}>
             {totalShares.toLocaleString()}
+          </div>
+        </div>
+
+        {/* Best Difficulty Card */}
+        <div className="vault-card p-4 hover-glitch">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2 rounded-lg bg-warning/15 border border-warning/30">
+              <svg className="w-5 h-5 text-warning" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+              </svg>
+            </div>
+            <div className="text-xs text-text-secondary uppercase tracking-wider">Best Diff</div>
+          </div>
+          <div className="text-2xl font-bold text-warning" style={{ textShadow: '0 0 8px var(--color-warning)' }}>
+            {formatDifficulty(bestDifficulty)}
+          </div>
+        </div>
+
+        {/* Power Cost Card */}
+        <div className="vault-card p-4 hover-glitch">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2 rounded-lg bg-danger/15 border border-danger/30">
+              <svg className="w-5 h-5 text-danger" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div className="text-xs text-text-secondary uppercase tracking-wider">Power Cost</div>
+          </div>
+          <div className="text-2xl font-bold text-danger" style={{ textShadow: '0 0 8px var(--color-danger)' }}>
+            {formatCost(dailyPowerCost)}
+          </div>
+          <div className="text-xs text-text-secondary mt-1">
+            @ ${electricityCost.toFixed(2)}/kWh
+          </div>
+        </div>
+
+        {/* Block Chance Card */}
+        <div className="vault-card p-4 hover-glitch">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2 rounded-lg bg-accent/15 border border-accent/30">
+              <svg className="w-5 h-5 text-accent" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+              </svg>
+            </div>
+            <div className="text-xs text-text-secondary uppercase tracking-wider">Block Time</div>
+          </div>
+          <div className="text-2xl font-bold text-accent" style={{ textShadow: '0 0 8px var(--color-accent)' }}>
+            {daysToBlock ? formatTimeToBlock(daysToBlock) : '--'}
+          </div>
+          <div className="text-xs text-text-secondary mt-1">
+            {networkStats ? `Diff: ${formatDifficulty(networkStats.difficulty)}` : 'Loading...'}
           </div>
         </div>
       </div>

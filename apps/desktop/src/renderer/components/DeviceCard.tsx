@@ -152,6 +152,25 @@ function formatDifficulty(diff: number | null | undefined): string {
   return diff.toLocaleString();
 }
 
+// Parse difficulty from various formats - handles both raw numbers and formatted strings like "56.4M", "18.6G"
+function parseDifficulty(value: unknown): number {
+  if (typeof value === 'number' && !isNaN(value)) return value;
+  if (typeof value === 'string') {
+    // Try to parse formatted strings like "56.4M", "18.6G", "3.31G", "1.2T", "500K"
+    const match = value.match(/^([\d.]+)\s*([KMGBT])?$/i);
+    if (match) {
+      const num = parseFloat(match[1]);
+      const suffix = match[2]?.toUpperCase();
+      const multipliers: Record<string, number> = { K: 1e3, M: 1e6, G: 1e9, B: 1e9, T: 1e12 };
+      return num * (multipliers[suffix] || 1);
+    }
+    // Try plain number string
+    const parsed = parseFloat(value);
+    if (!isNaN(parsed)) return parsed;
+  }
+  return 0;
+}
+
 export function DeviceCard({ device, groups, onGroupChange, networkStats, isNewRecord }: DeviceCardProps) {
   const metrics = device.latestMetrics;
   const blockChance = metrics?.hashRate && networkStats?.difficulty
@@ -162,9 +181,12 @@ export function DeviceCard({ device, groups, onGroupChange, networkStats, isNewR
   const [showGroupDropdown, setShowGroupDropdown] = useState(false);
 
   // Check if current session best diff equals all-time best (new record achieved this session)
-  const currentBestDiff = metrics?.bestDiff as number | undefined;
-  const allTimeBest = device.allTimeBestDiff;
-  const isCurrentSessionRecord = currentBestDiff && allTimeBest && currentBestDiff >= allTimeBest;
+  // Parse bestDiff which may be a formatted string like "56.4M" or a raw number
+  const currentBestDiff = parseDifficulty(metrics?.bestDiff);
+  const allTimeBest = device.allTimeBestDiff || 0;
+  // Use the higher of current session or all-time best
+  const displayBestDiff = Math.max(currentBestDiff, allTimeBest);
+  const isCurrentSessionRecord = currentBestDiff > 0 && currentBestDiff >= allTimeBest;
 
   const currentGroup = groups?.find(g => g.id === device.groupId);
 
@@ -308,7 +330,7 @@ export function DeviceCard({ device, groups, onGroupChange, networkStats, isNewR
           )}
 
           {/* Best Difficulty */}
-          {(allTimeBest || currentBestDiff) && (
+          {displayBestDiff > 0 && (
             <div className="pt-2 border-t border-border/50">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1">
@@ -328,7 +350,7 @@ export function DeviceCard({ device, groups, onGroupChange, networkStats, isNewR
                 </div>
                 <div className="text-right">
                   <span className={`text-xs font-mono ${(isNewRecord || isCurrentSessionRecord) ? 'text-yellow-400' : 'text-accent'}`}>
-                    {formatDifficulty(allTimeBest || currentBestDiff)}
+                    {formatDifficulty(displayBestDiff)}
                   </span>
                 </div>
               </div>

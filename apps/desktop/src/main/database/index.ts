@@ -149,6 +149,15 @@ export function initDatabase(): Database.Database {
     console.log('Migration complete: device_type column added');
   }
 
+  // Migration: Add auth credentials for Bitmain devices
+  const hasAuthUser = devicesTableInfo.some((col) => col.name === 'auth_user');
+  if (!hasAuthUser) {
+    console.log('Migrating devices table: adding auth credentials columns...');
+    db.exec("ALTER TABLE devices ADD COLUMN auth_user TEXT");
+    db.exec("ALTER TABLE devices ADD COLUMN auth_pass TEXT");
+    console.log('Migration complete: auth credentials columns added');
+  }
+
   // Initialize default settings
   const initSetting = db.prepare(`
     INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)

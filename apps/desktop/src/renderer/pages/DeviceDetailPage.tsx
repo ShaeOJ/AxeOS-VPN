@@ -480,7 +480,7 @@ export function DeviceDetailPage() {
                 <span className="text-xs text-text-secondary uppercase tracking-wide">Frequency</span>
               </div>
               <div className="text-xl font-bold text-warning">
-                {metrics.frequency ? `${metrics.frequency}` : '--'} <span className="text-xs">MHz</span>
+                {metrics.frequency ? `${Math.round(metrics.frequency)}` : '--'} <span className="text-xs">MHz</span>
               </div>
             </div>
             <div className="vault-card p-4 hover-glitch">

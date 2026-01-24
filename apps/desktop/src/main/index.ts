@@ -48,11 +48,16 @@ function createWindow(): void {
       sandbox: false,
       contextIsolation: true,
       nodeIntegration: false,
+      devTools: true,
     },
   });
 
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show();
+    // Open DevTools in development or if DEBUG env is set
+    if (process.env.NODE_ENV === 'development' || process.env.DEBUG) {
+      mainWindow?.webContents.openDevTools();
+    }
 
     // Create system tray
     if (mainWindow) {
@@ -64,6 +69,13 @@ function createWindow(): void {
   // Handle close event - minimize to tray instead of closing
   mainWindow.on('close', (event) => {
     systemTray.handleWindowClose(event);
+  });
+
+  // Enable F12 to toggle DevTools
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.key === 'F12') {
+      mainWindow?.webContents.toggleDevTools();
+    }
   });
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -392,14 +404,20 @@ ipcMain.handle('get-devices', async () => {
   }));
 });
 
-ipcMain.handle('test-device-connection', async (_, ipAddress: string) => {
+ipcMain.handle('test-device-connection', async (_, ipAddress: string, username?: string, password?: string) => {
   // Use auto-detection to find device type
-  return poller.testConnectionWithDetection(ipAddress);
+  return poller.testConnectionWithDetection(ipAddress, username, password);
 });
 
-ipcMain.handle('add-device', async (_, ipAddress: string, name?: string) => {
+ipcMain.handle('add-device', async (_, ipAddress: string, name?: string, username?: string, password?: string) => {
   // Test connection with auto-detection
-  const testResult = await poller.testConnectionWithDetection(ipAddress);
+  const testResult = await poller.testConnectionWithDetection(ipAddress, username, password);
+
+  // If requires auth and no credentials provided, return error
+  if (testResult.requiresAuth && (!username || !password)) {
+    return { success: false, requiresAuth: true, error: 'This device requires authentication. Please provide username and password.' };
+  }
+
   if (!testResult.success) {
     return { success: false, error: testResult.error || 'Could not connect to device' };
   }
@@ -410,7 +428,7 @@ ipcMain.handle('add-device', async (_, ipAddress: string, name?: string) => {
 
   console.log(`[Add Device] Adding ${deviceName} (${ipAddress}) as ${deviceType}`);
 
-  const newDevice = devices.createDevice(deviceName, ipAddress, deviceType);
+  const newDevice = devices.createDevice(deviceName, ipAddress, deviceType, username, password);
   if (newDevice) {
     poller.startPolling(newDevice);
     return { success: true, device: newDevice };

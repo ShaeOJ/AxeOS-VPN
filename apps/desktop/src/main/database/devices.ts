@@ -7,6 +7,8 @@ export interface Device {
   name: string;
   ip_address: string;
   device_type: DeviceType;
+  auth_user: string | null;
+  auth_pass: string | null;
   poll_interval: number;
   last_seen: number | null;
   is_online: number;
@@ -31,21 +33,31 @@ export function getDeviceByIp(ipAddress: string): Device | undefined {
   return db.prepare('SELECT * FROM devices WHERE ip_address = ?').get(ipAddress) as Device | undefined;
 }
 
-export function createDevice(name: string, ipAddress: string, deviceType: DeviceType = 'bitaxe'): Device {
+export interface CreateDeviceOptions {
+  name: string;
+  ipAddress: string;
+  deviceType?: DeviceType;
+  authUser?: string;
+  authPass?: string;
+}
+
+export function createDevice(name: string, ipAddress: string, deviceType: DeviceType = 'bitaxe', authUser?: string, authPass?: string): Device {
   const db = getDatabase();
   const id = generateId();
   const createdAt = Date.now();
 
   db.prepare(`
-    INSERT INTO devices (id, name, ip_address, device_type, created_at)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(id, name, ipAddress, deviceType, createdAt);
+    INSERT INTO devices (id, name, ip_address, device_type, auth_user, auth_pass, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(id, name, ipAddress, deviceType, authUser || null, authPass || null, createdAt);
 
   return {
     id,
     name,
     ip_address: ipAddress,
     device_type: deviceType,
+    auth_user: authUser || null,
+    auth_pass: authPass || null,
     poll_interval: 5000,
     last_seen: null,
     is_online: 0,
