@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useDeviceStore } from '../stores/deviceStore';
 
 interface PairingModalProps {
@@ -23,6 +23,14 @@ export function PairingModal({ onClose }: PairingModalProps) {
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+
+  const handleClose = useCallback(() => {
+    setIsClosing(true);
+    setTimeout(() => {
+      onClose();
+    }, 200);
+  }, [onClose]);
 
   const handleTestConnection = async () => {
     if (!ipAddress.trim()) {
@@ -118,12 +126,12 @@ export function PairingModal({ onClose }: PairingModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-bg-secondary rounded-xl border border-border w-full max-w-lg m-4 max-h-[90vh] overflow-auto animate-fade-in">
+    <div className={`fixed inset-0 bg-black/50 flex items-center justify-center z-50 ${isClosing ? 'animate-modal-backdrop-out' : 'animate-modal-backdrop-in'}`}>
+      <div className={`bg-bg-secondary rounded-xl border border-border w-full max-w-lg m-4 max-h-[90vh] overflow-auto ${isClosing ? 'animate-modal-out' : 'animate-modal-in'}`}>
         <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="text-lg font-medium text-text-primary">Add Mining Device</h2>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="p-1 rounded hover:bg-bg-tertiary transition-colors"
           >
             <svg className="w-5 h-5 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -145,8 +153,8 @@ export function PairingModal({ onClose }: PairingModalProps) {
                 Your BitAxe device has been added and is now being monitored.
               </p>
               <button
-                onClick={onClose}
-                className="px-6 py-2 rounded-lg bg-accent text-bg-primary font-medium hover:bg-accent-hover transition-colors"
+                onClick={handleClose}
+                className="px-6 py-2 rounded-lg bg-accent text-bg-primary font-medium hover:bg-accent-hover transition-colors btn-ripple"
               >
                 Done
               </button>

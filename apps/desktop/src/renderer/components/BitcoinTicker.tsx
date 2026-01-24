@@ -90,11 +90,11 @@ export function BitcoinTicker() {
 
   if (isLoading && !price) {
     return (
-      <div className="p-4 border-b border-border/30 bg-bg-tertiary/30">
-        <div className="text-xs text-text-secondary uppercase tracking-wider mb-2">CRYPTO</div>
+      <div className="p-3 border-b border-border/30 bg-bg-tertiary/30 flex-shrink-0">
+        <div className="text-[10px] text-text-secondary uppercase tracking-wider mb-1">CRYPTO</div>
         <div className="animate-pulse">
-          <div className="h-6 bg-bg-tertiary rounded w-24 mb-1"></div>
-          <div className="h-4 bg-bg-tertiary rounded w-16"></div>
+          <div className="h-5 bg-bg-tertiary rounded w-20 mb-1"></div>
+          <div className="h-3 bg-bg-tertiary rounded w-12"></div>
         </div>
       </div>
     );
@@ -102,11 +102,11 @@ export function BitcoinTicker() {
 
   if (error || !price) {
     return (
-      <div className="p-4 border-b border-border/30 bg-bg-tertiary/30">
-        <div className="text-xs text-text-secondary uppercase tracking-wider mb-2">
+      <div className="p-3 border-b border-border/30 bg-bg-tertiary/30 flex-shrink-0">
+        <div className="text-[10px] text-text-secondary uppercase tracking-wider mb-1">
           {selectedCoin?.symbol || 'BTC'}/{selectedCurrency?.code.toUpperCase() || 'USD'}
         </div>
-        <div className="text-xs text-danger font-mono">SIGNAL LOST</div>
+        <div className="text-[10px] text-danger font-mono">SIGNAL LOST</div>
       </div>
     );
   }
@@ -114,9 +114,9 @@ export function BitcoinTicker() {
   const isPositive = price.change_24h >= 0;
 
   return (
-    <div className={`p-4 border-b border-border/30 bg-bg-tertiary/30 relative transition-opacity duration-150 ${isRefreshing ? 'opacity-70' : 'opacity-100'}`}>
+    <div className={`p-3 border-b border-border/30 bg-bg-tertiary/30 relative transition-opacity duration-150 flex-shrink-0 ${isRefreshing ? 'opacity-70' : 'opacity-100'}`}>
       {/* Coin + Currency Selector Header */}
-      <div className="flex items-center gap-1 mb-2">
+      <div className="flex items-center gap-1 mb-1">
         {/* Coin Selector */}
         <div className="relative">
           <button
@@ -221,35 +221,35 @@ export function BitcoinTicker() {
 
       {/* Price Display */}
       <div className="flex items-baseline gap-2">
-        <span className="text-xl font-bold font-mono text-accent terminal-glow">
+        <span className="text-base font-bold font-mono text-accent terminal-glow">
           {formatPrice(price.price)}
         </span>
       </div>
 
       {/* Change Indicator */}
-      <div className="flex items-center gap-2 mt-1">
+      <div className="flex items-center gap-1 mt-0.5">
         <span
-          className={`text-sm font-mono flex items-center gap-1 ${
+          className={`text-xs font-mono flex items-center gap-0.5 ${
             isPositive ? 'text-success' : 'text-danger'
           }`}
         >
           {isPositive ? (
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
             </svg>
           ) : (
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           )}
           {formatChange(price.change_24h)}
         </span>
-        <span className="text-xs text-text-secondary">24h</span>
+        <span className="text-[10px] text-text-secondary">24h</span>
       </div>
 
       {/* Sparkline Chart */}
       {priceHistory.length > 0 && (
-        <div className="mt-2 h-8 w-full">
+        <div className="mt-1 h-6 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={priceHistory}>
               <YAxis domain={['dataMin', 'dataMax']} hide />

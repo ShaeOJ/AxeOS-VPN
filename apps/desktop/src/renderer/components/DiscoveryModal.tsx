@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useDeviceStore } from '../stores/deviceStore';
 
 interface DiscoveredDevice {
@@ -31,6 +31,27 @@ export function DiscoveryModal({ isOpen, onClose }: Props) {
   const [selectedDevices, setSelectedDevices] = useState<Set<string>>(new Set());
   const [addingDevices, setAddingDevices] = useState(false);
   const [addedCount, setAddedCount] = useState(0);
+  const [isClosing, setIsClosing] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
+
+  // Handle open animation
+  useEffect(() => {
+    if (isOpen) {
+      setIsVisible(true);
+      setIsClosing(false);
+    }
+  }, [isOpen]);
+
+  // Handle close with animation
+  const handleClose = useCallback(() => {
+    if (isScanning) return;
+    setIsClosing(true);
+    setTimeout(() => {
+      setIsVisible(false);
+      setIsClosing(false);
+      onClose();
+    }, 200);
+  }, [isScanning, onClose]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -127,14 +148,14 @@ export function DiscoveryModal({ isOpen, onClose }: Props) {
     return hr.toFixed(2) + ' GH/s';
   };
 
-  if (!isOpen) return null;
+  if (!isOpen && !isVisible) return null;
 
   const newDevicesCount = progress?.found.filter(d => !d.alreadyAdded).length || 0;
   const progressPercent = progress ? Math.round((progress.scanned / progress.total) * 100) : 0;
 
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-      <div className="bg-bg-secondary border-2 border-border rounded-lg w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl">
+    <div className={`fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 ${isClosing ? 'animate-modal-backdrop-out' : 'animate-modal-backdrop-in'}`}>
+      <div className={`bg-bg-secondary border-2 border-border rounded-lg w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl ${isClosing ? 'animate-modal-out' : 'animate-modal-in'}`}>
         {/* Header */}
         <div className="p-4 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -149,7 +170,7 @@ export function DiscoveryModal({ isOpen, onClose }: Props) {
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             disabled={isScanning}
             className="p-2 hover:bg-bg-tertiary rounded transition-colors disabled:opacity-50"
           >

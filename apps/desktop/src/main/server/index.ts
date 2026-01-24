@@ -2579,92 +2579,133 @@ function getWebDashboardHtml(): string {
       }
     }
 
-    // Network animation
+    // Matrix SHA256 hash rain animation - subtle version
     const canvas = document.getElementById('network-canvas');
     const ctx = canvas.getContext('2d');
-    let nodes = [];
+    let columns = [];
     let animationId = null;
-    const nodeCount = 60;
-    const connectionDistance = 150;
-    const nodeSpeed = 0.3;
+    let frameCount = 0;
+    const fontSize = 12;
+    const hexChars = '0123456789abcdef';
+
+    // Get theme accent color from CSS (read from body where theme class is applied)
+    function getAccentColor() {
+      const style = getComputedStyle(document.body);
+      return style.getPropertyValue('--color-accent').trim() || '#FFB000';
+    }
+
+    // Convert hex color to RGB
+    function hexToRgb(hex) {
+      const result = /^#?([a-f\\d]{2})([a-f\\d]{2})([a-f\\d]{2})$/i.exec(hex);
+      return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      } : { r: 255, g: 176, b: 0 };
+    }
 
     function resizeCanvas() {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
+      initColumns();
     }
 
-    function createNodes() {
-      nodes = [];
-      for (let i = 0; i < nodeCount; i++) {
-        nodes.push({
-          x: Math.random() * canvas.width,
+    function initColumns() {
+      // Fewer columns - only every 3rd position
+      const columnCount = Math.ceil(canvas.width / (fontSize * 3));
+      columns = [];
+      for (let i = 0; i < columnCount; i++) {
+        columns.push({
+          x: i * fontSize * 3 + Math.random() * fontSize,
           y: Math.random() * canvas.height,
-          vx: (Math.random() - 0.5) * nodeSpeed,
-          vy: (Math.random() - 0.5) * nodeSpeed,
-          radius: Math.random() * 2 + 1,
-          pulse: Math.random() * Math.PI * 2,
-          pulseSpeed: 0.02 + Math.random() * 0.02
+          speed: 0.15 + Math.random() * 0.25,
+          chars: generateHashSegment(),
+          charIndex: 0,
+          maxBrightness: 0.08 + Math.random() * 0.12
         });
       }
     }
 
-    function drawNetwork() {
+    // Generate a segment that looks like part of a SHA256 hash
+    function generateHashSegment() {
+      let segment = '';
+      const length = 12 + Math.floor(Math.random() * 20);
+      for (let i = 0; i < length; i++) {
+        segment += hexChars[Math.floor(Math.random() * 16)];
+      }
+      return segment;
+    }
+
+    function drawMatrix() {
+      frameCount++;
+      // Only update every 3rd frame for slower animation
+      if (frameCount % 3 !== 0) {
+        animationId = requestAnimationFrame(drawMatrix);
+        return;
+      }
+
+      // Clear canvas completely each frame - no trail effect
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Update and draw nodes
-      nodes.forEach((node, i) => {
-        // Update position
-        node.x += node.vx;
-        node.y += node.vy;
-        node.pulse += node.pulseSpeed;
+      const accentHex = getAccentColor();
+      const rgb = hexToRgb(accentHex);
 
-        // Bounce off edges
-        if (node.x < 0 || node.x > canvas.width) node.vx *= -1;
-        if (node.y < 0 || node.y > canvas.height) node.vy *= -1;
+      ctx.font = fontSize + 'px "Share Tech Mono", monospace';
 
-        // Draw connections to nearby nodes
-        for (let j = i + 1; j < nodes.length; j++) {
-          const other = nodes[j];
-          const dx = other.x - node.x;
-          const dy = other.y - node.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
+      columns.forEach((col) => {
+        // Draw a few characters in a column with fading opacity
+        for (let j = 0; j < 6; j++) {
+          const charY = col.y - j * fontSize;
+          if (charY < -fontSize || charY > canvas.height + fontSize) continue;
 
-          if (dist < connectionDistance) {
-            const alpha = (1 - dist / connectionDistance) * 0.4;
-            ctx.beginPath();
-            ctx.moveTo(node.x, node.y);
-            ctx.lineTo(other.x, other.y);
-            ctx.strokeStyle = 'rgba(255, 176, 0, ' + alpha + ')';
-            ctx.lineWidth = 0.5;
-            ctx.stroke();
+          const char = col.chars[(col.charIndex - j + col.chars.length) % col.chars.length];
+          const alpha = col.maxBrightness * (1 - j / 6);
+
+          if (j === 0) {
+            // Leading character with subtle glow
+            ctx.shadowColor = accentHex;
+            ctx.shadowBlur = 3;
+          }
+
+          ctx.fillStyle = 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',' + alpha + ')';
+          ctx.fillText(char, col.x, charY);
+
+          if (j === 0) {
+            ctx.shadowBlur = 0;
           }
         }
 
-        // Draw node with pulse effect
-        const pulseSize = Math.sin(node.pulse) * 0.5 + 1;
-        const glowAlpha = 0.3 + Math.sin(node.pulse) * 0.2;
+        // Move column down slowly
+        col.y += col.speed * fontSize;
+        col.charIndex++;
 
-        // Glow
-        ctx.beginPath();
-        ctx.arc(node.x, node.y, node.radius * 3 * pulseSize, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255, 176, 0, ' + (glowAlpha * 0.3) + ')';
-        ctx.fill();
+        // Reset when off screen
+        if (col.y > canvas.height + fontSize * 6) {
+          col.y = -fontSize * 2;
+          col.chars = generateHashSegment();
+          col.charIndex = 0;
+          col.speed = 0.15 + Math.random() * 0.25;
+          col.maxBrightness = 0.08 + Math.random() * 0.12;
+        }
 
-        // Core
-        ctx.beginPath();
-        ctx.arc(node.x, node.y, node.radius * pulseSize, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255, 176, 0, ' + (0.6 + glowAlpha * 0.4) + ')';
-        ctx.fill();
+        // Rarely change characters
+        if (Math.random() < 0.005) {
+          const idx = Math.floor(Math.random() * col.chars.length);
+          col.chars = col.chars.substring(0, idx) + hexChars[Math.floor(Math.random() * 16)] + col.chars.substring(idx + 1);
+        }
       });
 
-      animationId = requestAnimationFrame(drawNetwork);
+      animationId = requestAnimationFrame(drawMatrix);
     }
 
     function startNetwork() {
       if (animationId) return;
       resizeCanvas();
-      createNodes();
-      drawNetwork();
+      // Clear canvas first with solid background
+      ctx.fillStyle = '#0a1929';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      frameCount = 0;
+      drawMatrix();
     }
 
     function stopNetwork() {

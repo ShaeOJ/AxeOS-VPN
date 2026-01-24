@@ -216,11 +216,11 @@ export function ProfitabilityDisplay() {
 
   if (loading) {
     return (
-      <div className="p-4 border-b border-border/30 bg-bg-tertiary/30">
-        <div className="text-xs text-text-secondary uppercase tracking-wider mb-2">Est. Earnings</div>
+      <div className="p-3 border-b border-border/30 bg-bg-tertiary/30 flex-shrink-0">
+        <div className="text-[10px] text-text-secondary uppercase tracking-wider mb-1">Est. Earnings</div>
         <div className="animate-pulse">
-          <div className="h-5 bg-bg-tertiary rounded w-20 mb-1"></div>
-          <div className="h-4 bg-bg-tertiary rounded w-16"></div>
+          <div className="h-4 bg-bg-tertiary rounded w-20 mb-1"></div>
+          <div className="h-3 bg-bg-tertiary rounded w-14"></div>
         </div>
       </div>
     );
@@ -228,9 +228,9 @@ export function ProfitabilityDisplay() {
 
   if (!profitability) {
     return (
-      <div className="p-4 border-b border-border/30 bg-bg-tertiary/30">
-        <div className="text-xs text-text-secondary uppercase tracking-wider mb-2">Est. Earnings</div>
-        <div className="text-xs text-text-secondary font-mono">NO ACTIVE MINERS</div>
+      <div className="p-3 border-b border-border/30 bg-bg-tertiary/30 flex-shrink-0">
+        <div className="text-[10px] text-text-secondary uppercase tracking-wider mb-1">Est. Earnings</div>
+        <div className="text-[10px] text-text-secondary font-mono">NO ACTIVE MINERS</div>
       </div>
     );
   }
@@ -238,19 +238,19 @@ export function ProfitabilityDisplay() {
   const isProfitable = profitability.dailyProfit >= 0;
 
   return (
-    <div className="p-4 border-b border-border/30 bg-bg-tertiary/30">
+    <div className="p-3 border-b border-border/30 bg-bg-tertiary/30 flex-shrink-0">
       {/* Header with toggle */}
       <button
         onClick={() => setShowDetails(!showDetails)}
         className="w-full text-left"
       >
-        <div className="text-xs text-text-secondary uppercase tracking-wider mb-2 flex items-center gap-2">
-          <svg className="w-3 h-3 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="text-[10px] text-text-secondary uppercase tracking-wider mb-1 flex items-center gap-1">
+          <svg className="w-2.5 h-2.5 text-accent flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          Est. Earnings ({coinSymbol})
+          <span className="truncate">Earnings ({coinSymbol})</span>
           <svg
-            className={`w-3 h-3 ml-auto transition-transform ${showDetails ? 'rotate-180' : ''}`}
+            className={`w-2.5 h-2.5 ml-auto flex-shrink-0 transition-transform ${showDetails ? 'rotate-180' : ''}`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -261,16 +261,16 @@ export function ProfitabilityDisplay() {
       </button>
 
       {/* Daily earnings summary */}
-      <div className="space-y-1">
+      <div className="space-y-0.5">
         <div className="flex justify-between items-baseline">
-          <span className="text-xs text-text-secondary">Daily:</span>
-          <span className="text-sm font-mono text-accent terminal-glow">
+          <span className="text-[10px] text-text-secondary">Daily:</span>
+          <span className="text-xs font-mono text-accent terminal-glow">
             {formatSats(profitability.dailyBtc)} sats
           </span>
         </div>
         <div className="flex justify-between items-baseline">
-          <span className="text-xs text-text-secondary"></span>
-          <span className={`text-xs font-mono ${isProfitable ? 'text-success' : 'text-danger'}`}>
+          <span className="text-[10px] text-text-secondary"></span>
+          <span className={`text-[10px] font-mono ${isProfitable ? 'text-success' : 'text-danger'}`}>
             {formatCurrency(profitability.dailyProfit)} net
           </span>
         </div>

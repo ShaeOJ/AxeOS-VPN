@@ -222,7 +222,7 @@ export function DeviceCard({ device, groups, onGroupChange, networkStats, isNewR
   };
 
   return (
-    <div className="vault-card block hover:border-accent/50 hover-glitch transition-all duration-200 hover:shadow-vault-glow">
+    <div className="vault-card card-interactive block hover:border-accent/50 transition-all duration-200 hover:shadow-vault-glow">
       <Link to={`/devices/${device.id}`} className="block p-4">
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1 min-w-0">

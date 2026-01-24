@@ -510,15 +510,16 @@ export function DashboardPage() {
                 {!isCollapsed && (
                   <div className="p-4 pt-0">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {groupDevices.map((device) => (
-                        <DeviceCard
-                          key={device.id}
-                          device={device}
-                          groups={groups}
-                          onGroupChange={(groupId) => setDeviceGroup(device.id, groupId)}
-                          networkStats={networkStats}
-                          isNewRecord={newRecordDevices.has(device.id)}
-                        />
+                      {groupDevices.map((device, index) => (
+                        <div key={device.id} className={`animate-card-enter animate-card-enter-${Math.min(index + 1, 8)}`}>
+                          <DeviceCard
+                            device={device}
+                            groups={groups}
+                            onGroupChange={(groupId) => setDeviceGroup(device.id, groupId)}
+                            networkStats={networkStats}
+                            isNewRecord={newRecordDevices.has(device.id)}
+                          />
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -556,15 +557,16 @@ export function DashboardPage() {
               {!collapsedGroups.has('ungrouped') && (
                 <div className="p-4 pt-0">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {devicesByGroup['ungrouped'].map((device) => (
-                      <DeviceCard
-                        key={device.id}
-                        device={device}
-                        groups={groups}
-                        onGroupChange={(groupId) => setDeviceGroup(device.id, groupId)}
-                        networkStats={networkStats}
-                        isNewRecord={newRecordDevices.has(device.id)}
-                      />
+                    {devicesByGroup['ungrouped'].map((device, index) => (
+                      <div key={device.id} className={`animate-card-enter animate-card-enter-${Math.min(index + 1, 8)}`}>
+                        <DeviceCard
+                          device={device}
+                          groups={groups}
+                          onGroupChange={(groupId) => setDeviceGroup(device.id, groupId)}
+                          networkStats={networkStats}
+                          isNewRecord={newRecordDevices.has(device.id)}
+                        />
+                      </div>
                     ))}
                   </div>
                 </div>

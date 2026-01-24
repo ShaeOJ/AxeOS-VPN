@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useDeviceStore } from '../stores/deviceStore';
 
 interface GroupManagerProps {
@@ -26,8 +26,26 @@ export function GroupManager({ isOpen, onClose }: GroupManagerProps) {
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupColor, setNewGroupColor] = useState('#FFB000');
   const [error, setError] = useState<string | null>(null);
+  const [isClosing, setIsClosing] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (isOpen) {
+      setIsVisible(true);
+      setIsClosing(false);
+    }
+  }, [isOpen]);
+
+  const handleClose = useCallback(() => {
+    setIsClosing(true);
+    setTimeout(() => {
+      setIsVisible(false);
+      setIsClosing(false);
+      onClose();
+    }, 200);
+  }, [onClose]);
+
+  if (!isOpen && !isVisible) return null;
 
   const handleCreateGroup = async () => {
     if (!newGroupName.trim()) {
@@ -73,20 +91,20 @@ export function GroupManager({ isOpen, onClose }: GroupManagerProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className={`fixed inset-0 z-50 flex items-center justify-center ${isClosing ? 'animate-modal-backdrop-out' : 'animate-modal-backdrop-in'}`}>
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-        onClick={onClose}
+        onClick={handleClose}
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-md mx-4 bg-bg-secondary border-2 border-border rounded-xl overflow-hidden animate-glitch-in">
+      <div className={`relative w-full max-w-md mx-4 bg-bg-secondary border-2 border-border rounded-xl overflow-hidden ${isClosing ? 'animate-modal-out' : 'animate-modal-in'}`}>
         {/* Header */}
         <div className="p-4 border-b border-border flex items-center justify-between">
           <h2 className="text-lg font-bold text-accent uppercase tracking-wider">Manage Groups</h2>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="p-1 text-text-secondary hover:text-text-primary transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -184,8 +202,8 @@ export function GroupManager({ isOpen, onClose }: GroupManagerProps) {
         {/* Footer */}
         <div className="p-4 border-t border-border">
           <button
-            onClick={onClose}
-            className="w-full py-2 px-4 rounded-lg bg-accent text-bg-primary font-medium hover:bg-accent-hover transition-colors"
+            onClick={handleClose}
+            className="w-full py-2 px-4 rounded-lg bg-accent text-bg-primary font-medium hover:bg-accent-hover transition-colors btn-ripple"
           >
             Done
           </button>

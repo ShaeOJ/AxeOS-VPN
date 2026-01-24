@@ -1,8 +1,24 @@
 import { Tray, Menu, nativeImage, BrowserWindow, app } from 'electron';
 import { join } from 'path';
+import { readdirSync } from 'fs';
 import * as devices from './database/devices';
 
 let tray: Tray | null = null;
+
+// Find logo file (handles vite's hashed filenames like logo-Bpla9I2K.png)
+function findLogoFile(): string | null {
+  const assetsDir = join(__dirname, '..', 'renderer', 'assets');
+  try {
+    const files = readdirSync(assetsDir);
+    const logoFile = files.find(f => f.startsWith('logo') && f.endsWith('.png'));
+    if (logoFile) {
+      return join(assetsDir, logoFile);
+    }
+  } catch (e) {
+    console.error('Failed to find logo file:', e);
+  }
+  return null;
+}
 let mainWindow: BrowserWindow | null = null;
 let minimizeToTray = true;
 
@@ -26,12 +42,14 @@ let currentStats: DeviceStats = {
 export function createTray(window: BrowserWindow): Tray {
   mainWindow = window;
 
-  // Create tray icon
-  // Use a small icon (16x16 or 32x32 depending on platform)
-  const iconPath = join(__dirname, '..', 'renderer', 'assets', 'logo-COfIhftl.png');
+  // Create tray icon - dynamically find the logo file
+  const iconPath = findLogoFile();
+  if (!iconPath) {
+    console.error('Could not find logo file for system tray');
+  }
 
   // Create a smaller icon for the tray
-  let icon = nativeImage.createFromPath(iconPath);
+  let icon = iconPath ? nativeImage.createFromPath(iconPath) : nativeImage.createEmpty();
 
   // Resize icon for tray (Windows uses 16x16, macOS uses 22x22)
   const size = process.platform === 'darwin' ? 22 : 16;
