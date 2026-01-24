@@ -581,29 +581,29 @@ function getWebDashboardHtml(): string {
     .charts-section.active { display: block; }
     .dashboard-section { display: block; }
     .dashboard-section.hidden { display: none; }
-    .chart-container { background: #0d2137; border: 2px solid #1a4a5c; padding: 20px; margin-bottom: 16px; }
+    .chart-container { background: var(--color-bg-secondary); border: 2px solid var(--color-border); padding: 20px; margin-bottom: 16px; }
     .chart-controls { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
     .chart-control-group { display: flex; flex-direction: column; gap: 6px; }
-    .chart-control-label { font-size: 11px; color: #8BA88B; text-transform: uppercase; }
+    .chart-control-label { font-size: 11px; color: var(--color-text-secondary); text-transform: uppercase; }
     .chart-btn-group { display: flex; gap: 4px; flex-wrap: wrap; }
-    .chart-btn { padding: 6px 12px; background: transparent; border: 1px solid #1a4a5c; color: #8BA88B; cursor: pointer; font-family: 'Share Tech Mono', monospace; font-size: 11px; transition: all 0.2s; }
-    .chart-btn:hover { border-color: #FFB000; color: #FFB000; }
-    .chart-btn.active { background: rgba(255,176,0,0.15); border-color: #FFB000; color: #FFB000; }
-    .device-selector { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; background: rgba(0,0,0,0.2); border: 1px solid #1a4a5c; margin-bottom: 16px; }
-    .device-chip { padding: 6px 12px; background: transparent; border: 1px solid #1a4a5c; color: #8BA88B; cursor: pointer; font-family: 'Share Tech Mono', monospace; font-size: 11px; display: flex; align-items: center; gap: 6px; transition: all 0.2s; }
-    .device-chip:hover { border-color: #FFB000; }
+    .chart-btn { padding: 6px 12px; background: transparent; border: 1px solid var(--color-border); color: var(--color-text-secondary); cursor: pointer; font-family: 'Share Tech Mono', monospace; font-size: 11px; transition: all 0.2s; }
+    .chart-btn:hover { border-color: var(--color-accent); color: var(--color-accent); }
+    .chart-btn.active { background: color-mix(in srgb, var(--color-accent) 15%, transparent); border-color: var(--color-accent); color: var(--color-accent); }
+    .device-selector { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; background: rgba(0,0,0,0.2); border: 1px solid var(--color-border); margin-bottom: 16px; }
+    .device-chip { padding: 6px 12px; background: transparent; border: 1px solid var(--color-border); color: var(--color-text-secondary); cursor: pointer; font-family: 'Share Tech Mono', monospace; font-size: 11px; display: flex; align-items: center; gap: 6px; transition: all 0.2s; }
+    .device-chip:hover { border-color: var(--color-accent); }
     .device-chip.selected { border-width: 2px; }
     .device-chip .status-dot { width: 6px; height: 6px; border-radius: 50%; }
     .chart-wrapper { height: 350px; position: relative; }
     .chart-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 16px; }
-    .chart-stat-card { background: rgba(0,0,0,0.2); border: 1px solid #1a4a5c; padding: 12px; }
+    .chart-stat-card { background: rgba(0,0,0,0.2); border: 1px solid var(--color-border); padding: 12px; }
     .chart-stat-device { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
     .chart-stat-color { width: 12px; height: 12px; border-radius: 2px; }
-    .chart-stat-name { color: #E8F4E8; font-size: 12px; }
+    .chart-stat-name { color: var(--color-text-primary); font-size: 12px; }
     .chart-stat-values { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-size: 11px; }
     .chart-stat-item { text-align: center; }
-    .chart-stat-label { color: #8BA88B; margin-bottom: 2px; }
-    .chart-stat-value { color: #FFB000; font-family: monospace; }
+    .chart-stat-label { color: var(--color-text-secondary); margin-bottom: 2px; }
+    .chart-stat-value { color: var(--color-accent); font-family: monospace; }
     .btn {
       padding: 10px 20px;
       border: 2px solid;
@@ -1728,6 +1728,13 @@ function getWebDashboardHtml(): string {
       if (save) localStorage.setItem('theme', theme);
       updateThemeDropdown();
       closeThemeDropdown();
+      // Refresh charts with new theme colors
+      if (typeof updateChart === 'function') {
+        setTimeout(() => {
+          renderDeviceSelector();
+          updateChart();
+        }, 50);
+      }
     }
 
     function toggleThemeDropdown(e) {
@@ -3267,7 +3274,40 @@ function getWebDashboardHtml(): string {
     initProfitability();
 
     // ============ CHARTS FUNCTIONALITY ============
-    const CHART_COLORS = ['#FFB000', '#00FF41', '#FF3131', '#4A90D9', '#00CED1', '#C4A35A', '#B22222', '#87CEEB', '#FF6B6B', '#9370DB'];
+    // Generate theme-aware chart colors based on current accent
+    function getChartColors() {
+      const style = getComputedStyle(document.body);
+      const accent = style.getPropertyValue('--color-accent').trim() || '#FFB000';
+      const success = style.getPropertyValue('--color-success').trim() || '#00FF41';
+      const danger = style.getPropertyValue('--color-danger').trim() || '#FF3131';
+
+      // Generate complementary colors based on theme
+      return [
+        accent,           // Primary accent color
+        success,          // Success color
+        danger,           // Danger color
+        '#4A90D9',        // Blue
+        '#00CED1',        // Cyan
+        '#9370DB',        // Purple
+        '#FF6B6B',        // Coral
+        '#87CEEB',        // Light blue
+        '#C4A35A',        // Tan
+        '#B22222'         // Dark red
+      ];
+    }
+
+    function getChartThemeColors() {
+      const style = getComputedStyle(document.body);
+      return {
+        accent: style.getPropertyValue('--color-accent').trim() || '#FFB000',
+        text: style.getPropertyValue('--color-text-secondary').trim() || '#8BA88B',
+        textPrimary: style.getPropertyValue('--color-text-primary').trim() || '#E8F4E8',
+        border: style.getPropertyValue('--color-border').trim() || '#1a4a5c',
+        bgSecondary: style.getPropertyValue('--color-bg-secondary').trim() || '#0d2137',
+        danger: style.getPropertyValue('--color-danger').trim() || '#FF3131'
+      };
+    }
+
     let performanceChart = null;
     let chartMetric = 'hashrate';
     let chartTimeRange = '24h';
@@ -3311,10 +3351,12 @@ function getWebDashboardHtml(): string {
       const container = document.getElementById('chart-device-selector');
       if (!container) return;
 
+      const chartColors = getChartColors();
+      const themeColors = getChartThemeColors();
       container.innerHTML = devices.map((d, i) => {
         const isSelected = selectedChartDevices.includes(d.id);
         const colorIndex = selectedChartDevices.indexOf(d.id);
-        const color = colorIndex >= 0 ? CHART_COLORS[colorIndex % CHART_COLORS.length] : '#1a4a5c';
+        const color = colorIndex >= 0 ? chartColors[colorIndex % chartColors.length] : themeColors.border;
         return '<button class="device-chip ' + (isSelected ? 'selected' : '') + '" ' +
           'style="border-color: ' + color + '; ' + (isSelected ? 'background: ' + color + '20; color: ' + color + ';' : '') + '" ' +
           'onclick="toggleChartDevice(' + "'" + d.id + "'" + ')">' +
@@ -3396,10 +3438,13 @@ function getWebDashboardHtml(): string {
         performanceChart = null;
       }
 
+      const chartColors = getChartColors();
+      const themeColors = getChartThemeColors();
+
       if (selectedChartDevices.length === 0 || Object.keys(chartDeviceData).length === 0) {
         // Clear and show empty state
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#8BA88B';
+        ctx.fillStyle = themeColors.text;
         ctx.font = '14px Share Tech Mono';
         ctx.textAlign = 'center';
         ctx.fillText('Select devices to view charts', canvas.width / 2, canvas.height / 2);
@@ -3417,7 +3462,7 @@ function getWebDashboardHtml(): string {
 
       if (allTimestamps.size === 0) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#8BA88B';
+        ctx.fillStyle = themeColors.text;
         ctx.font = '14px Share Tech Mono';
         ctx.textAlign = 'center';
         ctx.fillText('No data available for selected time range', canvas.width / 2, canvas.height / 2);
@@ -3440,7 +3485,7 @@ function getWebDashboardHtml(): string {
         const deviceData = chartDeviceData[deviceId];
         if (!deviceData) continue;
 
-        const color = CHART_COLORS[colorIndex % CHART_COLORS.length];
+        const color = chartColors[colorIndex % chartColors.length];
         colorIndex++;
 
         const data = sampledTimestamps.map(ts => {
@@ -3492,7 +3537,7 @@ function getWebDashboardHtml(): string {
 
       if (typeof Chart === 'undefined') {
         console.error('Chart.js not loaded!');
-        ctx.fillStyle = '#FF3131';
+        ctx.fillStyle = themeColors.danger;
         ctx.font = '14px Share Tech Mono';
         ctx.textAlign = 'center';
         ctx.fillText('Chart.js failed to load', canvas.width / 2, canvas.height / 2);
@@ -3509,14 +3554,14 @@ function getWebDashboardHtml(): string {
           interaction: { intersect: false, mode: 'index' },
           plugins: {
             legend: {
-              labels: { color: '#8BA88B', font: { family: 'Share Tech Mono' } }
+              labels: { color: themeColors.text, font: { family: 'Share Tech Mono' } }
             },
             tooltip: {
-              backgroundColor: '#0d2137',
-              borderColor: '#1a4a5c',
+              backgroundColor: themeColors.bgSecondary,
+              borderColor: themeColors.border,
               borderWidth: 1,
-              titleColor: '#FFB000',
-              bodyColor: '#E8F4E8',
+              titleColor: themeColors.accent,
+              bodyColor: themeColors.textPrimary,
               callbacks: {
                 label: function(context) {
                   const value = context.parsed.y;
@@ -3527,24 +3572,24 @@ function getWebDashboardHtml(): string {
           },
           scales: {
             x: {
-              ticks: { color: '#8BA88B', font: { family: 'Share Tech Mono', size: 10 } },
-              grid: { color: '#1a4a5c' }
+              ticks: { color: themeColors.text, font: { family: 'Share Tech Mono', size: 10 } },
+              grid: { color: themeColors.border }
             },
             y: {
               ticks: {
-                color: '#8BA88B',
+                color: themeColors.text,
                 font: { family: 'Share Tech Mono', size: 10 },
                 callback: function(value) { return value.toFixed(1) + ' ' + unit; }
               },
-              grid: { color: '#1a4a5c' },
-              title: { display: true, text: unit, color: '#8BA88B', font: { family: 'Share Tech Mono' } }
+              grid: { color: themeColors.border },
+              title: { display: true, text: unit, color: themeColors.text, font: { family: 'Share Tech Mono' } }
             }
           }
         }
       });
       } catch (err) {
         console.error('updateChart: failed to create chart', err);
-        ctx.fillStyle = '#FF3131';
+        ctx.fillStyle = themeColors.danger;
         ctx.font = '14px Share Tech Mono';
         ctx.textAlign = 'center';
         ctx.fillText('Error creating chart: ' + err.message, canvas.width / 2, canvas.height / 2);
@@ -3562,6 +3607,7 @@ function getWebDashboardHtml(): string {
         return;
       }
 
+      const chartColors = getChartColors();
       const units = { hashrate: 'GH/s', temperature: '°C', power: 'W', efficiency: 'J/TH' };
       const unit = units[chartMetric] || '';
 
@@ -3572,7 +3618,7 @@ function getWebDashboardHtml(): string {
         const deviceData = chartDeviceData[deviceId];
         if (!deviceData) continue;
 
-        const color = CHART_COLORS[colorIndex % CHART_COLORS.length];
+        const color = chartColors[colorIndex % chartColors.length];
         colorIndex++;
 
         const values = deviceData.metrics.map(m => {

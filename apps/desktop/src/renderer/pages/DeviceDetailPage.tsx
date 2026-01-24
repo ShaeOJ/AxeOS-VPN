@@ -37,6 +37,15 @@ function formatUptime(seconds: number | null | undefined): string {
   return `${mins}m`;
 }
 
+function formatDifficulty(diff: number | null | undefined): string {
+  if (!diff) return '--';
+  if (diff >= 1e12) return `${(diff / 1e12).toFixed(2)}T`;
+  if (diff >= 1e9) return `${(diff / 1e9).toFixed(2)}G`;
+  if (diff >= 1e6) return `${(diff / 1e6).toFixed(2)}M`;
+  if (diff >= 1e3) return `${(diff / 1e3).toFixed(2)}K`;
+  return diff.toFixed(2);
+}
+
 function formatTime(timestamp: number): string {
   return new Date(timestamp).toLocaleTimeString();
 }
@@ -540,7 +549,7 @@ export function DeviceDetailPage() {
                     const m = metrics as Record<string, unknown>;
                     const diff = metrics.poolDifficulty ?? m.pool_difficulty ?? m.poolDiff ?? m.stratum_difficulty ?? m.stratumDifficulty ?? m.stratumSuggestedDifficulty;
                     if (diff === undefined || diff === null) return '--';
-                    if (typeof diff === 'number') return diff.toLocaleString();
+                    if (typeof diff === 'number') return formatDifficulty(diff);
                     return String(diff);
                   })()}
                 </div>

@@ -10,7 +10,26 @@ Vault-Tec Mining Operations Division - BitAxe Monitoring System for managing mul
 - **Charts**: Recharts
 - **Build**: electron-vite + electron-builder
 
-## Current Version: v1.6.0
+## Current Version: v1.6.1
+
+---
+
+## Recent Changes (v1.6.1 BETA)
+
+### UI/UX Visual Enhancements
+- **Modal & Card Animations** - Smooth transitions with backdrop fade and content slide
+- **Desktop Logo Glow** - Eerie wavy glow effect using theme accent color
+- **Responsive Sidebar** - Overflow scrolling for smaller window sizes
+- **Staggered Card Animations** - Dashboard cards animate in with delay cascade
+
+### Web UI Enhancements
+- **Matrix SHA256 Hash Rain** - Subtle background animation with falling hex characters
+- **Theme-Aware Animation** - Matrix rain color matches current theme accent
+- **Theme-Aware Charts** - Chart colors now update when switching themes
+
+### Bug Fixes
+- **System Tray Icon** - Fixed icon not appearing (dynamic logo file finding for Vite hashes)
+- **Web UI Theme Colors** - Fixed background animation not reading accent color from body element
 
 ---
 
