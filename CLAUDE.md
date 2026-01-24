@@ -10,7 +10,7 @@ Vault-Tec Mining Operations Division - BitAxe Monitoring System for managing mul
 - **Charts**: Recharts
 - **Build**: electron-vite + electron-builder
 
-## Current Version: v1.5.8
+## Current Version: v1.6.0
 
 ---
 
@@ -81,13 +81,35 @@ Vault-Tec Mining Operations Division - BitAxe Monitoring System for managing mul
 | Feature | Description |
 |---------|-------------|
 | Web UI | Access dashboard from any browser |
+| Web UI Charts | Full interactive charts in web UI (Chart.js) |
 | Mobile Support | Responsive web interface |
 | Theme Support | All themes available in web UI |
 | Password Protection | Secure remote access |
 
 ---
 
-## Recent Changes (v1.5.8)
+## Recent Changes (v1.6.0)
+
+### Web UI Charts
+- **Full Chart Support** - Interactive charts in web UI matching desktop functionality
+- **Chart.js Integration** - High-performance charting via CDN
+- **Metric Types** - Hashrate, Temperature, Power, Efficiency
+- **Time Ranges** - 1h, 6h, 24h, 7d, 30d historical data
+- **Multi-Device Comparison** - Compare multiple miners on one chart with color-coded lines
+- **Real-Time Stats** - Current, Average, Min, Max values displayed
+- **Navigation Tabs** - Dashboard/Charts toggle in header
+
+### Bug Fixes
+- **Best Diff Parsing** - Fixed parsing of formatted difficulty strings (56.4M, 18.6G, 2.3T, etc.)
+- **S9 Frequency Display** - Fixed excessive decimal places in web UI (was showing 473.6466666666667 MHz)
+- **Build System** - Resolved electron-vite cache issues causing stale code in production builds
+
+### Updated Assets
+- Optimized logo and icon files for smaller bundle size
+
+---
+
+## Previous Changes (v1.5.8)
 
 ### Bitmain S9/Antminer Support (BETA)
 - **Auto-detection** - Automatically detects BitAxe vs Bitmain miners
