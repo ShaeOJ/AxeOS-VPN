@@ -443,10 +443,16 @@ export function startServer(): { port: number; addresses: string[] } {
 
   // ============ WEB DASHBOARD ============
   app.get('/', (_req, res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
     res.send(getWebDashboardHtml());
   });
 
   app.get('/dashboard', (_req, res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
     res.send(getWebDashboardHtml());
   });
 
@@ -514,6 +520,7 @@ function getWebDashboardHtml(): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AxeOS VPN Monitor</title>
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -564,6 +571,39 @@ function getWebDashboardHtml(): string {
     .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid #1a4a5c; animation: fade-in 0.4s ease-out forwards; position: relative; z-index: 10000; }
     .login-container .card { animation: fade-in 0.5s ease-out forwards; }
     .logo { font-size: 24px; font-weight: bold; color: #FFB000; text-transform: uppercase; letter-spacing: 2px; }
+    /* Navigation tabs */
+    .nav-tabs { display: flex; gap: 4px; margin-left: 24px; }
+    .nav-tab { padding: 8px 16px; background: transparent; border: 2px solid #1a4a5c; color: #8BA88B; cursor: pointer; font-family: 'Share Tech Mono', monospace; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; transition: all 0.2s; }
+    .nav-tab:hover { border-color: #FFB000; color: #FFB000; }
+    .nav-tab.active { background: rgba(255,176,0,0.15); border-color: #FFB000; color: #FFB000; }
+    /* Charts section */
+    .charts-section { display: none; }
+    .charts-section.active { display: block; }
+    .dashboard-section { display: block; }
+    .dashboard-section.hidden { display: none; }
+    .chart-container { background: #0d2137; border: 2px solid #1a4a5c; padding: 20px; margin-bottom: 16px; }
+    .chart-controls { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+    .chart-control-group { display: flex; flex-direction: column; gap: 6px; }
+    .chart-control-label { font-size: 11px; color: #8BA88B; text-transform: uppercase; }
+    .chart-btn-group { display: flex; gap: 4px; flex-wrap: wrap; }
+    .chart-btn { padding: 6px 12px; background: transparent; border: 1px solid #1a4a5c; color: #8BA88B; cursor: pointer; font-family: 'Share Tech Mono', monospace; font-size: 11px; transition: all 0.2s; }
+    .chart-btn:hover { border-color: #FFB000; color: #FFB000; }
+    .chart-btn.active { background: rgba(255,176,0,0.15); border-color: #FFB000; color: #FFB000; }
+    .device-selector { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; background: rgba(0,0,0,0.2); border: 1px solid #1a4a5c; margin-bottom: 16px; }
+    .device-chip { padding: 6px 12px; background: transparent; border: 1px solid #1a4a5c; color: #8BA88B; cursor: pointer; font-family: 'Share Tech Mono', monospace; font-size: 11px; display: flex; align-items: center; gap: 6px; transition: all 0.2s; }
+    .device-chip:hover { border-color: #FFB000; }
+    .device-chip.selected { border-width: 2px; }
+    .device-chip .status-dot { width: 6px; height: 6px; border-radius: 50%; }
+    .chart-wrapper { height: 350px; position: relative; }
+    .chart-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 16px; }
+    .chart-stat-card { background: rgba(0,0,0,0.2); border: 1px solid #1a4a5c; padding: 12px; }
+    .chart-stat-device { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .chart-stat-color { width: 12px; height: 12px; border-radius: 2px; }
+    .chart-stat-name { color: #E8F4E8; font-size: 12px; }
+    .chart-stat-values { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-size: 11px; }
+    .chart-stat-item { text-align: center; }
+    .chart-stat-label { color: #8BA88B; margin-bottom: 2px; }
+    .chart-stat-value { color: #FFB000; font-family: monospace; }
     .btn {
       padding: 10px 20px;
       border: 2px solid;
@@ -1256,7 +1296,13 @@ function getWebDashboardHtml(): string {
 
   <div id="dashboard-view" class="container hidden">
     <div class="header">
-      ${logoBase64 ? `<img src="${logoBase64}" alt="AxeOS VPN" style="height: 60px; width: auto; filter: drop-shadow(0 0 10px color-mix(in srgb, var(--color-accent) 40%, transparent));">` : `<div class="logo">AxeOS VPN Monitor</div>`}
+      <div style="display: flex; align-items: center;">
+        ${logoBase64 ? `<img src="${logoBase64}" alt="AxeOS VPN" style="height: 60px; width: auto; filter: drop-shadow(0 0 10px color-mix(in srgb, var(--color-accent) 40%, transparent));">` : `<div class="logo">AxeOS VPN Monitor</div>`}
+        <div class="nav-tabs">
+          <button class="nav-tab active" onclick="showPage('dashboard')" id="nav-dashboard">Dashboard</button>
+          <button class="nav-tab" onclick="showPage('charts')" id="nav-charts">Charts</button>
+        </div>
+      </div>
       <div style="display: flex; gap: 10px; align-items: center;">
         <button id="bg-toggle" onclick="toggleBackground()" class="btn btn-secondary" title="Toggle animated background" style="padding: 8px 12px; display: flex; align-items: center; gap: 6px;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1307,6 +1353,9 @@ function getWebDashboardHtml(): string {
         <button onclick="doLogout()" class="btn btn-danger">Logout</button>
       </div>
     </div>
+
+    <!-- Dashboard Section -->
+    <div class="dashboard-section" id="dashboard-section">
 
     <!-- Crypto Ticker Widget -->
     <div class="crypto-ticker" id="crypto-ticker">
@@ -1527,6 +1576,51 @@ function getWebDashboardHtml(): string {
       </button>
     </div>
     <div id="devices-list"></div>
+    </div><!-- End dashboard-section -->
+
+    <!-- Charts Section -->
+    <div class="charts-section" id="charts-section">
+      <div class="chart-container">
+        <h3 style="color: #FFB000; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px;">Performance Charts</h3>
+
+        <!-- Device Selector -->
+        <div class="chart-control-group" style="margin-bottom: 16px;">
+          <div class="chart-control-label">Select Devices</div>
+          <div class="device-selector" id="chart-device-selector"></div>
+        </div>
+
+        <!-- Chart Controls -->
+        <div class="chart-controls">
+          <div class="chart-control-group">
+            <div class="chart-control-label">Metric</div>
+            <div class="chart-btn-group">
+              <button class="chart-btn active" onclick="setChartMetric('hashrate')" id="metric-hashrate">Hashrate</button>
+              <button class="chart-btn" onclick="setChartMetric('temperature')" id="metric-temperature">Temperature</button>
+              <button class="chart-btn" onclick="setChartMetric('power')" id="metric-power">Power</button>
+              <button class="chart-btn" onclick="setChartMetric('efficiency')" id="metric-efficiency">Efficiency</button>
+            </div>
+          </div>
+          <div class="chart-control-group">
+            <div class="chart-control-label">Time Range</div>
+            <div class="chart-btn-group">
+              <button class="chart-btn" onclick="setChartTimeRange('1h')" id="range-1h">1H</button>
+              <button class="chart-btn" onclick="setChartTimeRange('6h')" id="range-6h">6H</button>
+              <button class="chart-btn active" onclick="setChartTimeRange('24h')" id="range-24h">24H</button>
+              <button class="chart-btn" onclick="setChartTimeRange('7d')" id="range-7d">7D</button>
+              <button class="chart-btn" onclick="setChartTimeRange('30d')" id="range-30d">30D</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chart -->
+        <div class="chart-wrapper" style="height: 350px; position: relative;">
+          <canvas id="performance-chart" style="width: 100%; height: 100%;"></canvas>
+        </div>
+
+        <!-- Stats Table -->
+        <div class="chart-stats" id="chart-stats"></div>
+      </div>
+    </div>
   </div>
 
   <div id="device-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeModal()">
@@ -1695,10 +1789,8 @@ function getWebDashboardHtml(): string {
 
     async function init() {
       try {
-        console.log('Initializing dashboard...');
         const res = await fetch('/api/setup-required');
         const { required } = await res.json();
-        console.log('Setup required:', required, 'Token:', !!token);
         if (required) {
           document.getElementById('setup-form').classList.remove('hidden');
         } else if (token) {
@@ -3132,6 +3224,351 @@ function getWebDashboardHtml(): string {
     initBackground();
     initCryptoTicker();
     initProfitability();
+
+    // ============ CHARTS FUNCTIONALITY ============
+    const CHART_COLORS = ['#FFB000', '#00FF41', '#FF3131', '#4A90D9', '#00CED1', '#C4A35A', '#B22222', '#87CEEB', '#FF6B6B', '#9370DB'];
+    let performanceChart = null;
+    let chartMetric = 'hashrate';
+    let chartTimeRange = '24h';
+    let selectedChartDevices = [];
+    let chartDeviceData = {};
+
+    function showPage(page) {
+      const dashboardSection = document.getElementById('dashboard-section');
+      const chartsSection = document.getElementById('charts-section');
+      const navDashboard = document.getElementById('nav-dashboard');
+      const navCharts = document.getElementById('nav-charts');
+
+      if (page === 'dashboard') {
+        dashboardSection.classList.remove('hidden');
+        dashboardSection.style.display = 'block';
+        chartsSection.classList.remove('active');
+        navDashboard.classList.add('active');
+        navCharts.classList.remove('active');
+      } else if (page === 'charts') {
+        dashboardSection.classList.add('hidden');
+        dashboardSection.style.display = 'none';
+        chartsSection.classList.add('active');
+        navDashboard.classList.remove('active');
+        navCharts.classList.add('active');
+        initCharts();
+      }
+    }
+
+    function initCharts() {
+      renderDeviceSelector();
+      if (selectedChartDevices.length === 0 && devices.length > 0) {
+        // Auto-select first 3 online devices
+        const onlineDevices = devices.filter(d => d.isOnline).slice(0, 3);
+        selectedChartDevices = onlineDevices.map(d => d.id);
+        renderDeviceSelector();
+      }
+      fetchChartData();
+    }
+
+    function renderDeviceSelector() {
+      const container = document.getElementById('chart-device-selector');
+      if (!container) return;
+
+      container.innerHTML = devices.map((d, i) => {
+        const isSelected = selectedChartDevices.includes(d.id);
+        const colorIndex = selectedChartDevices.indexOf(d.id);
+        const color = colorIndex >= 0 ? CHART_COLORS[colorIndex % CHART_COLORS.length] : '#1a4a5c';
+        return '<button class="device-chip ' + (isSelected ? 'selected' : '') + '" ' +
+          'style="border-color: ' + color + '; ' + (isSelected ? 'background: ' + color + '20; color: ' + color + ';' : '') + '" ' +
+          'onclick="toggleChartDevice(' + "'" + d.id + "'" + ')">' +
+          '<span class="status-dot" style="background: ' + (d.isOnline ? '#00FF41' : '#8BA88B') + ';"></span>' +
+          d.name + '</button>';
+      }).join('');
+    }
+
+    function toggleChartDevice(deviceId) {
+      const index = selectedChartDevices.indexOf(deviceId);
+      if (index >= 0) {
+        selectedChartDevices.splice(index, 1);
+      } else {
+        selectedChartDevices.push(deviceId);
+      }
+      renderDeviceSelector();
+      fetchChartData();
+    }
+
+    function setChartMetric(metric) {
+      chartMetric = metric;
+      document.querySelectorAll('[id^="metric-"]').forEach(btn => btn.classList.remove('active'));
+      document.getElementById('metric-' + metric).classList.add('active');
+      updateChart();
+    }
+
+    function setChartTimeRange(range) {
+      chartTimeRange = range;
+      document.querySelectorAll('[id^="range-"]').forEach(btn => btn.classList.remove('active'));
+      document.getElementById('range-' + range).classList.add('active');
+      fetchChartData();
+    }
+
+    async function fetchChartData() {
+      if (selectedChartDevices.length === 0) {
+        chartDeviceData = {};
+        updateChart();
+        return;
+      }
+
+      const hours = { '1h': 1, '6h': 6, '24h': 24, '7d': 168, '30d': 720 }[chartTimeRange] || 24;
+      const startTime = Date.now() - hours * 60 * 60 * 1000;
+      const limit = chartTimeRange === '30d' ? 2000 : chartTimeRange === '7d' ? 1000 : 500;
+
+      chartDeviceData = {};
+
+      for (const deviceId of selectedChartDevices) {
+        try {
+          const url = '/api/devices/' + deviceId + '/metrics?startTime=' + startTime + '&limit=' + limit;
+          // Read token fresh from localStorage every time
+          const chartToken = localStorage.getItem('token');
+          const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + chartToken } });
+          const data = await res.json();
+          const device = devices.find(d => d.id === deviceId);
+          chartDeviceData[deviceId] = {
+            name: device ? device.name : 'Unknown',
+            metrics: data.metrics || []
+          };
+        } catch (err) {
+          console.error('Failed to fetch metrics for device', deviceId, err);
+        }
+      }
+
+      updateChart();
+    }
+
+    function updateChart() {
+      const canvas = document.getElementById('performance-chart');
+      if (!canvas) {
+        console.error('Chart canvas not found');
+        return;
+      }
+
+      const ctx = canvas.getContext('2d');
+
+      // Destroy existing chart
+      if (performanceChart) {
+        performanceChart.destroy();
+        performanceChart = null;
+      }
+
+      if (selectedChartDevices.length === 0 || Object.keys(chartDeviceData).length === 0) {
+        // Clear and show empty state
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#8BA88B';
+        ctx.font = '14px Share Tech Mono';
+        ctx.textAlign = 'center';
+        ctx.fillText('Select devices to view charts', canvas.width / 2, canvas.height / 2);
+        updateChartStats();
+        return;
+      }
+
+      // Collect all timestamps and build datasets
+      const allTimestamps = new Set();
+      Object.values(chartDeviceData).forEach(d => {
+        if (d.metrics && d.metrics.length > 0) {
+          d.metrics.forEach(m => allTimestamps.add(m.timestamp));
+        }
+      });
+
+      if (allTimestamps.size === 0) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#8BA88B';
+        ctx.font = '14px Share Tech Mono';
+        ctx.textAlign = 'center';
+        ctx.fillText('No data available for selected time range', canvas.width / 2, canvas.height / 2);
+        updateChartStats();
+        return;
+      }
+
+      const sortedTimestamps = Array.from(allTimestamps).sort((a, b) => a - b);
+
+      // Sample if too many points
+      const maxPoints = 200;
+      const step = sortedTimestamps.length > maxPoints ? Math.ceil(sortedTimestamps.length / maxPoints) : 1;
+      const sampledTimestamps = sortedTimestamps.filter((_, i) => i % step === 0);
+
+      // Build datasets
+      const datasets = [];
+      let colorIndex = 0;
+
+      for (const deviceId of selectedChartDevices) {
+        const deviceData = chartDeviceData[deviceId];
+        if (!deviceData) continue;
+
+        const color = CHART_COLORS[colorIndex % CHART_COLORS.length];
+        colorIndex++;
+
+        const data = sampledTimestamps.map(ts => {
+          const metric = deviceData.metrics.find(m => Math.abs(m.timestamp - ts) < 5 * 60 * 1000);
+          if (!metric) return null;
+
+          switch (chartMetric) {
+            case 'hashrate':
+              return metric.hashrate ? metric.hashrate / 1e9 : null; // Convert to GH/s
+            case 'temperature':
+              return metric.temperature;
+            case 'power':
+              return metric.power;
+            case 'efficiency':
+              if (metric.power && metric.hashrate && metric.hashrate > 0) {
+                const hashrateTH = metric.hashrate / 1e12;
+                return hashrateTH > 0 ? metric.power / hashrateTH : null;
+              }
+              return null;
+            default:
+              return null;
+          }
+        });
+
+        datasets.push({
+          label: deviceData.name,
+          data: data,
+          borderColor: color,
+          backgroundColor: color + '20',
+          fill: false,
+          tension: 0.1,
+          pointRadius: 0,
+          borderWidth: 2
+        });
+      }
+
+      // Format labels
+      const labels = sampledTimestamps.map(ts => {
+        const date = new Date(ts);
+        if (chartTimeRange === '1h' || chartTimeRange === '6h' || chartTimeRange === '24h') {
+          return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+        return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      });
+
+      // Determine unit
+      const units = { hashrate: 'GH/s', temperature: '°C', power: 'W', efficiency: 'J/TH' };
+      const unit = units[chartMetric] || '';
+
+      if (typeof Chart === 'undefined') {
+        console.error('Chart.js not loaded!');
+        ctx.fillStyle = '#FF3131';
+        ctx.font = '14px Share Tech Mono';
+        ctx.textAlign = 'center';
+        ctx.fillText('Chart.js failed to load', canvas.width / 2, canvas.height / 2);
+        return;
+      }
+
+      try {
+      performanceChart = new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { intersect: false, mode: 'index' },
+          plugins: {
+            legend: {
+              labels: { color: '#8BA88B', font: { family: 'Share Tech Mono' } }
+            },
+            tooltip: {
+              backgroundColor: '#0d2137',
+              borderColor: '#1a4a5c',
+              borderWidth: 1,
+              titleColor: '#FFB000',
+              bodyColor: '#E8F4E8',
+              callbacks: {
+                label: function(context) {
+                  const value = context.parsed.y;
+                  return context.dataset.label + ': ' + (value !== null ? value.toFixed(2) + ' ' + unit : '--');
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              ticks: { color: '#8BA88B', font: { family: 'Share Tech Mono', size: 10 } },
+              grid: { color: '#1a4a5c' }
+            },
+            y: {
+              ticks: {
+                color: '#8BA88B',
+                font: { family: 'Share Tech Mono', size: 10 },
+                callback: function(value) { return value.toFixed(1) + ' ' + unit; }
+              },
+              grid: { color: '#1a4a5c' },
+              title: { display: true, text: unit, color: '#8BA88B', font: { family: 'Share Tech Mono' } }
+            }
+          }
+        }
+      });
+      } catch (err) {
+        console.error('updateChart: failed to create chart', err);
+        ctx.fillStyle = '#FF3131';
+        ctx.font = '14px Share Tech Mono';
+        ctx.textAlign = 'center';
+        ctx.fillText('Error creating chart: ' + err.message, canvas.width / 2, canvas.height / 2);
+      }
+
+      updateChartStats();
+    }
+
+    function updateChartStats() {
+      const container = document.getElementById('chart-stats');
+      if (!container) return;
+
+      if (selectedChartDevices.length === 0 || Object.keys(chartDeviceData).length === 0) {
+        container.innerHTML = '';
+        return;
+      }
+
+      const units = { hashrate: 'GH/s', temperature: '°C', power: 'W', efficiency: 'J/TH' };
+      const unit = units[chartMetric] || '';
+
+      let html = '';
+      let colorIndex = 0;
+
+      for (const deviceId of selectedChartDevices) {
+        const deviceData = chartDeviceData[deviceId];
+        if (!deviceData) continue;
+
+        const color = CHART_COLORS[colorIndex % CHART_COLORS.length];
+        colorIndex++;
+
+        const values = deviceData.metrics.map(m => {
+          switch (chartMetric) {
+            case 'hashrate': return m.hashrate ? m.hashrate / 1e9 : null;
+            case 'temperature': return m.temperature;
+            case 'power': return m.power;
+            case 'efficiency':
+              if (m.power && m.hashrate && m.hashrate > 0) {
+                const hashrateTH = m.hashrate / 1e12;
+                return hashrateTH > 0 ? m.power / hashrateTH : null;
+              }
+              return null;
+            default: return null;
+          }
+        }).filter(v => v !== null && v > 0);
+
+        if (values.length === 0) continue;
+
+        const min = Math.min(...values);
+        const max = Math.max(...values);
+        const avg = values.reduce((a, b) => a + b, 0) / values.length;
+
+        html += '<div class="chart-stat-card">' +
+          '<div class="chart-stat-device">' +
+          '<div class="chart-stat-color" style="background: ' + color + ';"></div>' +
+          '<div class="chart-stat-name">' + deviceData.name + '</div>' +
+          '</div>' +
+          '<div class="chart-stat-values">' +
+          '<div class="chart-stat-item"><div class="chart-stat-label">Min</div><div class="chart-stat-value">' + min.toFixed(1) + ' ' + unit + '</div></div>' +
+          '<div class="chart-stat-item"><div class="chart-stat-label">Max</div><div class="chart-stat-value">' + max.toFixed(1) + ' ' + unit + '</div></div>' +
+          '<div class="chart-stat-item"><div class="chart-stat-label">Avg</div><div class="chart-stat-value">' + avg.toFixed(1) + ' ' + unit + '</div></div>' +
+          '</div></div>';
+      }
+
+      container.innerHTML = html;
+    }
   </script>
 </body>
 </html>`;
