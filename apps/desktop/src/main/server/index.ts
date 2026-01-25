@@ -1247,13 +1247,14 @@ function getWebDashboardHtml(): string {
         left: 0;
         right: 0;
         min-width: 100%;
-        max-height: 70vh;
+        max-height: 85vh;
         border-radius: 16px 16px 0 0;
         border-bottom: none;
         padding-bottom: env(safe-area-inset-bottom, 20px);
         transform: translateY(100%);
         display: flex;
         flex-direction: column;
+        box-shadow: 0 -4px 30px rgba(0,0,0,0.6);
       }
       .theme-dropdown.show { transform: translateY(0); }
       .theme-dropdown-header { display: flex; flex-shrink: 0; }
@@ -1261,6 +1262,7 @@ function getWebDashboardHtml(): string {
         overflow-y: auto;
         flex: 1;
         -webkit-overflow-scrolling: touch;
+        max-height: calc(85vh - 60px);
       }
       .theme-option {
         padding: 18px 20px;
@@ -1562,6 +1564,7 @@ function getWebDashboardHtml(): string {
           <div class="stat-label" style="margin: 0;">Block Time</div>
         </div>
         <div id="block-time" class="stat-value accent" style="text-shadow: 0 0 4px rgba(255,176,0,0.3);">--</div>
+        <div id="daily-odds" style="font-size: 11px; color: #FF8C00; margin-top: 4px;">--</div>
         <div id="network-difficulty" style="font-size: 11px; color: #8BA88B; margin-top: 4px;">Loading...</div>
       </div>
     </div>
@@ -1746,6 +1749,10 @@ function getWebDashboardHtml(): string {
       } else {
         dropdown.classList.add('show');
         showThemeBackdrop();
+        // Prevent body scroll on mobile
+        if (window.innerWidth <= 768) {
+          document.body.style.overflow = 'hidden';
+        }
       }
     }
 
@@ -1753,6 +1760,8 @@ function getWebDashboardHtml(): string {
       const dropdown = document.getElementById('theme-dropdown');
       if (dropdown) dropdown.classList.remove('show');
       hideThemeBackdrop();
+      // Restore body scroll
+      document.body.style.overflow = '';
     }
 
     function showThemeBackdrop() {
@@ -2181,10 +2190,12 @@ function getWebDashboardHtml(): string {
         const blockChance = calculateBlockChance(totalHashrate, networkStats.difficulty);
         if (blockChance) {
           document.getElementById('block-time').textContent = formatTimeToBlock(blockChance.daysToBlock);
+          document.getElementById('daily-odds').textContent = formatOdds(blockChance.dailyOdds) + '/day';
           document.getElementById('network-difficulty').textContent = 'Diff: ' + formatDifficulty(networkStats.difficulty);
         }
       } else {
         document.getElementById('block-time').textContent = '--';
+        document.getElementById('daily-odds').textContent = '--';
         document.getElementById('network-difficulty').textContent = totalHashrate > 0 ? 'Loading network stats...' : 'No active miners';
       }
     }
