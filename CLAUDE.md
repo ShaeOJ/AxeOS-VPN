@@ -10,11 +10,11 @@ Vault-Tec Mining Operations Division - BitAxe Monitoring System for managing mul
 - **Charts**: Recharts
 - **Build**: electron-vite + electron-builder
 
-## Current Version: v1.7.2
+## Current Version: v1.7.3
 
 ---
 
-## Recent Changes (v1.7.2)
+## Recent Changes (v1.7.3)
 
 ### Hashrate Display Improvements
 - **Dynamic TH/s Formatting** - Hashrate now displays in TH/s when >= 1000 GH/s (e.g., 21475.90 GH/s → 21.48 TH/s)
