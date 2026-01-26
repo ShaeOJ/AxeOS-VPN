@@ -497,13 +497,29 @@ function transformBitmainToAxeOS(data: BitmainMinerStatus, ipAddress: string): A
   let maxFanRpm = 0;
   let chainCount = 0;
 
+  // Collect per-board data
+  const boards: Array<{ index: number; power: number; temp: number; freq: number; hashrate: number }> = [];
+
   for (const dev of data.devs) {
-    totalPower += parseFloat(dev.chain_consumption) || 0;
-    maxTemp = Math.max(maxTemp, parseFloat(dev.temp) || 0);
+    const boardPower = parseFloat(dev.chain_consumption) || 0;
+    const boardTemp = parseFloat(dev.temp) || 0;
+    const boardFreq = parseFloat(dev.freq) || 0;
+    const boardHashrate = parseFloat(dev.rate) || 0;
+
+    totalPower += boardPower;
+    maxTemp = Math.max(maxTemp, boardTemp);
     maxTemp2 = Math.max(maxTemp2, parseFloat(dev.temp2) || 0);
-    totalFreq += parseFloat(dev.freq) || 0;
+    totalFreq += boardFreq;
     totalVoltage += parseFloat(dev.chain_vol) || 0;
     chainCount++;
+
+    boards.push({
+      index: parseInt(dev.index) || chainCount,
+      power: boardPower,
+      temp: boardTemp,
+      freq: boardFreq,
+      hashrate: boardHashrate,
+    });
 
     // Find max fan RPM from any fan slot
     for (let i = 1; i <= 8; i++) {
@@ -521,14 +537,19 @@ function transformBitmainToAxeOS(data: BitmainMinerStatus, ipAddress: string): A
   const hashrateTH = hashRateGH / 1000;
   const efficiency = hashrateTH > 0 ? totalPower / hashrateTH : 0;
 
+  // Calculate amps from mains voltage (assume 120V for US, could be configurable)
+  // S9 PSUs are typically 90-264V AC input
+  const mainsVoltage = 120; // Default assumption for US
+  const mainsAmps = totalPower / mainsVoltage;
+
   // Get active pool info
   const activePool = data.pools.find(p => p.status === 'Alive' && p.priority === 0) || data.pools[0];
 
   return {
     // Core metrics
     power: totalPower,
-    voltage: avgVoltage / 1000, // Convert mV to V
-    current: avgVoltage > 0 ? (totalPower / (avgVoltage / 1000)) : 0, // Calculate amps
+    voltage: mainsVoltage, // Use mains voltage for display
+    current: mainsAmps * 1000, // Store in milliamps like BitAxe does
     efficiency: efficiency,
     temp: maxTemp,
     temp2: maxTemp2,
@@ -574,6 +595,8 @@ function transformBitmainToAxeOS(data: BitmainMinerStatus, ipAddress: string): A
     hwErrors: data.summary.hw,
     chainCount: chainCount,
     isBitmain: true,
+    boards: boards, // Per-board breakdown
+    mainsVoltage: mainsVoltage, // Track assumed mains voltage
   };
 }
 

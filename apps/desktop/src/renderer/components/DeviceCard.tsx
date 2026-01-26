@@ -196,6 +196,15 @@ interface ClusterInfo {
   slaves: unknown[];
 }
 
+// Bitmain board info
+interface BitmainBoard {
+  index: number;
+  power: number;
+  temp: number;
+  freq: number;
+  hashrate: number;
+}
+
 // AxeOS system info
 interface AxeOSSystemInfo {
   power: number;
@@ -210,6 +219,11 @@ interface AxeOSSystemInfo {
   fanspeed: number;
   isClusterMaster?: boolean;
   clusterInfo?: ClusterInfo;
+  // Bitmain-specific fields
+  isBitmain?: boolean;
+  chainCount?: number;
+  boards?: BitmainBoard[];
+  mainsVoltage?: number;
   [key: string]: unknown;
 }
 
@@ -500,7 +514,13 @@ export function DeviceCard({ device, groups, onGroupChange, networkStats, isNewR
                 {formatPower(metrics.power)}
               </div>
               <div className="text-xs text-text-secondary">
-                {formatAmps(metrics.current, metrics.power, metrics.voltage)}
+                {metrics.isBitmain && metrics.chainCount ? (
+                  <span title={`${metrics.chainCount} boards @ ~${metrics.mainsVoltage || 120}V`}>
+                    ~{formatAmps(metrics.current, metrics.power, metrics.voltage)} ({metrics.chainCount} boards)
+                  </span>
+                ) : (
+                  formatAmps(metrics.current, metrics.power, metrics.voltage)
+                )}
               </div>
             </div>
           </div>
