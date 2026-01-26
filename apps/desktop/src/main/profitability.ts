@@ -1,10 +1,10 @@
 /**
  * Mining Profitability Calculator
  * Calculates estimated mining earnings based on hashrate, difficulty, and prices
- * Supports BTC, BCH, and DGB (SHA-256 algo)
+ * Supports BTC, BCH, DGB, BC2, and BTCS (SHA-256 algo)
  */
 
-export type MiningCoin = 'btc' | 'bch' | 'dgb';
+export type MiningCoin = 'btc' | 'bch' | 'dgb' | 'bc2' | 'btcs';
 
 export interface CoinConfig {
   id: MiningCoin;
@@ -41,10 +41,28 @@ export const COIN_CONFIGS: Record<MiningCoin, CoinConfig> = {
     id: 'dgb',
     name: 'DigiByte',
     symbol: 'DGB',
-    blockReward: 665, // Approximate - varies with multi-algo
-    blockTimeSeconds: 15, // 15 seconds (but SHA-256 is 1 of 5 algos, so effectively 75s for SHA-256)
-    difficultyApi: 'https://digiexplorer.info/api/getdifficulty',
+    blockReward: 274, // Current block reward for SHA-256 algo (from WhatToMine)
+    blockTimeSeconds: 75, // 75 seconds effective for SHA-256 (1 of 5 algos)
+    difficultyApi: 'https://whattomine.com/coins/113.json', // WhatToMine DGB-SHA API
     coingeckoId: 'digibyte',
+  },
+  bc2: {
+    id: 'bc2',
+    name: 'Bitcoin II',
+    symbol: 'BC2',
+    blockReward: 50, // Current block reward
+    blockTimeSeconds: 5708, // ~95 minutes
+    difficultyApi: 'https://whattomine.com/coins/452.json', // WhatToMine BC2 API
+    coingeckoId: 'bitcoinii',
+  },
+  btcs: {
+    id: 'btcs',
+    name: 'Bitcoin Silver',
+    symbol: 'BTCS',
+    blockReward: 50, // Current block reward
+    blockTimeSeconds: 319, // ~5.3 minutes
+    difficultyApi: 'https://whattomine.com/coins/422.json', // WhatToMine BTCS API
+    coingeckoId: 'bitcoin-silver',
   },
 };
 
@@ -94,9 +112,50 @@ export interface ProfitabilityResult {
 const cachedNetworkStats: Map<MiningCoin, NetworkStats> = new Map();
 const lastNetworkFetch: Map<MiningCoin, number> = new Map();
 const NETWORK_CACHE_DURATION = 300000; // 5 minutes
+const API_TIMEOUT = 5000; // 5 second timeout for API calls
+
+// Fallback difficulties for when APIs are slow/unavailable
+const FALLBACK_DIFFICULTIES: Record<MiningCoin, number> = {
+  btc: 110000000000000, // ~110T
+  bch: 500000000000,    // ~500B
+  dgb: 500000000,       // ~500M
+  bc2: 38000000000,     // ~38B
+  btcs: 370000000,      // ~370M
+};
+
+/**
+ * Fetch with timeout wrapper
+ */
+async function fetchWithTimeout(url: string, timeoutMs: number = API_TIMEOUT): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+}
+
+/**
+ * Get fallback stats immediately (for fast initial load)
+ */
+function getFallbackStats(coin: MiningCoin): NetworkStats {
+  const config = COIN_CONFIGS[coin];
+  return {
+    coin,
+    difficulty: FALLBACK_DIFFICULTIES[coin],
+    blockReward: config.blockReward,
+    blockTimeSeconds: config.blockTimeSeconds,
+    lastUpdated: Date.now(),
+  };
+}
 
 /**
  * Fetch network stats for a specific coin
+ * Returns cached/fallback immediately, fetches fresh data in background
  */
 export async function fetchNetworkStats(coin: MiningCoin = 'btc'): Promise<NetworkStats | null> {
   const now = Date.now();
@@ -108,7 +167,31 @@ export async function fetchNetworkStats(coin: MiningCoin = 'btc'): Promise<Netwo
     return cached;
   }
 
+  // If no cache exists, return fallback immediately and fetch in background
+  if (!cached) {
+    const fallback = getFallbackStats(coin);
+    cachedNetworkStats.set(coin, fallback);
+    lastNetworkFetch.set(coin, now);
+    // Fetch in background (don't await) - will update cache when done
+    fetchNetworkStatsAsync(coin).catch((err) => {
+      console.warn(`Background fetch for ${coin} failed:`, err);
+    });
+    return fallback;
+  }
+
+  // If cache is stale, return stale cache but refresh in background
+  fetchNetworkStatsAsync(coin).catch((err) => {
+    console.warn(`Background fetch for ${coin} failed:`, err);
+  });
+  return cached;
+}
+
+/**
+ * Internal async fetch (with timeout)
+ */
+async function fetchNetworkStatsAsync(coin: MiningCoin): Promise<NetworkStats | null> {
   const config = COIN_CONFIGS[coin];
+  const cached = cachedNetworkStats.get(coin);
 
   try {
     let difficulty: number;
@@ -116,48 +199,50 @@ export async function fetchNetworkStats(coin: MiningCoin = 'btc'): Promise<Netwo
 
     if (coin === 'btc') {
       // Bitcoin - blockchain.info API
-      const diffResponse = await fetch(config.difficultyApi);
+      const diffResponse = await fetchWithTimeout(config.difficultyApi);
       if (!diffResponse.ok) {
         console.error(`Failed to fetch ${coin} difficulty:`, diffResponse.status);
-        return cached || null;
+        return cached || getFallbackStats(coin);
       }
       difficulty = parseFloat(await diffResponse.text());
 
       if (config.blockHeightApi) {
-        const heightResponse = await fetch(config.blockHeightApi);
-        if (heightResponse.ok) {
-          blockHeight = parseInt(await heightResponse.text(), 10);
+        try {
+          const heightResponse = await fetchWithTimeout(config.blockHeightApi);
+          if (heightResponse.ok) {
+            blockHeight = parseInt(await heightResponse.text(), 10);
+          }
+        } catch {
+          // Ignore block height fetch failures
         }
       }
     } else if (coin === 'bch') {
       // Bitcoin Cash - blockchair API
-      const response = await fetch(config.difficultyApi);
+      const response = await fetchWithTimeout(config.difficultyApi);
       if (!response.ok) {
         console.error(`Failed to fetch ${coin} stats:`, response.status);
-        return cached || null;
+        return cached || getFallbackStats(coin);
       }
       const data = await response.json();
-      difficulty = data.data?.difficulty || 0;
+      difficulty = data.data?.difficulty || FALLBACK_DIFFICULTIES[coin];
       blockHeight = data.data?.blocks || undefined;
-    } else if (coin === 'dgb') {
-      // DigiByte - digiexplorer API
-      // For DGB, we need SHA-256 specific difficulty
-      // The API returns difficulty for the current algo
+    } else if (coin === 'dgb' || coin === 'bc2' || coin === 'btcs') {
+      // WhatToMine API coins (DGB, BC2, BTCS)
       try {
-        const response = await fetch(config.difficultyApi);
+        const response = await fetchWithTimeout(config.difficultyApi);
         if (!response.ok) {
-          // Fallback: estimate DGB SHA-256 difficulty
-          // DGB total network is split across 5 algos
-          console.warn('DGB API unavailable, using estimated difficulty');
-          difficulty = 1000000; // Rough estimate
+          console.warn(`${coin.toUpperCase()} WhatToMine API unavailable, using fallback`);
+          difficulty = FALLBACK_DIFFICULTIES[coin];
         } else {
-          const text = await response.text();
-          // DigiExplorer returns just the difficulty number
-          difficulty = parseFloat(text) || 1000000;
+          const data = await response.json();
+          difficulty = data.difficulty || FALLBACK_DIFFICULTIES[coin];
+          // WhatToMine provides current block reward
+          if (data.block_reward) {
+            COIN_CONFIGS[coin].blockReward = data.block_reward;
+          }
         }
       } catch {
-        // Fallback difficulty
-        difficulty = 1000000;
+        difficulty = FALLBACK_DIFFICULTIES[coin];
       }
     } else {
       return null;
@@ -240,12 +325,8 @@ export async function calculateProfitability(
     blockReward = stats.blockReward;
   }
 
-  // For DGB SHA-256, adjust for multi-algo (SHA-256 is 1 of 5 algos)
-  // Each algo gets roughly 20% of blocks, so effective block time is 5x
-  if (coin === 'dgb') {
-    blockTimeSeconds = blockTimeSeconds * 5; // 75 seconds effective for SHA-256
-    blockReward = blockReward / 5; // Proportional reward
-  }
+  // Note: DGB SHA-256 stats from WhatToMine already account for multi-algo
+  // (75s effective block time, SHA-256 specific reward) - no adjustment needed
 
   // Convert GH/s to H/s
   const hashrateH = hashrateGH * 1e9;

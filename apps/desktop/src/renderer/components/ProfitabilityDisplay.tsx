@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useDeviceStore } from '../stores/deviceStore';
 
-type MiningCoin = 'btc' | 'bch' | 'dgb';
+type MiningCoin = 'btc' | 'bch' | 'dgb' | 'bc2' | 'btcs';
 
 interface MiningCoinConfig {
   id: MiningCoin;
@@ -51,7 +51,9 @@ interface NetworkStats {
 const MINING_COINS: MiningCoinConfig[] = [
   { id: 'btc', name: 'Bitcoin', symbol: 'BTC', blockReward: 3.125, blockTimeSeconds: 600 },
   { id: 'bch', name: 'Bitcoin Cash', symbol: 'BCH', blockReward: 3.125, blockTimeSeconds: 600 },
-  { id: 'dgb', name: 'DigiByte', symbol: 'DGB', blockReward: 665, blockTimeSeconds: 15 },
+  { id: 'dgb', name: 'DigiByte', symbol: 'DGB', blockReward: 274, blockTimeSeconds: 75 },
+  { id: 'bc2', name: 'Bitcoin II', symbol: 'BC2', blockReward: 50, blockTimeSeconds: 5708 },
+  { id: 'btcs', name: 'Bitcoin Silver', symbol: 'BTCS', blockReward: 50, blockTimeSeconds: 319 },
 ];
 
 export function ProfitabilityDisplay() {
@@ -195,7 +197,7 @@ export function ProfitabilityDisplay() {
       const sats = Math.round(amount * 100000000);
       return sats.toLocaleString();
     }
-    // DGB
+    // DGB, BC2, BTCS - whole coin amounts
     if (amount < 1) return amount.toFixed(4);
     if (amount < 100) return amount.toFixed(2);
     return amount.toFixed(0);
@@ -267,6 +269,12 @@ export function ProfitabilityDisplay() {
     if (prob >= 0.0001) return `${(prob * 100).toFixed(4)}%`;
     if (prob >= 1e-8) return `${(prob * 100).toExponential(2)}%`;
     return `${(prob * 100).toExponential(1)}%`;
+  };
+
+  const formatHashrate = (hashrateGH: number): string => {
+    if (hashrateGH >= 1000000) return `${(hashrateGH / 1000000).toFixed(2)} PH/s`;
+    if (hashrateGH >= 1000) return `${(hashrateGH / 1000).toFixed(2)} TH/s`;
+    return `${hashrateGH.toFixed(2)} GH/s`;
   };
 
   const blockChance = calculateBlockChance();
@@ -478,7 +486,7 @@ export function ProfitabilityDisplay() {
           <div className="text-xs text-text-secondary/70 pt-2 border-t border-border/20">
             <div className="flex justify-between">
               <span>Total Hashrate:</span>
-              <span className="font-mono">{profitability.hashrate.toFixed(2)} GH/s</span>
+              <span className="font-mono">{formatHashrate(profitability.hashrate)}</span>
             </div>
             <div className="flex justify-between">
               <span>Total Power:</span>

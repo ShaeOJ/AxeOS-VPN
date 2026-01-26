@@ -10,16 +10,58 @@ Vault-Tec Mining Operations Division - BitAxe Monitoring System for managing mul
 - **Charts**: Recharts
 - **Build**: electron-vite + electron-builder
 
-## Current Version: v1.7.0
+## Current Version: v1.7.2
 
 ---
 
-## Recent Changes (v1.7.0)
+## Recent Changes (v1.7.2)
+
+### Hashrate Display Improvements
+- **Dynamic TH/s Formatting** - Hashrate now displays in TH/s when >= 1000 GH/s (e.g., 21475.90 GH/s → 21.48 TH/s)
+- **Desktop Profitability Panel** - Total hashrate in earnings calculator now uses TH/s for large values
+- **Web UI Charts** - Chart axes, tooltips, and stats now dynamically switch to TH/s when appropriate
+- **PH/s Support** - Added PH/s display for extremely large hashrates (>= 1,000,000 GH/s)
+
+---
+
+## Previous Changes (v1.7.1)
+
+### New Mining Coins Added
+- **Bitcoin II (BC2)** - SHA-256 coin with 50 BC2 block reward, ~95 min block time
+- **Bitcoin Silver (BTCS)** - SHA-256 coin with 50 BTCS block reward, ~5.3 min block time
+- Both coins use WhatToMine API for live difficulty and block reward data
+
+### DGB Calculation Fix
+- **Fixed DigiExplorer API** - Old API was returning 404, causing 700-1000x overestimated earnings
+- **New WhatToMine API** - Now uses `whattomine.com/coins/113.json` for accurate DGB SHA-256 stats
+- **Updated Block Reward** - Changed from 665 DGB to ~274 DGB (current actual value)
+- **Realistic Fallback** - Fallback difficulty increased from 1M to 500M
+
+### Coin Ticker & Profitability Tool Fixes
+- **Rate Limiting Protection** - Added 60s backoff after CoinGecko 429 errors to prevent API spam
+- **Fallback Prices** - Auto-populates fallback prices when cache is empty (prevents "NO ACTIVE MINERS" on startup)
+- **API Timeout Handling** - 5 second timeout on profitability API calls to prevent UI hangs
+- **Background Fetching** - Returns cached/fallback data immediately while fetching fresh data in background
+- **Expanded Coin Support** - Price ticker now includes BSV, PPC, NMC alongside mining coins
+- **Dynamic Block Rewards** - WhatToMine API updates block rewards automatically when they change
+
+### Profitability API Sources
+| Coin | Difficulty API | Fallback Difficulty |
+|------|----------------|---------------------|
+| BTC | blockchain.info | ~110T |
+| BCH | blockchair.com | ~500B |
+| DGB | whattomine.com/coins/113.json | 500M |
+| BC2 | whattomine.com/coins/452.json | 38B |
+| BTCS | whattomine.com/coins/422.json | 370M |
+
+---
+
+## Previous Changes (v1.7.0)
 
 ### Multi-Coin Earnings Calculator
-- **Coin Selector** - Switch between BTC, BCH, and DGB for profitability calculations
-- **Coin-Specific Network Stats** - Fetches difficulty from blockchain.info (BTC), Blockchair (BCH), DigiExplorer (DGB)
-- **Accurate Block Rewards** - Uses correct block rewards per coin (3.125 BTC/BCH, 665 DGB)
+- **Coin Selector** - Switch between BTC, BCH, DGB, BC2, BTCS for profitability calculations
+- **Coin-Specific Network Stats** - Fetches difficulty from blockchain.info (BTC), Blockchair (BCH), WhatToMine (DGB, BC2, BTCS)
+- **Accurate Block Rewards** - Uses correct block rewards per coin (3.125 BTC/BCH, 274 DGB, 50 BC2/BTCS)
 - **Multi-Algo Support** - DGB SHA-256 calculations account for 1-of-5 algo rotation (75s effective block time)
 - **CoinGecko Integration** - Live price fetching for all supported coins
 - **Settings Persistence** - Selected coin saved and restored between sessions
@@ -98,8 +140,8 @@ Vault-Tec Mining Operations Division - BitAxe Monitoring System for managing mul
 ### Financial Tools
 | Feature | Description |
 |---------|-------------|
-| Multi-Coin Price Ticker | Live price display for BTC, BCH, DGB |
-| Multi-Coin Profitability | Estimate earnings for BTC, BCH, DGB with coin-specific calculations |
+| Multi-Coin Price Ticker | Live price display for BTC, BCH, DGB, BC2, BTCS |
+| Multi-Coin Profitability | Estimate earnings for BTC, BCH, DGB, BC2, BTCS with coin-specific calculations |
 | Network Stats | Difficulty and hashrate for selected coin |
 
 ### Analytics & Charts

@@ -41,11 +41,14 @@ export interface CoinInfo {
 }
 
 // Supported coins - focused on SHA-256 mineable coins relevant to BitAxe
+// CoinGecko IDs must match exactly: https://api.coingecko.com/api/v3/coins/list
 export const SUPPORTED_COINS: CoinInfo[] = [
   { id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin' },
   { id: 'bitcoin-cash', symbol: 'BCH', name: 'Bitcoin Cash' },
   { id: 'bitcoin-cash-sv', symbol: 'BSV', name: 'Bitcoin SV' },
   { id: 'digibyte', symbol: 'DGB', name: 'DigiByte' },
+  { id: 'bitcoinii', symbol: 'BC2', name: 'Bitcoin II' },
+  { id: 'bitcoin-silver', symbol: 'BTCS', name: 'Bitcoin Silver' },
   { id: 'peercoin', symbol: 'PPC', name: 'Peercoin' },
   { id: 'namecoin', symbol: 'NMC', name: 'Namecoin' },
 ];
@@ -53,12 +56,27 @@ export const SUPPORTED_COINS: CoinInfo[] = [
 // Cache for each coin+currency combination
 const priceCache: Map<string, CryptoPrice> = new Map();
 const lastFetchTime: Map<string, number> = new Map();
-const CACHE_DURATION = 30000; // 30 seconds cache
+const CACHE_DURATION = 60000; // 60 seconds cache (reduced API calls)
 
 // Separate cache for price history (less frequent updates)
 const historyCache: Map<string, PriceHistoryPoint[]> = new Map();
 const historyLastFetch: Map<string, number> = new Map();
 const HISTORY_CACHE_DURATION = 300000; // 5 minutes cache for history
+
+// Rate limit backoff - only activate after 429 error
+let rateLimitedUntil = 0;
+
+// Fallback prices when API is unavailable (approximate values, updated periodically)
+const FALLBACK_PRICES: Record<string, number> = {
+  'bitcoin': 95000,
+  'bitcoin-cash': 450,
+  'bitcoin-cash-sv': 50,
+  'digibyte': 0.01,
+  'bitcoinii': 0.80,
+  'bitcoin-silver': 0.01,
+  'peercoin': 0.50,
+  'namecoin': 1.00,
+};
 
 /**
  * Get the list of supported coins
@@ -72,6 +90,38 @@ export function getSupportedCoins(): CoinInfo[] {
  */
 export function getSupportedCurrencies(): CurrencyInfo[] {
   return SUPPORTED_CURRENCIES;
+}
+
+/**
+ * Check if we should skip API call due to rate limiting
+ */
+function isRateLimited(): boolean {
+  return Date.now() < rateLimitedUntil;
+}
+
+/**
+ * Set rate limit backoff after 429 error
+ */
+function setRateLimitBackoff(): void {
+  rateLimitedUntil = Date.now() + 60000; // Back off for 60 seconds
+  console.warn('CoinGecko rate limited, backing off for 60 seconds');
+}
+
+/**
+ * Get fallback price when API is unavailable
+ */
+function getFallbackPrice(coinId: string, currency: string): CryptoPrice | null {
+  const fallbackPrice = FALLBACK_PRICES[coinId];
+  if (fallbackPrice !== undefined) {
+    return {
+      price: fallbackPrice,
+      change_24h: 0,
+      vol_24h: 0,
+      currency: currency,
+      last_updated: Date.now(),
+    };
+  }
+  return null;
 }
 
 /**
@@ -89,12 +139,21 @@ export async function fetchCryptoPrice(coinId: string, currency: string = 'usd')
   }
 
   try {
+    // Skip if rate limited
+    if (isRateLimited()) {
+      return cached || getFallbackPrice(coinId, currency);
+    }
+
     const url = `https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=${currency}&include_24hr_change=true&include_24hr_vol=true`;
     const response = await fetch(url);
 
     if (!response.ok) {
-      console.error(`Crypto price API error for ${coinId}:`, response.status);
-      return cached || null;
+      if (response.status === 429) {
+        setRateLimitBackoff();
+      } else {
+        console.error(`Crypto price API error for ${coinId}:`, response.status);
+      }
+      return cached || getFallbackPrice(coinId, currency);
     }
 
     const data = await response.json();
@@ -112,10 +171,27 @@ export async function fetchCryptoPrice(coinId: string, currency: string = 'usd')
       return price;
     }
 
-    return cached || null;
+    return cached || getFallbackPrice(coinId, currency);
   } catch (error) {
     console.error(`Failed to fetch ${coinId} price:`, error);
-    return cached || null;
+    return cached || getFallbackPrice(coinId, currency);
+  }
+}
+
+/**
+ * Populate cache with fallback prices for all coins
+ */
+function populateFallbackPrices(currency: string): void {
+  const now = Date.now();
+  for (const coin of SUPPORTED_COINS) {
+    const cacheKey = `${coin.id}_${currency}`;
+    if (!priceCache.has(cacheKey)) {
+      const fallback = getFallbackPrice(coin.id, currency);
+      if (fallback) {
+        priceCache.set(cacheKey, fallback);
+        lastFetchTime.set(cacheKey, now);
+      }
+    }
   }
 }
 
@@ -127,11 +203,27 @@ export async function fetchAllPrices(currency: string = 'usd'): Promise<Map<stri
   const coinIds = SUPPORTED_COINS.map(c => c.id).join(',');
 
   try {
+    if (isRateLimited()) {
+      // Ensure we have fallback prices if cache is empty
+      if (priceCache.size === 0) {
+        populateFallbackPrices(currency);
+      }
+      return priceCache;
+    }
+
     const url = `https://api.coingecko.com/api/v3/simple/price?ids=${coinIds}&vs_currencies=${currency}&include_24hr_change=true&include_24hr_vol=true`;
     const response = await fetch(url);
 
     if (!response.ok) {
-      console.error('Crypto price API error:', response.status);
+      if (response.status === 429) {
+        setRateLimitBackoff();
+      } else {
+        console.error('Crypto price API error:', response.status);
+      }
+      // Ensure we have fallback prices if cache is empty
+      if (priceCache.size === 0) {
+        populateFallbackPrices(currency);
+      }
       return priceCache;
     }
 
@@ -155,6 +247,10 @@ export async function fetchAllPrices(currency: string = 'usd'): Promise<Map<stri
     return priceCache;
   } catch (error) {
     console.error('Failed to fetch crypto prices:', error);
+    // Ensure we have fallback prices if cache is empty
+    if (priceCache.size === 0) {
+      populateFallbackPrices(currency);
+    }
     return priceCache;
   }
 }
@@ -174,11 +270,19 @@ export async function fetchPriceHistory(coinId: string, currency: string = 'usd'
   }
 
   try {
+    if (isRateLimited()) {
+      return cached || [];
+    }
+
     const url = `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=${currency}&days=${days}`;
     const response = await fetch(url);
 
     if (!response.ok) {
-      console.error(`Price history API error for ${coinId}:`, response.status);
+      if (response.status === 429) {
+        setRateLimitBackoff();
+      } else {
+        console.error(`Price history API error for ${coinId}:`, response.status);
+      }
       return cached || [];
     }
 

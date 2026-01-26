@@ -412,9 +412,14 @@ export function startServer(): { port: number; addresses: string[] } {
   });
 
   // ============ PROFITABILITY CALCULATOR (PUBLIC) ============
-  app.get('/api/profitability/network-stats', async (_req, res) => {
-    const stats = await profitability.fetchNetworkStats();
+  app.get('/api/profitability/network-stats', async (req, res) => {
+    const coin = (req.query.coin as profitability.MiningCoin) || 'btc';
+    const stats = await profitability.fetchNetworkStats(coin);
     res.json({ stats });
+  });
+
+  app.get('/api/profitability/coins', (_req, res) => {
+    res.json({ coins: profitability.getSupportedCoins() });
   });
 
   app.get('/api/profitability/electricity-cost', (_req, res) => {
@@ -431,11 +436,13 @@ export function startServer(): { port: number; addresses: string[] } {
   });
 
   app.post('/api/profitability/calculate', async (req, res) => {
-    const { hashrateGH, powerWatts, btcPriceUsd, electricityCost } = req.body;
+    const { coin, hashrateGH, powerWatts, cryptoPrice, electricityCost } = req.body;
+    const miningCoin = (coin as profitability.MiningCoin) || 'btc';
     const result = await profitability.calculateProfitability(
+      miningCoin,
       hashrateGH,
       powerWatts,
-      btcPriceUsd,
+      cryptoPrice,
       electricityCost
     );
     res.json({ result });
@@ -1458,9 +1465,8 @@ function getWebDashboardHtml(): string {
             <button class="btn btn-secondary" style="padding:4px 8px;font-size:10px;" onclick="saveElectricityCost()">Save</button>
           </div>
           <div id="profit-network-stats" style="margin-top:8px;font-size:10px;color:#8BA88B;">
-            <span>BTC Difficulty: <span id="profit-difficulty" style="color:#FFB000;">--</span></span>
-            <span style="margin-left:12px;">Block Reward: <span id="profit-block-reward" style="color:#FFB000;">--</span> BTC</span>
-            <div id="profit-btc-only-note" class="hidden" style="margin-top:4px;color:#FF8C00;font-size:9px;">Note: Profitability calculated using Bitcoin network stats</div>
+            <span><span id="profit-coin-label">BTC</span> Difficulty: <span id="profit-difficulty" style="color:#FFB000;">--</span></span>
+            <span style="margin-left:12px;">Block Reward: <span id="profit-block-reward" style="color:#FFB000;">--</span> <span id="profit-reward-symbol">BTC</span></span>
           </div>
         </div>
       </div>
@@ -1728,6 +1734,34 @@ function getWebDashboardHtml(): string {
     let token = localStorage.getItem('token');
     let devices = [];
 
+    // Vault-Tec themed icons for device detail popup
+    const ICONS = {
+      status: '<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><circle cx="10" cy="10" r="6"/></svg>',
+      ip: '<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zM1 10a9 9 0 1118 0 9 9 0 01-18 0zm9-4a.75.75 0 01.75.75v3.5h2.5a.75.75 0 010 1.5H10a.75.75 0 01-.75-.75v-4.25A.75.75 0 0110 6z"/></svg>',
+      hashrate: '<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>',
+      temp: '<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 2a1 1 0 011 1v6.5a.5.5 0 00.5.5h.5a.5.5 0 01.5.5V12a4 4 0 11-5 0v-1.5a.5.5 0 01.5-.5h.5a.5.5 0 00.5-.5V3a1 1 0 011-1z" clip-rule="evenodd"/></svg>',
+      power: '<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>',
+      efficiency: '<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zm6-4a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm6-3a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>',
+      model: '<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 4v12h10V4H5zm-1-2h12a1 1 0 011 1v14a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1zm3 4a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>',
+      firmware: '<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>',
+      frequency: '<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm4 5a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/></svg>',
+      voltage: '<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>',
+      fan: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>',
+      shares: '<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>',
+      rejected: '<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>',
+      star: '<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>',
+      uptime: '<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/></svg>',
+      pool: '<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zM4.332 8.027a6.012 6.012 0 011.912-2.706C6.512 5.73 6.974 6 7.5 6c.667 0 1.5.333 1.5 1 0 .523-.367 1-.5 1-.667 0-1.5.5-1.5 1.5 0 .667-.333 1.5-1 1.5s-1.5.5-1.5 1c0 .37.173.717.463.965a6.018 6.018 0 01-.63-3.938zm7.168 6.973a6 6 0 003.832-4.218c-.036.082-.08.182-.133.295-.234.497-.679 1.063-1.449 1.237-.76.171-1.257-.044-1.6-.255-.367-.225-.57-.443-.606-.475l-.007-.007a.5.5 0 00-.707.707l.001.001.002.002.007.007.027.026c.023.022.056.053.098.088.084.07.204.165.357.27.26.179.64.398 1.148.495a6.015 6.015 0 01-.97 1.827z"/></svg>',
+      gear: '<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>',
+    };
+
+    // Helper to create labeled stat with icon
+    function iconLabel(iconName, label, colorClass) {
+      const icon = ICONS[iconName] || '';
+      const color = colorClass || '#8BA88B';
+      return '<span style="display:flex;align-items:center;gap:6px;color:' + color + ';">' + icon + label + '</span>';
+    }
+
     // Theme system
     const themes = ['vault-tec', 'nuka-cola', 'brotherhood', 'institute', 'ncr', 'enclave'];
     let currentTheme = localStorage.getItem('theme') || 'vault-tec';
@@ -1910,49 +1944,47 @@ function getWebDashboardHtml(): string {
       }
 
       html += '<div class="detail-grid">';
-      html += '<div class="detail-item"><div class="detail-label">Status</div><div class="detail-value ' + (device.isOnline ? 'success' : 'danger') + '">' + (device.isOnline ? 'ONLINE' : 'OFFLINE') + '</div></div>';
-      html += '<div class="detail-item"><div class="detail-label">IP Address</div><div class="detail-value">' + device.ipAddress + '</div></div>';
+      html += '<div class="detail-item"><div class="detail-label">' + iconLabel('status', 'Status', device.isOnline ? '#00FF41' : '#FF3131') + '</div><div class="detail-value ' + (device.isOnline ? 'success' : 'danger') + '">' + (device.isOnline ? 'ONLINE' : 'OFFLINE') + '</div></div>';
+      html += '<div class="detail-item"><div class="detail-label">' + iconLabel('ip', 'IP Address') + '</div><div class="detail-value">' + device.ipAddress + '</div></div>';
 
       if (m) {
-        html += '<div class="detail-item"><div class="detail-label">' + (isCluster ? 'Cluster Hashrate' : 'Hashrate') + '</div><div class="detail-value accent">' + formatHashrate(m.hashRate) + '</div></div>';
-        html += '<div class="detail-item"><div class="detail-label">Temperature</div><div class="detail-value ' + getTempClass(m.temp) + '">' + formatTemp(m.temp) + '</div></div>';
-        html += '<div class="detail-item"><div class="detail-label">' + (isCluster ? 'Cluster Power' : 'Power') + '</div><div class="detail-value">' + formatPower(m.power) + '<div style="font-size:11px;color:#8BA88B;margin-top:2px;">' + formatAmps(m.current, m.power, m.voltage) + '</div></div></div>';
-        html += '<div class="detail-item"><div class="detail-label">' + (isCluster ? 'Cluster Efficiency' : 'Efficiency') + '</div><div class="detail-value">' + (m.efficiency ? m.efficiency.toFixed(1) + ' J/TH' : '--') + '</div></div>';
+        html += '<div class="detail-item"><div class="detail-label">' + iconLabel('hashrate', isCluster ? 'Cluster Hashrate' : 'Hashrate', '#FFB000') + '</div><div class="detail-value accent">' + formatHashrate(m.hashRate) + '</div></div>';
+        html += '<div class="detail-item"><div class="detail-label">' + iconLabel('temp', 'Temperature', m.temp > 80 ? '#FF3131' : m.temp > 70 ? '#FF8C00' : '#00FF41') + '</div><div class="detail-value ' + getTempClass(m.temp) + '">' + formatTemp(m.temp) + '</div></div>';
+        html += '<div class="detail-item"><div class="detail-label">' + iconLabel('power', isCluster ? 'Cluster Power' : 'Power', '#00CED1') + '</div><div class="detail-value">' + formatPower(m.power) + '<div style="font-size:11px;color:#8BA88B;margin-top:2px;">' + formatAmps(m.current, m.power, m.voltage) + '</div></div></div>';
+        html += '<div class="detail-item"><div class="detail-label">' + iconLabel('efficiency', isCluster ? 'Cluster Efficiency' : 'Efficiency', '#00FF41') + '</div><div class="detail-value">' + (m.efficiency ? m.efficiency.toFixed(1) + ' J/TH' : '--') + '</div></div>';
         html += '</div>';
 
-        html += '<div class="section-title">Hardware</div><div class="detail-grid">';
-        html += '<div class="detail-item"><div class="detail-label">Model</div><div class="detail-value">' + (m.ASICModel || 'Unknown') + '</div></div>';
-        html += '<div class="detail-item"><div class="detail-label">Firmware</div><div class="detail-value">' + (m.version || 'Unknown') + '</div></div>';
-        html += '<div class="detail-item"><div class="detail-label">Frequency</div><div class="detail-value">' + (m.frequency ? Math.round(m.frequency) + ' MHz' : '--') + '</div></div>';
-        html += '<div class="detail-item"><div class="detail-label">Core Voltage</div><div class="detail-value">' + (m.coreVoltage ? m.coreVoltage + ' mV' : '--') + '</div></div>';
-        html += '<div class="detail-item"><div class="detail-label">Fan Speed</div><div class="detail-value">' + (m.fanspeed ? m.fanspeed + '%' : '--') + '</div></div>';
-        html += '<div class="detail-item"><div class="detail-label">VR Temp</div><div class="detail-value">' + formatTemp(m.vrTemp) + '</div></div>';
+        html += '<div class="section-title" style="display:flex;align-items:center;gap:8px;">' + ICONS.gear + 'Hardware</div><div class="detail-grid">';
+        html += '<div class="detail-item"><div class="detail-label">' + iconLabel('model', 'Model') + '</div><div class="detail-value">' + (m.ASICModel || 'Unknown') + '</div></div>';
+        html += '<div class="detail-item"><div class="detail-label">' + iconLabel('firmware', 'Firmware') + '</div><div class="detail-value">' + (m.version || 'Unknown') + '</div></div>';
+        html += '<div class="detail-item"><div class="detail-label">' + iconLabel('frequency', 'Frequency') + '</div><div class="detail-value">' + (m.frequency ? Math.round(m.frequency) + ' MHz' : '--') + '</div></div>';
+        html += '<div class="detail-item"><div class="detail-label">' + iconLabel('voltage', 'Core Voltage') + '</div><div class="detail-value">' + (m.coreVoltage ? m.coreVoltage + ' mV' : '--') + '</div></div>';
+        html += '<div class="detail-item"><div class="detail-label">' + iconLabel('fan', 'Fan Speed') + '</div><div class="detail-value">' + (m.fanspeed ? m.fanspeed + '%' : '--') + '</div></div>';
+        html += '<div class="detail-item"><div class="detail-label">' + iconLabel('temp', 'VR Temp', m.vrTemp > 80 ? '#FF3131' : m.vrTemp > 70 ? '#FF8C00' : '#00FF41') + '</div><div class="detail-value">' + formatTemp(m.vrTemp) + '</div></div>';
         html += '</div>';
 
-        html += '<div class="section-title">Mining Stats</div><div class="detail-grid">';
-        html += '<div class="detail-item"><div class="detail-label">' + (isCluster ? 'Cluster Accepted' : 'Shares Accepted') + '</div><div class="detail-value success">' + (m.sharesAccepted || 0).toLocaleString() + '</div></div>';
-        html += '<div class="detail-item"><div class="detail-label">' + (isCluster ? 'Cluster Rejected' : 'Shares Rejected') + '</div><div class="detail-value danger">' + (m.sharesRejected || 0).toLocaleString() + '</div></div>';
+        html += '<div class="section-title" style="display:flex;align-items:center;gap:8px;">' + ICONS.shares + 'Mining Stats</div><div class="detail-grid">';
+        html += '<div class="detail-item"><div class="detail-label">' + iconLabel('shares', isCluster ? 'Cluster Accepted' : 'Shares Accepted', '#00FF41') + '</div><div class="detail-value success">' + (m.sharesAccepted || 0).toLocaleString() + '</div></div>';
+        html += '<div class="detail-item"><div class="detail-label">' + iconLabel('rejected', isCluster ? 'Cluster Rejected' : 'Shares Rejected', '#FF3131') + '</div><div class="detail-value danger">' + (m.sharesRejected || 0).toLocaleString() + '</div></div>';
         var detailBestDiff = Math.max(parseDifficulty(m.bestDiff), device.allTimeBestDiff || 0);
-        html += '<div class="detail-item"><div class="detail-label">Best Difficulty</div><div class="detail-value accent">' + formatDifficulty(detailBestDiff) + '</div></div>';
-        html += '<div class="detail-item"><div class="detail-label">Uptime</div><div class="detail-value">' + formatUptime(m.uptimeSeconds) + '</div></div>';
+        html += '<div class="detail-item"><div class="detail-label">' + iconLabel('star', 'Best Difficulty', '#FFB000') + '</div><div class="detail-value accent">' + formatDifficulty(detailBestDiff) + '</div></div>';
+        html += '<div class="detail-item"><div class="detail-label">' + iconLabel('uptime', 'Uptime') + '</div><div class="detail-value">' + formatUptime(m.uptimeSeconds) + '</div></div>';
         html += '</div>';
 
         // Solo Block Chance
         var detailBlockChance = networkStats ? calculateBlockChance(m.hashRate, networkStats.difficulty) : null;
         if (detailBlockChance) {
-          html += '<div class="section-title" style="display:flex;align-items:center;gap:8px;">';
-          html += '<svg width="16" height="16" viewBox="0 0 20 20" fill="#FF8C00"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>';
-          html += 'Solo Block Chance</div>';
+          html += '<div class="section-title" style="display:flex;align-items:center;gap:8px;color:#FF8C00;">' + ICONS.star + 'Solo Block Chance</div>';
           html += '<div class="detail-grid">';
-          html += '<div class="detail-item"><div class="detail-label">Expected Time</div><div class="detail-value" style="color:#FF8C00;">' + formatTimeToBlock(detailBlockChance.daysToBlock) + '</div></div>';
-          html += '<div class="detail-item"><div class="detail-label">Daily Odds</div><div class="detail-value">' + formatOdds(detailBlockChance.dailyOdds) + '</div></div>';
+          html += '<div class="detail-item"><div class="detail-label">' + iconLabel('uptime', 'Expected Time', '#FF8C00') + '</div><div class="detail-value" style="color:#FF8C00;">' + formatTimeToBlock(detailBlockChance.daysToBlock) + '</div></div>';
+          html += '<div class="detail-item"><div class="detail-label">' + iconLabel('star', 'Daily Odds', '#FF8C00') + '</div><div class="detail-value">' + formatOdds(detailBlockChance.dailyOdds) + '</div></div>';
           html += '</div>';
           html += '<div style="font-size:10px;color:#8BA88B;margin-top:4px;font-style:italic;">Solo mining is a lottery - these are statistical averages</div>';
         }
 
-        html += '<div class="section-title">Pool</div><div class="detail-grid">';
-        html += '<div class="detail-item" style="grid-column: span 2;"><div class="detail-label">Stratum URL</div><div class="detail-value" style="font-size:12px;word-break:break-all;">' + (m.stratumURL || 'Not configured') + '</div></div>';
-        html += '<div class="detail-item" style="grid-column: span 2;"><div class="detail-label">Worker</div><div class="detail-value" style="font-size:12px;word-break:break-all;">' + (m.stratumUser || 'Not configured') + '</div></div>';
+        html += '<div class="section-title" style="display:flex;align-items:center;gap:8px;">' + ICONS.pool + 'Pool</div><div class="detail-grid">';
+        html += '<div class="detail-item" style="grid-column: span 2;"><div class="detail-label">' + iconLabel('pool', 'Stratum URL') + '</div><div class="detail-value" style="font-size:12px;word-break:break-all;">' + (m.stratumURL || 'Not configured') + '</div></div>';
+        html += '<div class="detail-item" style="grid-column: span 2;"><div class="detail-label">' + iconLabel('ip', 'Worker') + '</div><div class="detail-value" style="font-size:12px;word-break:break-all;">' + (m.stratumUser || 'Not configured') + '</div></div>';
         html += '</div>';
 
         // ClusterAxe Slave Devices (stats already shown in banner)
@@ -2913,7 +2945,8 @@ function getWebDashboardHtml(): string {
         fetchCryptoHistory();
         // Update profitability calculator with new coin
         updateProfitCoinDisplay();
-        calculateProfitability();
+        // Fetch network stats for the new coin, then recalculate
+        fetchNetworkStats().then(() => calculateProfitability());
       }
       closeAllDropdowns();
     }
@@ -3110,17 +3143,37 @@ function getWebDashboardHtml(): string {
       }
     }
 
+    // Map CoinGecko IDs to mining coin IDs
+    const coinIdToMiningCoin = {
+      'bitcoin': 'btc',
+      'bitcoin-cash': 'bch',
+      'digibyte': 'dgb',
+      'bitcoinii': 'bc2',
+      'bitcoin-silver': 'btcs'
+    };
+
+    function getMiningCoin() {
+      return coinIdToMiningCoin[selectedCoin.id] || 'btc';
+    }
+
     async function fetchNetworkStats() {
       try {
-        const res = await fetch('/api/profitability/network-stats');
+        const miningCoin = getMiningCoin();
+        const res = await fetch('/api/profitability/network-stats?coin=' + miningCoin);
         const data = await res.json();
 
         if (data.stats) {
           networkStats = data.stats;
 
-          // Update UI
-          const diffTrillion = networkStats.difficulty / 1e12;
-          document.getElementById('profit-difficulty').textContent = diffTrillion.toFixed(2) + 'T';
+          // Update UI - format difficulty based on size
+          const diff = networkStats.difficulty;
+          let diffText;
+          if (diff >= 1e12) diffText = (diff / 1e12).toFixed(2) + 'T';
+          else if (diff >= 1e9) diffText = (diff / 1e9).toFixed(2) + 'B';
+          else if (diff >= 1e6) diffText = (diff / 1e6).toFixed(2) + 'M';
+          else diffText = diff.toLocaleString();
+
+          document.getElementById('profit-difficulty').textContent = diffText;
           document.getElementById('profit-block-reward').textContent = networkStats.blockReward.toFixed(4);
         }
       } catch (err) {
@@ -3166,15 +3219,12 @@ function getWebDashboardHtml(): string {
       const currencyLabelEl = document.getElementById('profit-currency-label');
       if (currencyLabelEl) currencyLabelEl.textContent = selectedCurrency.code.toUpperCase();
 
-      // Show note if non-BTC coin selected (profitability uses BTC network stats)
-      const btcNoteEl = document.getElementById('profit-btc-only-note');
-      if (btcNoteEl) {
-        if (selectedCoin.id !== 'bitcoin') {
-          btcNoteEl.classList.remove('hidden');
-        } else {
-          btcNoteEl.classList.add('hidden');
-        }
-      }
+      // Update network stats labels to show current coin
+      const coinLabelEl = document.getElementById('profit-coin-label');
+      if (coinLabelEl) coinLabelEl.textContent = selectedCoin.symbol;
+
+      const rewardSymbolEl = document.getElementById('profit-reward-symbol');
+      if (rewardSymbolEl) rewardSymbolEl.textContent = selectedCoin.symbol;
     }
 
     async function calculateProfitability() {
@@ -3214,13 +3264,15 @@ function getWebDashboardHtml(): string {
 
       // Call profitability API
       try {
+        const miningCoin = getMiningCoin();
         const res = await fetch('/api/profitability/calculate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            coin: miningCoin,
             hashrateGH: totalHashrateGH,
             powerWatts: totalPowerWatts,
-            btcPriceUsd: currentBtcPrice,
+            cryptoPrice: currentBtcPrice,
             electricityCost: electricityCost
           })
         });
@@ -3236,8 +3288,20 @@ function getWebDashboardHtml(): string {
     }
 
     function updateProfitabilityUI(result) {
-      // Format numbers using selected currency
-      const formatBtc = (btc) => (btc * 100000000).toFixed(0) + ' sats';
+      const miningCoin = getMiningCoin();
+      const isSatsCoin = (miningCoin === 'btc' || miningCoin === 'bch');
+
+      // Format crypto amount based on coin type
+      const formatCrypto = (amount) => {
+        if (isSatsCoin) {
+          return (amount * 100000000).toFixed(0) + ' sats';
+        }
+        // For other coins, show whole coins
+        if (amount < 1) return amount.toFixed(4) + ' ' + result.coinSymbol;
+        if (amount < 100) return amount.toFixed(2) + ' ' + result.coinSymbol;
+        return amount.toFixed(0) + ' ' + result.coinSymbol;
+      };
+
       const formatCurrency = (value) => {
         const noDecimals = ['jpy', 'cny'].includes(selectedCurrency.code);
         return new Intl.NumberFormat('en-US', {
@@ -3258,17 +3322,17 @@ function getWebDashboardHtml(): string {
         priceEl.textContent = formatCurrency(currentBtcPrice);
       }
 
-      // Update summary
-      document.getElementById('profit-daily-sats').textContent = formatBtc(result.dailyBtc);
+      // Update summary (use correct field names from API)
+      document.getElementById('profit-daily-sats').textContent = formatCrypto(result.dailyCrypto);
       const dailyNetEl = document.getElementById('profit-daily-net');
       dailyNetEl.textContent = formatNet(result.dailyProfit);
       dailyNetEl.className = 'profit-value ' + (result.dailyProfit >= 0 ? 'positive' : 'negative');
 
       // Update earnings section
-      document.getElementById('profit-earn-daily').textContent = formatCurrency(result.dailyUsd) + ' (' + formatBtc(result.dailyBtc) + ')';
-      document.getElementById('profit-earn-weekly').textContent = formatCurrency(result.weeklyUsd);
-      document.getElementById('profit-earn-monthly').textContent = formatCurrency(result.monthlyUsd);
-      document.getElementById('profit-earn-yearly').textContent = formatCurrency(result.yearlyUsd);
+      document.getElementById('profit-earn-daily').textContent = formatCurrency(result.dailyFiat) + ' (' + formatCrypto(result.dailyCrypto) + ')';
+      document.getElementById('profit-earn-weekly').textContent = formatCurrency(result.weeklyFiat);
+      document.getElementById('profit-earn-monthly').textContent = formatCurrency(result.monthlyFiat);
+      document.getElementById('profit-earn-yearly').textContent = formatCurrency(result.yearlyFiat);
 
       // Update power costs section
       document.getElementById('profit-power-daily').textContent = '-' + formatCurrency(result.dailyPowerCost);
@@ -3552,9 +3616,25 @@ function getWebDashboardHtml(): string {
         return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
       });
 
-      // Determine unit
-      const units = { hashrate: 'GH/s', temperature: '°C', power: 'W', efficiency: 'J/TH' };
-      const unit = units[chartMetric] || '';
+      // Determine unit - for hashrate, check if we should use TH/s
+      let unit = '';
+      if (chartMetric === 'hashrate') {
+        // Find max value across all datasets to determine if we need TH/s
+        let maxVal = 0;
+        datasets.forEach(ds => {
+          ds.data.forEach(v => { if (v && v > maxVal) maxVal = v; });
+        });
+        unit = maxVal >= 1000 ? 'TH/s' : 'GH/s';
+        // Convert data to TH/s if needed
+        if (maxVal >= 1000) {
+          datasets.forEach(ds => {
+            ds.data = ds.data.map(v => v !== null ? v / 1000 : null);
+          });
+        }
+      } else {
+        const units = { temperature: '°C', power: 'W', efficiency: 'J/TH' };
+        unit = units[chartMetric] || '';
+      }
 
       if (typeof Chart === 'undefined') {
         console.error('Chart.js not loaded!');
@@ -3629,8 +3709,28 @@ function getWebDashboardHtml(): string {
       }
 
       const chartColors = getChartColors();
-      const units = { hashrate: 'GH/s', temperature: '°C', power: 'W', efficiency: 'J/TH' };
-      const unit = units[chartMetric] || '';
+
+      // Gather all hashrate values first to determine unit
+      let allHashrateValues = [];
+      if (chartMetric === 'hashrate') {
+        for (const deviceId of selectedChartDevices) {
+          const deviceData = chartDeviceData[deviceId];
+          if (!deviceData) continue;
+          deviceData.metrics.forEach(m => {
+            if (m.hashrate) allHashrateValues.push(m.hashrate / 1e9);
+          });
+        }
+      }
+      const maxHashrateGH = allHashrateValues.length > 0 ? Math.max(...allHashrateValues) : 0;
+      const useTHs = chartMetric === 'hashrate' && maxHashrateGH >= 1000;
+
+      let unit = '';
+      if (chartMetric === 'hashrate') {
+        unit = useTHs ? 'TH/s' : 'GH/s';
+      } else {
+        const units = { temperature: '°C', power: 'W', efficiency: 'J/TH' };
+        unit = units[chartMetric] || '';
+      }
 
       let html = '';
       let colorIndex = 0;
@@ -3644,7 +3744,10 @@ function getWebDashboardHtml(): string {
 
         const values = deviceData.metrics.map(m => {
           switch (chartMetric) {
-            case 'hashrate': return m.hashrate ? m.hashrate / 1e9 : null;
+            case 'hashrate':
+              if (!m.hashrate) return null;
+              const ghValue = m.hashrate / 1e9;
+              return useTHs ? ghValue / 1000 : ghValue;
             case 'temperature': return m.temperature;
             case 'power': return m.power;
             case 'efficiency':
@@ -3669,9 +3772,9 @@ function getWebDashboardHtml(): string {
           '<div class="chart-stat-name">' + deviceData.name + '</div>' +
           '</div>' +
           '<div class="chart-stat-values">' +
-          '<div class="chart-stat-item"><div class="chart-stat-label">Min</div><div class="chart-stat-value">' + min.toFixed(1) + ' ' + unit + '</div></div>' +
-          '<div class="chart-stat-item"><div class="chart-stat-label">Max</div><div class="chart-stat-value">' + max.toFixed(1) + ' ' + unit + '</div></div>' +
-          '<div class="chart-stat-item"><div class="chart-stat-label">Avg</div><div class="chart-stat-value">' + avg.toFixed(1) + ' ' + unit + '</div></div>' +
+          '<div class="chart-stat-item"><div class="chart-stat-label">Min</div><div class="chart-stat-value">' + min.toFixed(2) + ' ' + unit + '</div></div>' +
+          '<div class="chart-stat-item"><div class="chart-stat-label">Max</div><div class="chart-stat-value">' + max.toFixed(2) + ' ' + unit + '</div></div>' +
+          '<div class="chart-stat-item"><div class="chart-stat-label">Avg</div><div class="chart-stat-value">' + avg.toFixed(2) + ' ' + unit + '</div></div>' +
           '</div></div>';
       }
 
