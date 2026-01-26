@@ -1,5 +1,189 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+
+// Matrix rain effect component for share acceptance visualization
+// Manages its own animation state to handle rapid share triggers smoothly
+function ShareMatrixEffect({ triggerCount }: { triggerCount: number }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const stateRef = useRef<{
+    animationId: number | null;
+    endTime: number;
+    columns: Array<{
+      x: number;
+      y: number;
+      speed: number;
+      chars: string;
+      charIndex: number;
+      brightness: number;
+    }> | null;
+    lastTrigger: number;
+    frameCount: number;
+  }>({
+    animationId: null,
+    endTime: 0,
+    columns: null,
+    lastTrigger: 0,
+    frameCount: 0
+  });
+
+  const getAccentColor = useCallback(() => {
+    const style = getComputedStyle(document.documentElement);
+    return style.getPropertyValue('--color-accent').trim() || '#FFB000';
+  }, []);
+
+  const hexToRgb = useCallback((hex: string) => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16)
+    } : { r: 255, g: 176, b: 0 };
+  }, []);
+
+  useEffect(() => {
+    if (triggerCount === 0) return;
+
+    const state = stateRef.current;
+    const now = Date.now();
+    const baseDuration = 2500;
+
+    // Skip if this trigger was already processed
+    if (triggerCount === state.lastTrigger) return;
+    state.lastTrigger = triggerCount;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // If animation is running, just extend the end time
+    if (state.animationId !== null && state.endTime > now) {
+      const remaining = state.endTime - now;
+      state.endTime = now + Math.min(remaining + 1000, baseDuration);
+      return;
+    }
+
+    // Set canvas size
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width || 300;
+    canvas.height = rect.height || 200;
+
+    // Initialize columns
+    const fontSize = 10;
+    const hexChars = '0123456789abcdef';
+    const columnCount = Math.ceil(canvas.width / (fontSize * 2));
+
+    state.columns = [];
+    for (let i = 0; i < columnCount; i++) {
+      let segment = '';
+      const length = 8 + Math.floor(Math.random() * 12);
+      for (let j = 0; j < length; j++) {
+        segment += hexChars[Math.floor(Math.random() * 16)];
+      }
+      state.columns.push({
+        x: i * fontSize * 2 + Math.random() * fontSize,
+        y: Math.random() * canvas.height * 0.3,
+        speed: 0.15 + Math.random() * 0.25,
+        chars: segment,
+        charIndex: 0,
+        brightness: 0.15 + Math.random() * 0.2
+      });
+    }
+
+    state.endTime = now + baseDuration;
+    state.frameCount = 0;
+
+    const draw = () => {
+      state.frameCount++;
+
+      // Only update every 2nd frame for slower animation
+      if (state.frameCount % 2 !== 0) {
+        state.animationId = requestAnimationFrame(draw);
+        return;
+      }
+
+      const currentTime = Date.now();
+      const remaining = state.endTime - currentTime;
+
+      if (remaining <= 0 || !state.columns) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        state.animationId = null;
+        state.columns = null;
+        return;
+      }
+
+      // Smooth fade out in last 700ms
+      const fadeOut = remaining < 700 ? remaining / 700 : 1;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const accentHex = getAccentColor();
+      const rgb = hexToRgb(accentHex);
+      ctx.font = `${fontSize}px "Share Tech Mono", monospace`;
+
+      state.columns.forEach((col) => {
+        for (let j = 0; j < 5; j++) {
+          const charY = col.y - j * fontSize;
+          if (charY < -fontSize || charY > canvas.height + fontSize) continue;
+
+          const char = col.chars[(col.charIndex - j + col.chars.length) % col.chars.length];
+          const alpha = col.brightness * (1 - j / 5) * fadeOut;
+
+          if (j === 0) {
+            ctx.shadowColor = accentHex;
+            ctx.shadowBlur = 3;
+          }
+
+          ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${alpha})`;
+          ctx.fillText(char, col.x, charY);
+
+          if (j === 0) {
+            ctx.shadowBlur = 0;
+          }
+        }
+
+        col.y += col.speed * fontSize * 0.3;
+        col.charIndex++;
+
+        if (col.y > canvas.height + fontSize * 5) {
+          col.y = -fontSize * 2;
+          col.charIndex = 0;
+        }
+      });
+
+      state.animationId = requestAnimationFrame(draw);
+    };
+
+    // Cancel any existing animation before starting new one
+    if (state.animationId !== null) {
+      cancelAnimationFrame(state.animationId);
+    }
+
+    state.animationId = requestAnimationFrame(draw);
+  }, [triggerCount, getAccentColor, hexToRgb]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      const state = stateRef.current;
+      if (state.animationId !== null) {
+        cancelAnimationFrame(state.animationId);
+        state.animationId = null;
+      }
+    };
+  }, []);
+
+  if (triggerCount === 0) return null;
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="absolute inset-0 pointer-events-none rounded-lg"
+      style={{ opacity: 0.7, zIndex: 5 }}
+    />
+  );
+}
 
 // ClusterAxe cluster info
 interface ClusterInfo {
@@ -179,6 +363,19 @@ export function DeviceCard({ device, groups, onGroupChange, networkStats, isNewR
   const [isRestarting, setIsRestarting] = useState(false);
   const [showRestartConfirm, setShowRestartConfirm] = useState(false);
   const [showGroupDropdown, setShowGroupDropdown] = useState(false);
+  const [shareEffectTrigger, setShareEffectTrigger] = useState(0);
+  const prevSharesRef = useRef<number>(0);
+
+  // Detect share acceptance and trigger effect - increment counter instead of boolean
+  useEffect(() => {
+    const currentShares = metrics?.sharesAccepted || 0;
+    if (prevSharesRef.current > 0 && currentShares > prevSharesRef.current) {
+      // Shares increased - trigger effect by incrementing counter
+      console.log(`[ShareEffect] ${device.name}: shares ${prevSharesRef.current} -> ${currentShares}`);
+      setShareEffectTrigger(prev => prev + 1);
+    }
+    prevSharesRef.current = currentShares;
+  }, [metrics?.sharesAccepted, device.name]);
 
   // Check if current session best diff equals all-time best (new record achieved this session)
   // Parse bestDiff which may be a formatted string like "56.4M" or a raw number
@@ -222,8 +419,10 @@ export function DeviceCard({ device, groups, onGroupChange, networkStats, isNewR
   };
 
   return (
-    <div className="vault-card card-interactive block hover:border-accent/50 transition-all duration-200 hover:shadow-vault-glow">
-      <Link to={`/devices/${device.id}`} className="block p-4">
+    <div className="vault-card card-interactive block hover:border-accent/50 transition-all duration-200 hover:shadow-vault-glow relative overflow-hidden">
+      {/* Share acceptance Matrix effect */}
+      <ShareMatrixEffect triggerCount={shareEffectTrigger} />
+      <Link to={`/devices/${device.id}`} className="block p-4 relative z-10">
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1 min-w-0">
           <h3 className="font-medium text-accent truncate">{device.name}</h3>
@@ -259,15 +458,27 @@ export function DeviceCard({ device, groups, onGroupChange, networkStats, isNewR
           {/* Main Metrics */}
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <div className="text-xs text-text-secondary mb-1">Hashrate</div>
-              <div className="text-sm font-medium text-accent">
+              <div className="text-xs text-text-secondary mb-1 flex items-center gap-1">
+                <svg className="w-3 h-3 text-accent" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
+                </svg>
+                Hashrate
+              </div>
+              <div className="text-sm font-semibold text-accent">
                 {formatHashrate(metrics.hashRate)}
               </div>
             </div>
             <div>
-              <div className="text-xs text-text-secondary mb-1">Temp</div>
+              <div className={`text-xs mb-1 flex items-center gap-1 ${
+                metrics.temp > 80 ? 'text-danger' : metrics.temp > 70 ? 'text-warning' : 'text-success'
+              }`}>
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 2a1 1 0 011 1v6.5a.5.5 0 00.5.5h.5a.5.5 0 01.5.5V12a4 4 0 11-5 0v-1.5a.5.5 0 01.5-.5h.5a.5.5 0 00.5-.5V3a1 1 0 011-1z" clipRule="evenodd" />
+                </svg>
+                Temp
+              </div>
               <div
-                className={`text-sm font-medium ${
+                className={`text-sm font-semibold ${
                   metrics.temp > 80
                     ? 'text-danger'
                     : metrics.temp > 70
@@ -279,11 +490,16 @@ export function DeviceCard({ device, groups, onGroupChange, networkStats, isNewR
               </div>
             </div>
             <div>
-              <div className="text-xs text-text-secondary mb-1">Power</div>
-              <div className="text-sm font-medium text-text-primary">
+              <div className="text-xs text-border-highlight mb-1 flex items-center gap-1">
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
+                </svg>
+                Power
+              </div>
+              <div className="text-sm font-semibold text-text-primary">
                 {formatPower(metrics.power)}
               </div>
-              <div className="text-[10px] text-text-secondary">
+              <div className="text-xs text-text-secondary">
                 {formatAmps(metrics.current, metrics.power, metrics.voltage)}
               </div>
             </div>
@@ -292,20 +508,35 @@ export function DeviceCard({ device, groups, onGroupChange, networkStats, isNewR
           {/* Secondary Metrics */}
           <div className="grid grid-cols-3 gap-3 pt-2 border-t border-border/50">
             <div>
-              <div className="text-xs text-text-secondary mb-1">Efficiency</div>
-              <div className="text-xs font-medium text-text-primary">
+              <div className="text-xs text-success mb-1 flex items-center gap-1">
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zm6-4a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm6-3a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
+                </svg>
+                Efficiency
+              </div>
+              <div className="text-sm font-medium text-text-primary">
                 {metrics.efficiency ? `${metrics.efficiency.toFixed(1)} J/TH` : '--'}
               </div>
             </div>
             <div>
-              <div className="text-xs text-text-secondary mb-1">Shares</div>
-              <div className="text-xs font-medium text-success">
+              <div className="text-xs text-success mb-1 flex items-center gap-1">
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+                Shares
+              </div>
+              <div className="text-sm font-medium text-success">
                 {metrics.sharesAccepted?.toLocaleString() || '0'}
               </div>
             </div>
             <div>
-              <div className="text-xs text-text-secondary mb-1">Fan</div>
-              <div className="text-xs font-medium text-text-primary">
+              <div className="text-xs text-text-secondary mb-1 flex items-center gap-1">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Fan
+              </div>
+              <div className="text-sm font-medium text-text-primary">
                 {metrics.fanspeed ? `${metrics.fanspeed}%` : '--'}
               </div>
             </div>

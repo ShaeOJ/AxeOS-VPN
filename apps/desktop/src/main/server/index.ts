@@ -672,8 +672,8 @@ function getWebDashboardHtml(): string {
     @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
     .metrics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
     .metric { text-align: center; }
-    .metric-label { font-size: 10px; color: #8BA88B; text-transform: uppercase; }
-    .metric-value { font-size: 14px; font-weight: 600; }
+    .metric-label { font-size: 10px; color: #8BA88B; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 4px; }
+    .metric-value { font-size: 16px; font-weight: 600; }
     .login-container { max-width: 400px; margin: 100px auto; }
     .input {
       width: 100%;
@@ -689,10 +689,10 @@ function getWebDashboardHtml(): string {
     .error { color: #FF3131; margin-bottom: 16px; font-size: 14px; }
     .hidden { display: none !important; }
     .device-model { font-size: 11px; color: #00CED1; margin-top: 2px; }
-    .secondary-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #1a4a5c; }
+    .secondary-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #1a4a5c; }
     .secondary-stat { text-align: center; }
-    .secondary-stat-label { font-size: 9px; color: #8BA88B; text-transform: uppercase; }
-    .secondary-stat-value { font-size: 12px; font-weight: 500; }
+    .secondary-stat-label { font-size: 10px; color: #8BA88B; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 4px; }
+    .secondary-stat-value { font-size: 13px; font-weight: 600; }
     /* Device control bar */
     .device-control-bar { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; padding-top: 8px; border-top: 1px solid #1a4a5c; }
     .restart-btn { display: flex; align-items: center; gap: 4px; padding: 8px 12px; font-size: 12px; background: #1a3a4a; color: #8BA88B; border: 1px solid #2a5a6a; border-radius: 4px; cursor: pointer; transition: all 0.2s; min-height: 44px; }
@@ -780,9 +780,9 @@ function getWebDashboardHtml(): string {
       .stat-label { font-size: 11px; }
       .metrics-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
       .metric-value { font-size: 12px; }
-      .secondary-stats { grid-template-columns: repeat(5, 1fr); gap: 4px; }
-      .secondary-stat-value { font-size: 10px; }
-      .secondary-stat-label { font-size: 8px; }
+      .secondary-stats { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+      .secondary-stat-value { font-size: 12px; }
+      .secondary-stat-label { font-size: 9px; }
       .device-name { font-size: 14px; }
       .login-container { margin: 40px auto; padding: 0 12px; }
       .modal { width: 95%; max-height: 85vh; }
@@ -812,8 +812,8 @@ function getWebDashboardHtml(): string {
       .metric-label { font-size: 9px; }
       .metric-value { font-size: 11px; }
       .secondary-stats { grid-template-columns: repeat(3, 1fr); gap: 4px; }
-      .secondary-stat-label { font-size: 8px; }
-      .secondary-stat-value { font-size: 10px; }
+      .secondary-stat-label { font-size: 9px; }
+      .secondary-stat-value { font-size: 11px; }
       .device-header { flex-direction: row; align-items: flex-start; }
       .device-name { font-size: 13px; }
       .device-ip { font-size: 11px; }
@@ -2098,14 +2098,12 @@ function getWebDashboardHtml(): string {
           '</div>' : '') +
           '</div><div class="status-dot ' + (d.isOnline ? 'online' : 'offline') + '"></div></div>' +
           (d.isOnline && m ?
-            '<div class="metrics-grid"><div class="metric"><div class="metric-label">Hashrate</div><div class="metric-value accent">' + formatHashrate(m.hashRate) + '</div></div>' +
-            '<div class="metric"><div class="metric-label">Temp</div><div class="metric-value ' + getTempClass(m.temp) + '">' + formatTemp(m.temp) + '</div></div>' +
-            '<div class="metric"><div class="metric-label">Power</div><div class="metric-value">' + formatPower(m.power) + '<div style="font-size:10px;color:#8BA88B;margin-top:2px;">' + formatAmps(m.current, m.power, m.voltage) + '</div></div></div></div>' +
-            '<div class="secondary-stats"><div class="secondary-stat"><div class="secondary-stat-label">Efficiency</div><div class="secondary-stat-value">' + (m.efficiency ? m.efficiency.toFixed(1) + ' J/TH' : '--') + '</div></div>' +
-            '<div class="secondary-stat"><div class="secondary-stat-label">Freq</div><div class="secondary-stat-value">' + (m.frequency ? Math.round(m.frequency) + ' MHz' : '--') + '</div></div>' +
-            '<div class="secondary-stat"><div class="secondary-stat-label">Voltage</div><div class="secondary-stat-value">' + (m.coreVoltage ? m.coreVoltage + ' mV' : '--') + '</div></div>' +
-            '<div class="secondary-stat"><div class="secondary-stat-label">Fan</div><div class="secondary-stat-value">' + (m.fanspeed ? m.fanspeed + '%' : '--') + '</div></div>' +
-            '<div class="secondary-stat"><div class="secondary-stat-label">Shares</div><div class="secondary-stat-value success">' + (m.sharesAccepted || 0).toLocaleString() + '</div></div></div>' +
+            '<div class="metrics-grid"><div class="metric"><div class="metric-label accent"><svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>Hashrate</div><div class="metric-value accent">' + formatHashrate(m.hashRate) + '</div></div>' +
+            '<div class="metric"><div class="metric-label ' + getTempClass(m.temp) + '"><svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 2a1 1 0 011 1v6.5a.5.5 0 00.5.5h.5a.5.5 0 01.5.5V12a4 4 0 11-5 0v-1.5a.5.5 0 01.5-.5h.5a.5.5 0 00.5-.5V3a1 1 0 011-1z" clip-rule="evenodd"/></svg>Temp</div><div class="metric-value ' + getTempClass(m.temp) + '">' + formatTemp(m.temp) + '</div></div>' +
+            '<div class="metric"><div class="metric-label" style="color:#00CED1;"><svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>Power</div><div class="metric-value">' + formatPower(m.power) + '<div style="font-size:11px;color:#8BA88B;margin-top:2px;">' + formatAmps(m.current, m.power, m.voltage) + '</div></div></div></div>' +
+            '<div class="secondary-stats"><div class="secondary-stat"><div class="secondary-stat-label success"><svg width="10" height="10" viewBox="0 0 20 20" fill="currentColor"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zm6-4a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm6-3a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>Efficiency</div><div class="secondary-stat-value">' + (m.efficiency ? m.efficiency.toFixed(1) + ' J/TH' : '--') + '</div></div>' +
+            '<div class="secondary-stat"><div class="secondary-stat-label success"><svg width="10" height="10" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>Shares</div><div class="secondary-stat-value success">' + (m.sharesAccepted || 0).toLocaleString() + '</div></div>' +
+            '<div class="secondary-stat"><div class="secondary-stat-label"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Fan</div><div class="secondary-stat-value">' + (m.fanspeed ? m.fanspeed + '%' : '--') + '</div></div></div>' +
             (blockChance ? '<div style="padding:8px 12px;border-top:1px solid rgba(58,90,110,0.3);display:flex;align-items:center;justify-content:space-between;">' +
               '<div style="display:flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 20 20" fill="#FF8C00"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>' +
               '<span style="font-size:10px;color:#8BA88B;">Solo Block</span></div>' +
