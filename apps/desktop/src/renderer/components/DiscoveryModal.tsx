@@ -154,8 +154,8 @@ export function DiscoveryModal({ isOpen, onClose }: Props) {
   const progressPercent = progress ? Math.round((progress.scanned / progress.total) * 100) : 0;
 
   return (
-    <div className={`fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 ${isClosing ? 'animate-modal-backdrop-out' : 'animate-modal-backdrop-in'}`}>
-      <div className={`bg-bg-secondary border-2 border-border rounded-lg w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl ${isClosing ? 'animate-modal-out' : 'animate-modal-in'}`}>
+    <div className={`fixed inset-0 bg-black/80 flex items-start justify-center z-50 p-4 pt-8 overflow-y-auto ${isClosing ? 'animate-modal-backdrop-out' : 'animate-modal-backdrop-in'}`}>
+      <div className={`bg-bg-secondary border-2 border-border rounded-lg w-full max-w-2xl flex flex-col shadow-2xl my-auto ${isClosing ? 'animate-modal-out' : 'animate-modal-in'}`} style={{ maxHeight: 'calc(100vh - 4rem)' }}>
         {/* Header */}
         <div className="p-4 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-3">
