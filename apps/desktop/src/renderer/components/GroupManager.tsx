@@ -91,7 +91,7 @@ export function GroupManager({ isOpen, onClose }: GroupManagerProps) {
   };
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-start justify-center p-4 pt-8 overflow-y-auto ${isClosing ? 'animate-modal-backdrop-out' : 'animate-modal-backdrop-in'}`}>
+    <div className={`fixed inset-0 z-50 flex items-start justify-center p-4 overflow-y-auto ${isClosing ? 'animate-modal-backdrop-out' : 'animate-modal-backdrop-in'}`}>
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/70 backdrop-blur-sm"
@@ -99,7 +99,7 @@ export function GroupManager({ isOpen, onClose }: GroupManagerProps) {
       />
 
       {/* Modal */}
-      <div className={`relative w-full max-w-md bg-bg-secondary border-2 border-border rounded-xl overflow-hidden my-auto ${isClosing ? 'animate-modal-out' : 'animate-modal-in'}`} style={{ maxHeight: 'calc(100vh - 4rem)' }}>
+      <div className={`relative w-full max-w-md bg-bg-secondary border-2 border-border rounded-xl overflow-hidden mt-4 mb-4 ${isClosing ? 'animate-modal-out' : 'animate-modal-in'}`} style={{ maxHeight: 'calc(100vh - 2rem)' }}>
         {/* Header */}
         <div className="p-4 border-b border-border flex items-center justify-between">
           <h2 className="text-lg font-bold text-accent uppercase tracking-wider">Manage Groups</h2>
