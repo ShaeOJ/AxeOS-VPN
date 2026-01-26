@@ -109,9 +109,15 @@ export function ProfitabilityDisplay() {
       // Get online devices with metrics
       const onlineDevices = devices.filter(d => d.isOnline && d.latestMetrics);
 
-      if (onlineDevices.length === 0 || !coinPrice) {
+      if (onlineDevices.length === 0) {
         setProfitability(null);
         setLoading(false);
+        return;
+      }
+
+      // If we have devices but no price yet, keep loading
+      if (!coinPrice) {
+        setLoading(true);
         return;
       }
 
@@ -166,6 +172,7 @@ export function ProfitabilityDisplay() {
     setSelectedMiningCoin(coin);
     setShowCoinSelector(false);
     setLoading(true);
+    setCoinPrice(null); // Reset price to trigger fresh fetch
     try {
       await window.electronAPI.setSetting('mining_coin', coin);
     } catch (err) {
