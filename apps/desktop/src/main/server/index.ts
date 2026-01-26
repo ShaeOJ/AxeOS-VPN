@@ -1963,6 +1963,52 @@ function getWebDashboardHtml(): string {
         html += '<div class="detail-item"><div class="detail-label">' + iconLabel('temp', 'VR Temp', m.vrTemp > 80 ? '#FF3131' : m.vrTemp > 70 ? '#FF8C00' : '#00FF41') + '</div><div class="detail-value">' + formatTemp(m.vrTemp) + '</div></div>';
         html += '</div>';
 
+        // Device Control Panel (moved here, under Hardware)
+        html += '<div class="section-title" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="toggleControlPanel()">';
+        html += '<div style="display:flex;align-items:center;gap:8px;">';
+        html += '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFB000" stroke-width="2"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>';
+        html += 'Device Control</div>';
+        html += '<svg id="control-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8BA88B" stroke-width="2" style="transition:transform 0.2s;"><path d="M6 9l6 6 6-6"/></svg>';
+        html += '</div>';
+
+        html += '<div id="control-panel" style="display:none;margin-top:12px;">';
+        html += '<div style="background:rgba(255,140,0,0.1);border:1px solid rgba(255,140,0,0.3);padding:10px;margin-bottom:12px;font-size:11px;color:#FF8C00;">';
+        html += '<strong>⚠️ Warning:</strong> Changing these settings may affect device stability. Use with caution.';
+        html += '</div>';
+
+        // Fan Speed
+        html += '<div style="margin-bottom:16px;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
+        html += '<label style="color:#8BA88B;font-size:12px;">Fan Speed</label>';
+        html += '<span id="fan-value" style="color:#FFB000;font-size:12px;">' + (m.fanspeed || 0) + '%</span>';
+        html += '</div>';
+        html += '<input type="range" id="fan-slider" min="0" max="100" value="' + (m.fanspeed || 0) + '" style="width:100%;cursor:pointer;" oninput="document.getElementById(\\'fan-value\\').textContent=this.value+\\'%\\'">';
+        html += '<button onclick="applyFanSpeed()" style="margin-top:8px;padding:12px 16px;background:#1a4a5c;border:1px solid #00CED1;color:#00CED1;cursor:pointer;font-size:14px;min-height:44px;width:100%;touch-action:manipulation;">Apply Fan Speed</button>';
+        html += '</div>';
+
+        // Frequency
+        html += '<div style="margin-bottom:16px;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
+        html += '<label style="color:#8BA88B;font-size:12px;">Frequency</label>';
+        html += '<span id="freq-value" style="color:#FFB000;font-size:12px;">' + Math.round(m.frequency || 485) + ' MHz</span>';
+        html += '</div>';
+        html += '<input type="range" id="freq-slider" min="400" max="900" step="5" value="' + Math.round(m.frequency || 485) + '" style="width:100%;cursor:pointer;" oninput="document.getElementById(\\'freq-value\\').textContent=this.value+\\' MHz\\'">';
+        html += '<button onclick="applyFrequency()" style="margin-top:8px;padding:12px 16px;background:#1a4a5c;border:1px solid #00CED1;color:#00CED1;cursor:pointer;font-size:14px;min-height:44px;width:100%;touch-action:manipulation;">Apply Frequency</button>';
+        html += '</div>';
+
+        // Core Voltage
+        html += '<div style="margin-bottom:16px;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
+        html += '<label style="color:#8BA88B;font-size:12px;">Core Voltage</label>';
+        html += '<span id="voltage-value" style="color:#FFB000;font-size:12px;">' + (m.coreVoltage || 1200) + ' mV</span>';
+        html += '</div>';
+        html += '<input type="range" id="voltage-slider" min="1000" max="1300" step="10" value="' + (m.coreVoltage || 1200) + '" style="width:100%;cursor:pointer;" oninput="document.getElementById(\\'voltage-value\\').textContent=this.value+\\' mV\\'">';
+        html += '<button onclick="applyVoltage()" style="margin-top:8px;padding:12px 16px;background:#1a4a5c;border:1px solid #00CED1;color:#00CED1;cursor:pointer;font-size:14px;min-height:44px;width:100%;touch-action:manipulation;">Apply Voltage</button>';
+        html += '</div>';
+
+        html += '<div id="control-status" style="display:none;padding:8px;margin-top:8px;font-size:11px;"></div>';
+        html += '</div>';
+
         html += '<div class="section-title" style="display:flex;align-items:center;gap:8px;">' + ICONS.shares + 'Mining Stats</div><div class="detail-grid">';
         html += '<div class="detail-item"><div class="detail-label">' + iconLabel('shares', isCluster ? 'Cluster Accepted' : 'Shares Accepted', '#00FF41') + '</div><div class="detail-value success">' + (m.sharesAccepted || 0).toLocaleString() + '</div></div>';
         html += '<div class="detail-item"><div class="detail-label">' + iconLabel('rejected', isCluster ? 'Cluster Rejected' : 'Shares Rejected', '#FF3131') + '</div><div class="detail-value danger">' + (m.sharesRejected || 0).toLocaleString() + '</div></div>';
@@ -2040,52 +2086,6 @@ function getWebDashboardHtml(): string {
           });
           html += '</tbody></table></div>';
         }
-
-        // Device Control Panel
-        html += '<div class="section-title" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="toggleControlPanel()">';
-        html += '<div style="display:flex;align-items:center;gap:8px;">';
-        html += '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFB000" stroke-width="2"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>';
-        html += 'Device Control</div>';
-        html += '<svg id="control-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8BA88B" stroke-width="2" style="transition:transform 0.2s;"><path d="M6 9l6 6 6-6"/></svg>';
-        html += '</div>';
-
-        html += '<div id="control-panel" style="display:none;margin-top:12px;">';
-        html += '<div style="background:rgba(255,140,0,0.1);border:1px solid rgba(255,140,0,0.3);padding:10px;margin-bottom:12px;font-size:11px;color:#FF8C00;">';
-        html += '<strong>⚠️ Warning:</strong> Changing these settings may affect device stability. Use with caution.';
-        html += '</div>';
-
-        // Fan Speed
-        html += '<div style="margin-bottom:16px;">';
-        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
-        html += '<label style="color:#8BA88B;font-size:12px;">Fan Speed</label>';
-        html += '<span id="fan-value" style="color:#FFB000;font-size:12px;">' + (m.fanspeed || 0) + '%</span>';
-        html += '</div>';
-        html += '<input type="range" id="fan-slider" min="0" max="100" value="' + (m.fanspeed || 0) + '" style="width:100%;cursor:pointer;" oninput="document.getElementById(\\'fan-value\\').textContent=this.value+\\'%\\'">';
-        html += '<button onclick="applyFanSpeed()" style="margin-top:8px;padding:12px 16px;background:#1a4a5c;border:1px solid #00CED1;color:#00CED1;cursor:pointer;font-size:14px;min-height:44px;width:100%;touch-action:manipulation;">Apply Fan Speed</button>';
-        html += '</div>';
-
-        // Frequency
-        html += '<div style="margin-bottom:16px;">';
-        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
-        html += '<label style="color:#8BA88B;font-size:12px;">Frequency</label>';
-        html += '<span id="freq-value" style="color:#FFB000;font-size:12px;">' + Math.round(m.frequency || 485) + ' MHz</span>';
-        html += '</div>';
-        html += '<input type="range" id="freq-slider" min="400" max="900" step="5" value="' + Math.round(m.frequency || 485) + '" style="width:100%;cursor:pointer;" oninput="document.getElementById(\\'freq-value\\').textContent=this.value+\\' MHz\\'">';
-        html += '<button onclick="applyFrequency()" style="margin-top:8px;padding:12px 16px;background:#1a4a5c;border:1px solid #00CED1;color:#00CED1;cursor:pointer;font-size:14px;min-height:44px;width:100%;touch-action:manipulation;">Apply Frequency</button>';
-        html += '</div>';
-
-        // Core Voltage
-        html += '<div style="margin-bottom:16px;">';
-        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
-        html += '<label style="color:#8BA88B;font-size:12px;">Core Voltage</label>';
-        html += '<span id="voltage-value" style="color:#FFB000;font-size:12px;">' + (m.coreVoltage || 1200) + ' mV</span>';
-        html += '</div>';
-        html += '<input type="range" id="voltage-slider" min="1000" max="1300" step="10" value="' + (m.coreVoltage || 1200) + '" style="width:100%;cursor:pointer;" oninput="document.getElementById(\\'voltage-value\\').textContent=this.value+\\' mV\\'">';
-        html += '<button onclick="applyVoltage()" style="margin-top:8px;padding:12px 16px;background:#1a4a5c;border:1px solid #00CED1;color:#00CED1;cursor:pointer;font-size:14px;min-height:44px;width:100%;touch-action:manipulation;">Apply Voltage</button>';
-        html += '</div>';
-
-        html += '<div id="control-status" style="display:none;padding:8px;margin-top:8px;font-size:11px;"></div>';
-        html += '</div>';
       } else {
         html += '</div><p style="color:#8BA88B;text-align:center;padding:20px;">No metrics available</p>';
       }
