@@ -126,8 +126,8 @@ export function PairingModal({ onClose }: PairingModalProps) {
   };
 
   return (
-    <div className={`fixed inset-0 bg-black/50 flex items-center justify-center z-50 ${isClosing ? 'animate-modal-backdrop-out' : 'animate-modal-backdrop-in'}`}>
-      <div className={`bg-bg-secondary rounded-xl border border-border w-full max-w-lg m-4 max-h-[90vh] overflow-auto ${isClosing ? 'animate-modal-out' : 'animate-modal-in'}`}>
+    <div className={`fixed inset-0 bg-black/50 flex items-start justify-center z-50 p-4 overflow-y-auto ${isClosing ? 'animate-modal-backdrop-out' : 'animate-modal-backdrop-in'}`}>
+      <div className={`bg-bg-secondary rounded-xl border border-border w-full max-w-lg mt-4 mb-4 overflow-auto ${isClosing ? 'animate-modal-out' : 'animate-modal-in'}`} style={{ maxHeight: 'calc(100vh - 2rem)' }}>
         <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="text-lg font-medium text-text-primary">Add Mining Device</h2>
           <button
