@@ -63,9 +63,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getPriceHistory: (coinId: string, currency?: string, days?: number) => ipcRenderer.invoke('get-price-history', coinId, currency, days),
 
   // Profitability Calculator
-  getNetworkStats: () => ipcRenderer.invoke('get-network-stats'),
-  calculateProfitability: (hashrateGH: number, powerWatts: number, btcPriceUsd: number, electricityCost?: number) =>
-    ipcRenderer.invoke('calculate-profitability', hashrateGH, powerWatts, btcPriceUsd, electricityCost),
+  getNetworkStats: (coin?: string) => ipcRenderer.invoke('get-network-stats', coin),
+  calculateProfitability: (coin: string, hashrateGH: number, powerWatts: number, cryptoPriceUsd: number, electricityCost?: number) =>
+    ipcRenderer.invoke('calculate-profitability', coin, hashrateGH, powerWatts, cryptoPriceUsd, electricityCost),
+  getMiningCoins: () => ipcRenderer.invoke('get-supported-coins'),
+  fetchMiningCoinPrice: (coin: string, currency: string) => ipcRenderer.invoke('fetch-coin-price', coin, currency),
 
   // Password Management
   isPasswordSet: () => ipcRenderer.invoke('is-password-set'),
@@ -246,10 +248,21 @@ export interface PriceHistoryPoint {
 export type BitcoinPrice = CryptoPrice;
 
 export interface NetworkStats {
+  coin: string;
   difficulty: number;
   blockReward: number;
-  blockHeight: number;
+  blockHeight?: number;
+  blockTimeSeconds: number;
   lastUpdated: number;
+}
+
+export interface MiningCoinConfig {
+  id: string;
+  name: string;
+  symbol: string;
+  blockReward: number;
+  blockTimeSeconds: number;
+  coingeckoId: string;
 }
 
 export interface DiscoveredDevice {
@@ -310,14 +323,14 @@ export interface DeviceControlResult {
 }
 
 export interface ProfitabilityResult {
-  dailyBtc: number;
-  weeklyBtc: number;
-  monthlyBtc: number;
-  yearlyBtc: number;
-  dailyUsd: number;
-  weeklyUsd: number;
-  monthlyUsd: number;
-  yearlyUsd: number;
+  dailyCrypto: number;
+  weeklyCrypto: number;
+  monthlyCrypto: number;
+  yearlyCrypto: number;
+  dailyFiat: number;
+  weeklyFiat: number;
+  monthlyFiat: number;
+  yearlyFiat: number;
   dailyPowerCost: number;
   weeklyPowerCost: number;
   monthlyPowerCost: number;
@@ -326,11 +339,15 @@ export interface ProfitabilityResult {
   weeklyProfit: number;
   monthlyProfit: number;
   yearlyProfit: number;
+  coin: string;
+  coinSymbol: string;
   hashrate: number;
   power: number;
   difficulty: number;
-  btcPrice: number;
+  cryptoPrice: number;
   electricityCost: number;
+  blockReward: number;
+  blockTimeSeconds: number;
 }
 
 interface UpdateCheckResult {
@@ -391,8 +408,10 @@ declare global {
       getSupportedCurrencies: () => Promise<CurrencyInfo[]>;
       getPriceHistory: (coinId: string, currency?: string, days?: number) => Promise<PriceHistoryPoint[]>;
 
-      getNetworkStats: () => Promise<NetworkStats | null>;
-      calculateProfitability: (hashrateGH: number, powerWatts: number, btcPriceUsd: number, electricityCost?: number) => Promise<ProfitabilityResult | null>;
+      getNetworkStats: (coin?: string) => Promise<NetworkStats | null>;
+      calculateProfitability: (coin: string, hashrateGH: number, powerWatts: number, cryptoPriceUsd: number, electricityCost?: number) => Promise<ProfitabilityResult | null>;
+      getMiningCoins: () => Promise<MiningCoinConfig[]>;
+      fetchMiningCoinPrice: (coin: string, currency: string) => Promise<number | null>;
 
       isPasswordSet: () => Promise<boolean>;
       changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;

@@ -298,7 +298,7 @@ body::after {
 
 .scanline-animate::after {
   content: '';
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
   right: 0;
@@ -319,7 +319,7 @@ body::after {
     top: -4px;
   }
   100% {
-    top: 100%;
+    top: 100vh;
   }
 }
 

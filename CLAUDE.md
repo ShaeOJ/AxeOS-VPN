@@ -10,11 +10,34 @@ Vault-Tec Mining Operations Division - BitAxe Monitoring System for managing mul
 - **Charts**: Recharts
 - **Build**: electron-vite + electron-builder
 
-## Current Version: v1.6.1
+## Current Version: v1.7.0
 
 ---
 
-## Recent Changes (v1.6.1 BETA)
+## Recent Changes (v1.7.0)
+
+### Multi-Coin Earnings Calculator
+- **Coin Selector** - Switch between BTC, BCH, and DGB for profitability calculations
+- **Coin-Specific Network Stats** - Fetches difficulty from blockchain.info (BTC), Blockchair (BCH), DigiExplorer (DGB)
+- **Accurate Block Rewards** - Uses correct block rewards per coin (3.125 BTC/BCH, 665 DGB)
+- **Multi-Algo Support** - DGB SHA-256 calculations account for 1-of-5 algo rotation (75s effective block time)
+- **CoinGecko Integration** - Live price fetching for all supported coins
+- **Settings Persistence** - Selected coin saved and restored between sessions
+
+### UI/UX Improvements
+- **Device Card Icons** - Added themed icons to all stat labels (hashrate, temp, power, efficiency, shares, fan)
+- **Improved Typography** - Larger font sizes and better visual hierarchy on device cards
+- **Web UI Layout** - Changed secondary stats from 5-col to 3-col grid for better readability
+- **Adaptive Modals** - Discovery, Groups, and Add Device modals now adapt to window size
+- **Mobile Theme Menu** - Fixed theme dropdown getting cut off on mobile browsers
+
+### Bitmain S9 Fixes
+- **Amps Calculation** - Fixed to use mains voltage (120V) instead of chain voltage
+- **Per-Board Stats** - Display shows "~7.08 A (3 boards)" for multi-board miners
+
+---
+
+## Previous Changes (v1.6.1 BETA)
 
 ### UI/UX Visual Enhancements
 - **Modal & Card Animations** - Smooth transitions with backdrop fade and content slide
@@ -75,9 +98,9 @@ Vault-Tec Mining Operations Division - BitAxe Monitoring System for managing mul
 ### Financial Tools
 | Feature | Description |
 |---------|-------------|
-| Bitcoin Price Ticker | Live BTC price display |
-| Profitability Calculator | Estimate earnings based on hashrate/power |
-| Network Stats | Bitcoin network difficulty and hashrate |
+| Multi-Coin Price Ticker | Live price display for BTC, BCH, DGB |
+| Multi-Coin Profitability | Estimate earnings for BTC, BCH, DGB with coin-specific calculations |
+| Network Stats | Difficulty and hashrate for selected coin |
 
 ### Analytics & Charts
 | Feature | Description |

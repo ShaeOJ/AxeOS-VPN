@@ -57,19 +57,26 @@ function parseDifficulty(value: unknown): number {
 }
 
 function formatTimeToBlock(days: number): string {
+  if (!days || days <= 0 || !isFinite(days)) return '--';
   if (days < 1) return `${Math.round(days * 24)} hours`;
   if (days < 30) return `${Math.round(days)} days`;
   if (days < 365) return `${(days / 30).toFixed(1)} months`;
-  if (days < 3650) return `${(days / 365).toFixed(1)} years`;
-  if (days < 36500) return `${Math.round(days / 365)} years`;
-  if (days < 365000) return `${(days / 365 / 1000).toFixed(1)}k years`;
-  return `${(days / 365 / 1e6).toFixed(1)}M years`;
+  const years = days / 365;
+  if (years < 10) return `${years.toFixed(1)} years`;
+  if (years < 1000) return `${Math.round(years)} years`;
+  if (years < 1e6) return `${(years / 1000).toFixed(1)}k years`;
+  if (years < 1e9) return `${(years / 1e6).toFixed(1)}M years`;
+  return `${(years / 1e9).toFixed(1)}B years`;
 }
 
 function formatCost(cost: number | null | undefined): string {
   if (cost === null || cost === undefined) return '--';
   return `$${cost.toFixed(2)}/day`;
 }
+
+type ViewMode = 'grid' | 'list';
+type SortField = 'name' | 'hashrate' | 'temp' | 'power' | 'shares';
+type SortDirection = 'asc' | 'desc';
 
 export function DashboardPage() {
   const { devices, groups, isLoading, error, fetchDevices, fetchGroups, setDeviceGroup } = useDeviceStore();
@@ -81,6 +88,70 @@ export function DashboardPage() {
   const [networkStats, setNetworkStats] = useState<{ difficulty: number; blockReward: number; blockHeight: number } | null>(null);
   const [newRecordDevices, setNewRecordDevices] = useState<Set<string>>(new Set());
   const [electricityCost, setElectricityCost] = useState(0.10);
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    return (localStorage.getItem('dashboard-view-mode') as ViewMode) || 'grid';
+  });
+  const [sortField, setSortField] = useState<SortField>(() => {
+    return (localStorage.getItem('dashboard-sort-field') as SortField) || 'name';
+  });
+  const [sortDirection, setSortDirection] = useState<SortDirection>(() => {
+    return (localStorage.getItem('dashboard-sort-direction') as SortDirection) || 'asc';
+  });
+
+  // Save preferences
+  const handleViewModeChange = (mode: ViewMode) => {
+    setViewMode(mode);
+    localStorage.setItem('dashboard-view-mode', mode);
+  };
+
+  const handleSortChange = (field: SortField) => {
+    if (field === sortField) {
+      const newDir = sortDirection === 'asc' ? 'desc' : 'asc';
+      setSortDirection(newDir);
+      localStorage.setItem('dashboard-sort-direction', newDir);
+    } else {
+      setSortField(field);
+      setSortDirection('desc');
+      localStorage.setItem('dashboard-sort-field', field);
+      localStorage.setItem('dashboard-sort-direction', 'desc');
+    }
+  };
+
+  // Sort devices
+  const sortDevices = (deviceList: typeof devices) => {
+    return [...deviceList].sort((a, b) => {
+      let aVal: number | string = 0;
+      let bVal: number | string = 0;
+
+      switch (sortField) {
+        case 'name':
+          aVal = a.name.toLowerCase();
+          bVal = b.name.toLowerCase();
+          break;
+        case 'hashrate':
+          aVal = a.latestMetrics?.hashRate ?? 0;
+          bVal = b.latestMetrics?.hashRate ?? 0;
+          break;
+        case 'temp':
+          aVal = a.latestMetrics?.temp ?? 0;
+          bVal = b.latestMetrics?.temp ?? 0;
+          break;
+        case 'power':
+          aVal = a.latestMetrics?.power ?? 0;
+          bVal = b.latestMetrics?.power ?? 0;
+          break;
+        case 'shares':
+          aVal = a.latestMetrics?.sharesAccepted ?? 0;
+          bVal = b.latestMetrics?.sharesAccepted ?? 0;
+          break;
+      }
+
+      if (typeof aVal === 'string' && typeof bVal === 'string') {
+        return sortDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      }
+      return sortDirection === 'asc' ? (aVal as number) - (bVal as number) : (bVal as number) - (aVal as number);
+    });
+  };
 
   useEffect(() => {
     // Initial fetch - Layout handles the metrics listener
@@ -212,7 +283,7 @@ export function DashboardPage() {
   const dailyPowerCost = dailyKwh * electricityCost;
 
   // Calculate block chance (time to find a block)
-  const calculateDaysToBlock = () => {
+  const calculateBlockChance = () => {
     if (!networkStats || totalHashrate <= 0) return null;
     // Network hashrate in H/s: difficulty * 2^32 / 600 (average block time)
     const networkHashrateHs = (networkStats.difficulty * Math.pow(2, 32)) / 600;
@@ -223,21 +294,89 @@ export function DashboardPage() {
     // Blocks per day (144 on average)
     const blocksPerDay = 144;
     // Expected time to find a block (in days)
-    return 1 / (probPerBlock * blocksPerDay);
+    const daysToBlock = 1 / (probPerBlock * blocksPerDay);
+    // Daily probability (using 1 - (1-p)^n formula)
+    const dailyChance = 1 - Math.pow(1 - probPerBlock, blocksPerDay);
+    return { daysToBlock, dailyChance };
   };
-  const daysToBlock = calculateDaysToBlock();
+  const blockChance = calculateBlockChance();
+
+  // Format odds as percentage - always show decimal
+  const formatOdds = (prob: number): string => {
+    if (!prob || !isFinite(prob)) return '--';
+    const pct = prob * 100;
+    if (pct >= 1) return `${pct.toFixed(2)}%`;
+    if (pct >= 0.01) return `${pct.toFixed(4)}%`;
+    if (pct >= 0.0001) return `${pct.toFixed(6)}%`;
+    if (pct >= 0.000001) return `${pct.toFixed(8)}%`;
+    if (pct >= 0.00000001) return `${pct.toFixed(10)}%`;
+    if (pct >= 0.0000000001) return `${pct.toFixed(12)}%`;
+    // For extremely small values, show with enough precision
+    return `${pct.toFixed(14)}%`;
+  };
 
   return (
     <div className="p-6 space-y-6 animate-page-glitch">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-accent uppercase tracking-wider hover-glitch-rgb">Dashboard</h1>
           <p className="text-text-secondary">
             {onlineDevices.length} of {devices.length} devices online
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* View Toggle */}
+          <div className="flex items-center bg-bg-secondary border border-border rounded-lg overflow-hidden">
+            <button
+              onClick={() => handleViewModeChange('grid')}
+              className={`p-2 transition-colors ${viewMode === 'grid' ? 'bg-accent/20 text-accent' : 'text-text-secondary hover:text-text-primary'}`}
+              title="Grid view"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+              </svg>
+            </button>
+            <button
+              onClick={() => handleViewModeChange('list')}
+              className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-accent/20 text-accent' : 'text-text-secondary hover:text-text-primary'}`}
+              title="List view"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Sort Dropdown */}
+          <div className="relative group">
+            <button className="flex items-center gap-2 px-3 py-2 rounded-lg bg-bg-secondary border border-border text-text-secondary hover:text-text-primary hover:border-accent transition-colors">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+              </svg>
+              <span className="text-sm capitalize">{sortField}</span>
+              <svg className={`w-3 h-3 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+              </svg>
+            </button>
+            <div className="absolute right-0 top-full mt-1 bg-bg-secondary border border-border rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-20 min-w-[140px]">
+              {(['name', 'hashrate', 'temp', 'power', 'shares'] as SortField[]).map((field) => (
+                <button
+                  key={field}
+                  onClick={() => handleSortChange(field)}
+                  className={`w-full px-3 py-2 text-left text-sm capitalize hover:bg-bg-tertiary transition-colors flex items-center justify-between ${sortField === field ? 'text-accent' : 'text-text-secondary'}`}
+                >
+                  {field}
+                  {sortField === field && (
+                    <svg className={`w-3 h-3 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                    </svg>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <button
             onClick={() => setShowGroupManager(true)}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-bg-secondary border border-border text-text-primary font-medium hover:border-accent hover:text-accent transition-colors"
@@ -417,9 +556,14 @@ export function DashboardPage() {
             <div className="text-xs text-text-secondary uppercase tracking-wider">Block Time</div>
           </div>
           <div className="text-2xl font-bold text-accent" style={{ textShadow: '0 0 8px var(--color-accent)' }}>
-            {daysToBlock ? formatTimeToBlock(daysToBlock) : '--'}
+            {blockChance ? formatTimeToBlock(blockChance.daysToBlock) : '--'}
           </div>
           <div className="text-xs text-text-secondary mt-1">
+            {blockChance ? (
+              <span className="text-warning">{formatOdds(blockChance.dailyChance)}/day</span>
+            ) : null}
+          </div>
+          <div className="text-xs text-text-secondary">
             {networkStats ? `Diff: ${formatDifficulty(networkStats.difficulty)}` : 'Loading...'}
           </div>
         </div>
@@ -469,11 +613,11 @@ export function DashboardPage() {
       )}
 
       {/* Device Grid - Organized by Groups */}
-      {devices.length > 0 && (
+      {devices.length > 0 && viewMode === 'grid' && (
         <div className="space-y-4">
           {/* Grouped Devices */}
           {groups.map((group) => {
-            const groupDevices = devicesByGroup[group.id] || [];
+            const groupDevices = sortDevices(devicesByGroup[group.id] || []);
             if (groupDevices.length === 0) return null;
 
             const isCollapsed = collapsedGroups.has(group.id);
@@ -557,7 +701,7 @@ export function DashboardPage() {
               {!collapsedGroups.has('ungrouped') && (
                 <div className="p-4 pt-0">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {devicesByGroup['ungrouped'].map((device, index) => (
+                    {sortDevices(devicesByGroup['ungrouped']).map((device, index) => (
                       <div key={device.id} className={`animate-card-enter animate-card-enter-${Math.min(index + 1, 8)}`}>
                         <DeviceCard
                           device={device}
@@ -573,6 +717,124 @@ export function DashboardPage() {
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Device List View */}
+      {devices.length > 0 && viewMode === 'list' && (
+        <div className="rounded-xl bg-bg-secondary border border-border overflow-hidden overflow-x-auto">
+          {/* List Header */}
+          <div className="grid grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2 p-3 bg-bg-tertiary/50 border-b border-border text-xs text-text-secondary uppercase tracking-wider min-w-[500px]">
+            <div className="col-span-3 md:col-span-3 lg:col-span-3 flex items-center gap-1 cursor-pointer hover:text-accent" onClick={() => handleSortChange('name')}>
+              Device
+              {sortField === 'name' && (
+                <svg className={`w-3 h-3 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                </svg>
+              )}
+            </div>
+            <div className="col-span-2 md:col-span-2 lg:col-span-2 text-center">Status</div>
+            <div className="col-span-2 md:col-span-2 lg:col-span-2 flex items-center justify-center gap-1 cursor-pointer hover:text-accent" onClick={() => handleSortChange('hashrate')}>
+              Hashrate
+              {sortField === 'hashrate' && (
+                <svg className={`w-3 h-3 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                </svg>
+              )}
+            </div>
+            <div className="hidden md:flex col-span-1 items-center justify-center gap-1 cursor-pointer hover:text-accent" onClick={() => handleSortChange('temp')}>
+              Temp
+              {sortField === 'temp' && (
+                <svg className={`w-3 h-3 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                </svg>
+              )}
+            </div>
+            <div className="hidden md:flex col-span-1 items-center justify-center gap-1 cursor-pointer hover:text-accent" onClick={() => handleSortChange('power')}>
+              Power
+              {sortField === 'power' && (
+                <svg className={`w-3 h-3 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                </svg>
+              )}
+            </div>
+            <div className="hidden lg:flex col-span-1 items-center justify-center">Eff</div>
+            <div className="col-span-1 md:col-span-1 lg:col-span-2 flex items-center justify-center gap-1 cursor-pointer hover:text-accent" onClick={() => handleSortChange('shares')}>
+              <span className="hidden md:inline">Shares</span>
+              <span className="md:hidden">✓</span>
+              {sortField === 'shares' && (
+                <svg className={`w-3 h-3 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                </svg>
+              )}
+            </div>
+          </div>
+
+          {/* List Items */}
+          <div className="divide-y divide-border">
+            {sortDevices(devices).map((device, index) => {
+              const group = groups.find(g => g.id === device.groupId);
+              const metrics = device.latestMetrics;
+              const temp = metrics?.temp ?? 0;
+
+              return (
+                <a
+                  key={device.id}
+                  href={`#/device/${device.id}`}
+                  className={`grid grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2 p-3 hover:bg-bg-tertiary/30 transition-colors animate-card-enter animate-card-enter-${Math.min(index + 1, 8)} min-w-[500px]`}
+                >
+                  {/* Device Name */}
+                  <div className="col-span-3 md:col-span-3 lg:col-span-3 flex items-center gap-2">
+                    {group && (
+                      <div
+                        className="w-2 h-2 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: group.color }}
+                        title={group.name}
+                      />
+                    )}
+                    <span className="text-text-primary font-medium truncate">{device.name}</span>
+                  </div>
+
+                  {/* Status */}
+                  <div className="col-span-2 md:col-span-2 lg:col-span-2 flex items-center justify-center">
+                    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs ${
+                      device.isOnline ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'
+                    }`}>
+                      <div className={`w-1.5 h-1.5 rounded-full ${device.isOnline ? 'bg-success' : 'bg-danger'}`} />
+                      <span className="hidden sm:inline">{device.isOnline ? 'Online' : 'Offline'}</span>
+                    </span>
+                  </div>
+
+                  {/* Hashrate */}
+                  <div className="col-span-2 md:col-span-2 lg:col-span-2 flex items-center justify-center text-accent font-mono text-sm">
+                    {device.isOnline ? formatHashrate(metrics?.hashRate) : '--'}
+                  </div>
+
+                  {/* Temperature - hidden on mobile */}
+                  <div className={`hidden md:flex col-span-1 items-center justify-center font-mono text-sm ${
+                    temp > 80 ? 'text-danger' : temp > 70 ? 'text-warning' : 'text-success'
+                  }`}>
+                    {device.isOnline ? formatTemperature(metrics?.temp) : '--'}
+                  </div>
+
+                  {/* Power - hidden on mobile */}
+                  <div className="hidden md:flex col-span-1 items-center justify-center text-border-highlight font-mono text-sm">
+                    {device.isOnline ? formatPower(metrics?.power) : '--'}
+                  </div>
+
+                  {/* Efficiency - hidden on mobile and tablet */}
+                  <div className="hidden lg:flex col-span-1 items-center justify-center text-text-secondary font-mono text-sm">
+                    {device.isOnline && metrics?.hashRate ? formatEfficiency((metrics?.power ?? 0) / ((metrics?.hashRate ?? 1) / 1000)) : '--'}
+                  </div>
+
+                  {/* Shares */}
+                  <div className="col-span-1 md:col-span-1 lg:col-span-2 flex items-center justify-center text-success font-mono text-sm">
+                    {device.isOnline ? (metrics?.sharesAccepted ?? 0).toLocaleString() : '--'}
+                  </div>
+                </a>
+              );
+            })}
+          </div>
         </div>
       )}
 

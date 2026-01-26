@@ -1,16 +1,25 @@
 import { useState, useEffect } from 'react';
 import { useDeviceStore } from '../stores/deviceStore';
-import { useCryptoStore } from '../stores/cryptoStore';
+
+type MiningCoin = 'btc' | 'bch' | 'dgb';
+
+interface MiningCoinConfig {
+  id: MiningCoin;
+  name: string;
+  symbol: string;
+  blockReward: number;
+  blockTimeSeconds: number;
+}
 
 interface ProfitabilityResult {
-  dailyBtc: number;
-  weeklyBtc: number;
-  monthlyBtc: number;
-  yearlyBtc: number;
-  dailyUsd: number;
-  weeklyUsd: number;
-  monthlyUsd: number;
-  yearlyUsd: number;
+  dailyCrypto: number;
+  weeklyCrypto: number;
+  monthlyCrypto: number;
+  yearlyCrypto: number;
+  dailyFiat: number;
+  weeklyFiat: number;
+  monthlyFiat: number;
+  yearlyFiat: number;
   dailyPowerCost: number;
   weeklyPowerCost: number;
   monthlyPowerCost: number;
@@ -19,30 +28,46 @@ interface ProfitabilityResult {
   weeklyProfit: number;
   monthlyProfit: number;
   yearlyProfit: number;
+  coin: string;
+  coinSymbol: string;
   hashrate: number;
   power: number;
   difficulty: number;
-  btcPrice: number;
+  cryptoPrice: number;
   electricityCost: number;
+  blockReward: number;
+  blockTimeSeconds: number;
 }
 
 interface NetworkStats {
+  coin: string;
   difficulty: number;
   blockReward: number;
-  blockHeight: number;
+  blockHeight?: number;
+  blockTimeSeconds: number;
   lastUpdated: number;
 }
 
+const MINING_COINS: MiningCoinConfig[] = [
+  { id: 'btc', name: 'Bitcoin', symbol: 'BTC', blockReward: 3.125, blockTimeSeconds: 600 },
+  { id: 'bch', name: 'Bitcoin Cash', symbol: 'BCH', blockReward: 3.125, blockTimeSeconds: 600 },
+  { id: 'dgb', name: 'DigiByte', symbol: 'DGB', blockReward: 665, blockTimeSeconds: 15 },
+];
+
 export function ProfitabilityDisplay() {
   const { devices } = useDeviceStore();
-  const { price: cryptoPrice, selectedCoin, selectedCurrency } = useCryptoStore();
+  const [selectedMiningCoin, setSelectedMiningCoin] = useState<MiningCoin>('btc');
+  const [coinPrice, setCoinPrice] = useState<number | null>(null);
   const [profitability, setProfitability] = useState<ProfitabilityResult | null>(null);
   const [networkStats, setNetworkStats] = useState<NetworkStats | null>(null);
   const [electricityCost, setElectricityCost] = useState(0.10);
   const [loading, setLoading] = useState(true);
   const [showDetails, setShowDetails] = useState(false);
+  const [showCoinSelector, setShowCoinSelector] = useState(false);
 
-  // Load electricity cost setting
+  const selectedCoinConfig = MINING_COINS.find(c => c.id === selectedMiningCoin) || MINING_COINS[0];
+
+  // Load electricity cost and saved mining coin setting
   useEffect(() => {
     const loadSettings = async () => {
       try {
@@ -50,20 +75,41 @@ export function ProfitabilityDisplay() {
         if (settings['electricity_cost']) {
           setElectricityCost(parseFloat(settings['electricity_cost']));
         }
+        if (settings['mining_coin']) {
+          const savedCoin = settings['mining_coin'] as MiningCoin;
+          if (MINING_COINS.some(c => c.id === savedCoin)) {
+            setSelectedMiningCoin(savedCoin);
+          }
+        }
       } catch (err) {
-        console.error('Failed to load electricity cost:', err);
+        console.error('Failed to load settings:', err);
       }
     };
     loadSettings();
   }, []);
 
-  // Calculate profitability when devices, crypto price, or settings change
+  // Fetch coin price when coin changes
+  useEffect(() => {
+    const fetchPrice = async () => {
+      try {
+        const price = await window.electronAPI.fetchMiningCoinPrice(selectedMiningCoin, 'usd');
+        setCoinPrice(price);
+      } catch (err) {
+        console.error('Failed to fetch coin price:', err);
+      }
+    };
+    fetchPrice();
+    const interval = setInterval(fetchPrice, 60000); // Refresh every minute
+    return () => clearInterval(interval);
+  }, [selectedMiningCoin]);
+
+  // Calculate profitability when devices, coin, price, or settings change
   useEffect(() => {
     const calculateProfitability = async () => {
       // Get online devices with metrics
       const onlineDevices = devices.filter(d => d.isOnline && d.latestMetrics);
 
-      if (onlineDevices.length === 0) {
+      if (onlineDevices.length === 0 || !coinPrice) {
         setProfitability(null);
         setLoading(false);
         return;
@@ -75,8 +121,6 @@ export function ProfitabilityDisplay() {
 
       for (const device of onlineDevices) {
         if (device.latestMetrics) {
-          // Convert hashrate to GH/s (device reports in various units)
-          // BitAxe typically reports in GH/s already
           totalHashrateGH += device.latestMetrics.hashRate || 0;
           totalPowerWatts += device.latestMetrics.power || 0;
         }
@@ -88,24 +132,19 @@ export function ProfitabilityDisplay() {
         return;
       }
 
-      // Use price from crypto store
-      if (!cryptoPrice || !cryptoPrice.price) {
-        setLoading(false);
-        return;
-      }
-
       try {
-        // Get network stats
-        const stats = await window.electronAPI.getNetworkStats();
+        // Get network stats for selected coin
+        const stats = await window.electronAPI.getNetworkStats(selectedMiningCoin);
         if (stats) {
           setNetworkStats(stats);
         }
 
-        // Calculate profitability using the selected coin's price
+        // Calculate profitability for selected coin
         const result = await window.electronAPI.calculateProfitability(
+          selectedMiningCoin,
           totalHashrateGH,
           totalPowerWatts,
-          cryptoPrice.price,
+          coinPrice,
           electricityCost
         );
 
@@ -118,10 +157,21 @@ export function ProfitabilityDisplay() {
     };
 
     calculateProfitability();
-    // Refresh every 60 seconds
     const interval = setInterval(calculateProfitability, 60000);
     return () => clearInterval(interval);
-  }, [devices, electricityCost, cryptoPrice]);
+  }, [devices, electricityCost, coinPrice, selectedMiningCoin]);
+
+  // Handle coin change
+  const handleCoinChange = async (coin: MiningCoin) => {
+    setSelectedMiningCoin(coin);
+    setShowCoinSelector(false);
+    setLoading(true);
+    try {
+      await window.electronAPI.setSetting('mining_coin', coin);
+    } catch (err) {
+      console.error('Failed to save mining coin:', err);
+    }
+  };
 
   // Handle electricity cost change
   const handleElectricityCostChange = async (newCost: number) => {
@@ -133,16 +183,28 @@ export function ProfitabilityDisplay() {
     }
   };
 
-  const formatSats = (btc: number): string => {
-    const sats = Math.round(btc * 100000000);
-    return sats.toLocaleString();
+  const formatCryptoAmount = (amount: number): string => {
+    if (selectedMiningCoin === 'btc' || selectedMiningCoin === 'bch') {
+      const sats = Math.round(amount * 100000000);
+      return sats.toLocaleString();
+    }
+    // DGB
+    if (amount < 1) return amount.toFixed(4);
+    if (amount < 100) return amount.toFixed(2);
+    return amount.toFixed(0);
+  };
+
+  const getCryptoUnit = (): string => {
+    if (selectedMiningCoin === 'btc' || selectedMiningCoin === 'bch') {
+      return 'sats';
+    }
+    return selectedCoinConfig.symbol;
   };
 
   const formatCurrency = (value: number): string => {
-    const currencyCode = selectedCurrency?.code?.toUpperCase() || 'USD';
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: currencyCode,
+      currency: 'USD',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(value);
@@ -152,6 +214,7 @@ export function ProfitabilityDisplay() {
     if (diff >= 1e12) return (diff / 1e12).toFixed(2) + 'T';
     if (diff >= 1e9) return (diff / 1e9).toFixed(2) + 'B';
     if (diff >= 1e6) return (diff / 1e6).toFixed(2) + 'M';
+    if (diff >= 1e3) return (diff / 1e3).toFixed(2) + 'K';
     return diff.toLocaleString();
   };
 
@@ -159,22 +222,13 @@ export function ProfitabilityDisplay() {
   const calculateBlockChance = () => {
     if (!networkStats || !profitability || profitability.hashrate <= 0) return null;
 
-    // Network hashrate in H/s: difficulty * 2^32 / 600 (average block time in seconds)
-    const networkHashrateHs = (networkStats.difficulty * Math.pow(2, 32)) / 600;
-    // Convert our hashrate from GH/s to H/s
+    const blockTimeSeconds = profitability.blockTimeSeconds;
+    const networkHashrateHs = (networkStats.difficulty * Math.pow(2, 32)) / blockTimeSeconds;
     const ourHashrateHs = profitability.hashrate * 1e9;
-
-    // Probability of finding any given block
     const probPerBlock = ourHashrateHs / networkHashrateHs;
-
-    // Blocks per day (144 on average - one every 10 minutes)
-    const blocksPerDay = 144;
-
-    // Expected time to find a block (in days)
+    const blocksPerDay = 86400 / blockTimeSeconds;
     const daysToBlock = 1 / (probPerBlock * blocksPerDay);
 
-    // Probability of finding at least one block in time period
-    // P(at least 1) = 1 - P(none) = 1 - (1 - p)^n
     const probDaily = 1 - Math.pow(1 - probPerBlock, blocksPerDay);
     const probWeekly = 1 - Math.pow(1 - probPerBlock, blocksPerDay * 7);
     const probMonthly = 1 - Math.pow(1 - probPerBlock, blocksPerDay * 30);
@@ -186,7 +240,7 @@ export function ProfitabilityDisplay() {
       probWeekly,
       probMonthly,
       probYearly,
-      networkHashrateEH: networkHashrateHs / 1e18, // Convert to EH/s for display
+      networkHashrateEH: networkHashrateHs / 1e18,
     };
   };
 
@@ -209,10 +263,6 @@ export function ProfitabilityDisplay() {
   };
 
   const blockChance = calculateBlockChance();
-
-  // Get coin symbol for display
-  const coinSymbol = selectedCoin?.symbol || 'BTC';
-  const coinName = selectedCoin?.name || 'Bitcoin';
 
   if (loading) {
     return (
@@ -239,33 +289,69 @@ export function ProfitabilityDisplay() {
 
   return (
     <div className="p-3 border-b border-border/30 bg-bg-tertiary/30 flex-shrink-0">
-      {/* Header with toggle */}
-      <button
-        onClick={() => setShowDetails(!showDetails)}
-        className="w-full text-left"
-      >
-        <div className="text-[10px] text-text-secondary uppercase tracking-wider mb-1 flex items-center gap-1">
-          <svg className="w-2.5 h-2.5 text-accent flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <span className="truncate">Earnings ({coinSymbol})</span>
-          <svg
-            className={`w-2.5 h-2.5 ml-auto flex-shrink-0 transition-transform ${showDetails ? 'rotate-180' : ''}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+      {/* Header with coin selector and toggle */}
+      <div className="flex items-center justify-between mb-1">
+        <button
+          onClick={() => setShowDetails(!showDetails)}
+          className="text-left flex-1"
+        >
+          <div className="text-[10px] text-text-secondary uppercase tracking-wider flex items-center gap-1">
+            <svg className="w-2.5 h-2.5 text-accent flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="truncate">Earnings</span>
+            <svg
+              className={`w-2.5 h-2.5 ml-1 flex-shrink-0 transition-transform ${showDetails ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </button>
+
+        {/* Coin selector button */}
+        <div className="relative">
+          <button
+            onClick={() => setShowCoinSelector(!showCoinSelector)}
+            className="px-2 py-0.5 text-[10px] font-mono bg-accent/20 text-accent rounded hover:bg-accent/30 transition-colors flex items-center gap-1"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
+            {selectedCoinConfig.symbol}
+            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          {/* Coin dropdown */}
+          {showCoinSelector && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setShowCoinSelector(false)} />
+              <div className="absolute right-0 top-full mt-1 bg-bg-secondary border border-border rounded-lg shadow-lg z-50 min-w-[120px]">
+                {MINING_COINS.map((coin) => (
+                  <button
+                    key={coin.id}
+                    onClick={() => handleCoinChange(coin.id)}
+                    className={`w-full px-3 py-2 text-left text-xs hover:bg-bg-tertiary transition-colors first:rounded-t-lg last:rounded-b-lg ${
+                      selectedMiningCoin === coin.id ? 'bg-accent/10 text-accent' : 'text-text-primary'
+                    }`}
+                  >
+                    <div className="font-medium">{coin.symbol}</div>
+                    <div className="text-[10px] text-text-secondary">{coin.name}</div>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
-      </button>
+      </div>
 
       {/* Daily earnings summary */}
       <div className="space-y-0.5">
         <div className="flex justify-between items-baseline">
           <span className="text-[10px] text-text-secondary">Daily:</span>
           <span className="text-xs font-mono text-accent terminal-glow">
-            {formatSats(profitability.dailyBtc)} sats
+            {formatCryptoAmount(profitability.dailyCrypto)} {getCryptoUnit()}
           </span>
         </div>
         <div className="flex justify-between items-baseline">
@@ -279,9 +365,9 @@ export function ProfitabilityDisplay() {
       {/* Expanded details */}
       {showDetails && (
         <div className="mt-3 pt-3 border-t border-border/30 space-y-3">
-          {/* Coin info */}
+          {/* Price info */}
           <div className="text-xs text-text-secondary/70 bg-bg-primary/50 rounded px-2 py-1">
-            Using {coinName} price: {formatCurrency(cryptoPrice?.price || 0)}
+            {selectedCoinConfig.name} price: {formatCurrency(coinPrice || 0)}
           </div>
 
           {/* Monthly earnings */}
@@ -289,7 +375,7 @@ export function ProfitabilityDisplay() {
             <div className="text-xs text-text-secondary uppercase tracking-wider mb-1">Monthly</div>
             <div className="flex justify-between text-xs">
               <span className="text-text-secondary">Earnings:</span>
-              <span className="font-mono text-accent">{formatSats(profitability.monthlyBtc)} sats</span>
+              <span className="font-mono text-accent">{formatCryptoAmount(profitability.monthlyCrypto)} {getCryptoUnit()}</span>
             </div>
             <div className="flex justify-between text-xs">
               <span className="text-text-secondary">Power Cost:</span>
@@ -306,28 +392,29 @@ export function ProfitabilityDisplay() {
           {/* Network stats */}
           {networkStats && (
             <div>
-              <div className="text-xs text-text-secondary uppercase tracking-wider mb-1">BTC Network</div>
+              <div className="text-xs text-text-secondary uppercase tracking-wider mb-1">{selectedCoinConfig.symbol} Network</div>
               <div className="flex justify-between text-xs">
                 <span className="text-text-secondary">Difficulty:</span>
                 <span className="font-mono text-text-terminal">{formatDifficulty(networkStats.difficulty)}</span>
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-text-secondary">Block Reward:</span>
-                <span className="font-mono text-text-terminal">{networkStats.blockReward} BTC</span>
+                <span className="font-mono text-text-terminal">{profitability.blockReward} {selectedCoinConfig.symbol}</span>
               </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-text-secondary">Block:</span>
-                <span className="font-mono text-text-terminal">#{networkStats.blockHeight.toLocaleString()}</span>
-              </div>
+              {networkStats.blockHeight && (
+                <div className="flex justify-between text-xs">
+                  <span className="text-text-secondary">Block:</span>
+                  <span className="font-mono text-text-terminal">#{networkStats.blockHeight.toLocaleString()}</span>
+                </div>
+              )}
               {blockChance && (
                 <div className="flex justify-between text-xs">
                   <span className="text-text-secondary">Network HR:</span>
-                  <span className="font-mono text-text-terminal">{blockChance.networkHashrateEH.toFixed(2)} EH/s</span>
-                </div>
-              )}
-              {selectedCoin?.id !== 'bitcoin' && (
-                <div className="text-[10px] text-warning mt-1">
-                  Note: Profitability calculated using Bitcoin network stats
+                  <span className="font-mono text-text-terminal">
+                    {blockChance.networkHashrateEH >= 0.01
+                      ? `${blockChance.networkHashrateEH.toFixed(2)} EH/s`
+                      : `${(blockChance.networkHashrateEH * 1000).toFixed(2)} PH/s`}
+                  </span>
                 </div>
               )}
             </div>

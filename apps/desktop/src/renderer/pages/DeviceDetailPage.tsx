@@ -71,6 +71,13 @@ export function DeviceDetailPage() {
   const [controlError, setControlError] = useState<string | null>(null);
   const [controlSuccess, setControlSuccess] = useState<string | null>(null);
 
+  // Pool settings state
+  const [poolURL, setPoolURL] = useState<string>('');
+  const [poolPort, setPoolPort] = useState<string>('3333');
+  const [poolWorker, setPoolWorker] = useState<string>('');
+  const [poolPassword, setPoolPassword] = useState<string>('');
+  const [showPoolEdit, setShowPoolEdit] = useState(false);
+
   useEffect(() => {
     if (deviceId) {
       loadHistoricalMetrics();
@@ -84,6 +91,18 @@ export function DeviceDetailPage() {
       if (m.fanspeed !== undefined) setFanSpeed(m.fanspeed);
       if (m.frequency !== undefined) setFrequency(m.frequency);
       if (m.coreVoltage !== undefined) setVoltage(m.coreVoltage);
+      // Pool settings - parse URL and port separately
+      if (m.stratumURL !== undefined) {
+        // Parse port from URL like "stratum+tcp://pool.example.com:3333"
+        const urlMatch = m.stratumURL.match(/^(.+):(\d+)$/);
+        if (urlMatch) {
+          setPoolURL(urlMatch[1]);
+          setPoolPort(urlMatch[2]);
+        } else {
+          setPoolURL(m.stratumURL);
+        }
+      }
+      if (m.stratumUser !== undefined) setPoolWorker(m.stratumUser);
     }
   }, [device?.latestMetrics]);
 
@@ -142,6 +161,42 @@ export function DeviceDetailPage() {
       }
     } catch (err) {
       setControlError('Failed to update voltage');
+    } finally {
+      setIsSavingControl(null);
+    }
+  };
+
+  const handleSavePoolSettings = async () => {
+    if (!device) return;
+    if (!poolURL.trim() || !poolWorker.trim()) {
+      setControlError('Pool URL and Worker are required');
+      return;
+    }
+    if (!poolPort.trim() || isNaN(parseInt(poolPort))) {
+      setControlError('Valid port number is required');
+      return;
+    }
+    setIsSavingControl('pool');
+    setControlError(null);
+    setControlSuccess(null);
+    try {
+      // Combine URL and port
+      const fullURL = `${poolURL.trim()}:${poolPort.trim()}`;
+      const result = await window.electronAPI.updatePoolSettings(
+        device.ipAddress,
+        fullURL,
+        poolWorker.trim(),
+        poolPassword.trim() || undefined
+      );
+      if (result.success) {
+        setControlSuccess('Pool settings updated! Restart device to apply changes.');
+        setShowPoolEdit(false);
+        setTimeout(() => setControlSuccess(null), 5000);
+      } else {
+        setControlError(result.error || 'Failed to update pool settings');
+      }
+    } catch (err) {
+      setControlError('Failed to update pool settings');
     } finally {
       setIsSavingControl(null);
     }
@@ -507,54 +562,151 @@ export function DeviceDetailPage() {
 
           {/* Pool Info - Vault-Tec Terminal Style */}
           <div className="vault-card p-4">
-            <div className="flex items-center gap-2 mb-4 pb-2 border-b border-border">
-              <svg className="w-5 h-5 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
-              </svg>
-              <h3 className="text-sm font-bold text-accent uppercase tracking-wider">Pool Connection</h3>
+            <div className="flex items-center justify-between mb-4 pb-2 border-b border-border">
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+                </svg>
+                <h3 className="text-sm font-bold text-accent uppercase tracking-wider">Pool Connection</h3>
+              </div>
+              <button
+                onClick={() => setShowPoolEdit(!showPoolEdit)}
+                className="text-xs px-3 py-1 rounded bg-accent/20 text-accent border border-accent/30 hover:bg-accent/30 transition-colors"
+              >
+                {showPoolEdit ? 'Cancel' : 'Edit Pool'}
+              </button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-              <div className="p-3 bg-bg-primary border border-border">
-                <div className="flex items-center gap-2 mb-1">
-                  <svg className="w-3 h-3 text-text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+
+            {/* Pool Edit Form */}
+            {showPoolEdit ? (
+              <div className="space-y-4">
+                {/* Warning */}
+                <div className="p-3 bg-warning/10 border border-warning/30 text-warning text-xs rounded flex items-start gap-2">
+                  <svg className="w-4 h-4 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
                   </svg>
-                  <span className="text-text-secondary uppercase text-xs tracking-wide">Stratum URL</span>
+                  <span>Changing pool settings will require a device restart to take effect.</span>
                 </div>
-                <div className="text-pip-green font-mono text-xs truncate terminal-glow">
-                  {metrics.stratumURL || 'Not configured'}
+
+                <div className="grid grid-cols-1 gap-4">
+                  {/* Stratum URL and Port */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="md:col-span-3 p-3 bg-bg-primary border border-border rounded">
+                      <label className="block text-xs text-text-secondary uppercase tracking-wide mb-2">
+                        Stratum URL
+                      </label>
+                      <input
+                        type="text"
+                        value={poolURL}
+                        onChange={(e) => setPoolURL(e.target.value)}
+                        placeholder="stratum+tcp://pool.example.com"
+                        className="w-full px-3 py-2 text-sm bg-bg-secondary border border-border rounded text-text-primary font-mono placeholder:text-text-secondary/50 focus:border-accent focus:outline-none"
+                      />
+                    </div>
+                    <div className="p-3 bg-bg-primary border border-border rounded">
+                      <label className="block text-xs text-text-secondary uppercase tracking-wide mb-2">
+                        Port
+                      </label>
+                      <input
+                        type="text"
+                        value={poolPort}
+                        onChange={(e) => setPoolPort(e.target.value.replace(/\D/g, ''))}
+                        placeholder="3333"
+                        className="w-full px-3 py-2 text-sm bg-bg-secondary border border-border rounded text-text-primary font-mono placeholder:text-text-secondary/50 focus:border-accent focus:outline-none text-center"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Worker Name */}
+                  <div className="p-3 bg-bg-primary border border-border rounded">
+                    <label className="block text-xs text-text-secondary uppercase tracking-wide mb-2">
+                      Worker Name
+                    </label>
+                    <input
+                      type="text"
+                      value={poolWorker}
+                      onChange={(e) => setPoolWorker(e.target.value)}
+                      placeholder="your_wallet_address.worker_name"
+                      className="w-full px-3 py-2 text-sm bg-bg-secondary border border-border rounded text-text-primary font-mono placeholder:text-text-secondary/50 focus:border-accent focus:outline-none"
+                    />
+                  </div>
+
+                  {/* Pool Password */}
+                  <div className="p-3 bg-bg-primary border border-border rounded">
+                    <label className="block text-xs text-text-secondary uppercase tracking-wide mb-2">
+                      Password (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={poolPassword}
+                      onChange={(e) => setPoolPassword(e.target.value)}
+                      placeholder="x (usually 'x' or leave empty)"
+                      className="w-full px-3 py-2 text-sm bg-bg-secondary border border-border rounded text-text-primary font-mono placeholder:text-text-secondary/50 focus:border-accent focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={() => setShowPoolEdit(false)}
+                    className="px-4 py-2 text-sm bg-bg-tertiary text-text-secondary border border-border rounded hover:bg-bg-secondary transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSavePoolSettings}
+                    disabled={isSavingControl === 'pool'}
+                    className="px-4 py-2 text-sm bg-accent/20 text-accent border border-accent/30 rounded hover:bg-accent/30 disabled:opacity-50 transition-colors"
+                  >
+                    {isSavingControl === 'pool' ? 'Saving...' : 'Save Pool Settings'}
+                  </button>
                 </div>
               </div>
-              <div className="p-3 bg-bg-primary border border-border">
-                <div className="flex items-center gap-2 mb-1">
-                  <svg className="w-3 h-3 text-text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-                  </svg>
-                  <span className="text-text-secondary uppercase text-xs tracking-wide">Worker</span>
+            ) : (
+              /* Pool Display */
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div className="p-3 bg-bg-primary border border-border">
+                  <div className="flex items-center gap-2 mb-1">
+                    <svg className="w-3 h-3 text-text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                    </svg>
+                    <span className="text-text-secondary uppercase text-xs tracking-wide">Stratum URL</span>
+                  </div>
+                  <div className="text-pip-green font-mono text-xs truncate terminal-glow">
+                    {metrics.stratumURL || 'Not configured'}
+                  </div>
                 </div>
-                <div className="text-pip-green font-mono text-xs truncate terminal-glow">
-                  {metrics.stratumUser || 'Not configured'}
+                <div className="p-3 bg-bg-primary border border-border">
+                  <div className="flex items-center gap-2 mb-1">
+                    <svg className="w-3 h-3 text-text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                    </svg>
+                    <span className="text-text-secondary uppercase text-xs tracking-wide">Worker</span>
+                  </div>
+                  <div className="text-pip-green font-mono text-xs truncate terminal-glow">
+                    {metrics.stratumUser || 'Not configured'}
+                  </div>
+                </div>
+                <div className="p-3 bg-bg-primary border border-border">
+                  <div className="flex items-center gap-2 mb-1">
+                    <svg className="w-3 h-3 text-text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/>
+                    </svg>
+                    <span className="text-text-secondary uppercase text-xs tracking-wide">Pool Difficulty</span>
+                  </div>
+                  <div className="text-accent font-bold">
+                    {(() => {
+                      // Check for various field names used by different firmware
+                      const m = metrics as Record<string, unknown>;
+                      const diff = metrics.poolDifficulty ?? m.pool_difficulty ?? m.poolDiff ?? m.stratum_difficulty ?? m.stratumDifficulty ?? m.stratumSuggestedDifficulty;
+                      if (diff === undefined || diff === null) return '--';
+                      if (typeof diff === 'number') return formatDifficulty(diff);
+                      return String(diff);
+                    })()}
+                  </div>
                 </div>
               </div>
-              <div className="p-3 bg-bg-primary border border-border">
-                <div className="flex items-center gap-2 mb-1">
-                  <svg className="w-3 h-3 text-text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/>
-                  </svg>
-                  <span className="text-text-secondary uppercase text-xs tracking-wide">Pool Difficulty</span>
-                </div>
-                <div className="text-accent font-bold">
-                  {(() => {
-                    // Check for various field names used by different firmware
-                    const m = metrics as Record<string, unknown>;
-                    const diff = metrics.poolDifficulty ?? m.pool_difficulty ?? m.poolDiff ?? m.stratum_difficulty ?? m.stratumDifficulty ?? m.stratumSuggestedDifficulty;
-                    if (diff === undefined || diff === null) return '--';
-                    if (typeof diff === 'number') return formatDifficulty(diff);
-                    return String(diff);
-                  })()}
-                </div>
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Device Control Panel */}

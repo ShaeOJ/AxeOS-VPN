@@ -682,8 +682,8 @@ ipcMain.handle('get-price-history', async (_, coinId: string, currency?: string,
 });
 
 // IPC Handlers - Profitability Calculator
-ipcMain.handle('get-network-stats', async () => {
-  return profitability.fetchNetworkStats();
+ipcMain.handle('get-network-stats', async (_, coin?: profitability.MiningCoin) => {
+  return profitability.fetchNetworkStats(coin || 'btc');
 });
 
 ipcMain.handle('get-electricity-cost', async () => {
@@ -696,6 +696,14 @@ ipcMain.handle('set-electricity-cost', async (_, cost: number) => {
   return true;
 });
 
-ipcMain.handle('calculate-profitability', async (_, hashrateGH: number, powerWatts: number, btcPriceUsd: number, electricityCost?: number) => {
-  return profitability.calculateProfitability(hashrateGH, powerWatts, btcPriceUsd, electricityCost);
+ipcMain.handle('calculate-profitability', async (_, coin: profitability.MiningCoin, hashrateGH: number, powerWatts: number, cryptoPriceUsd: number, electricityCost?: number) => {
+  return profitability.calculateProfitability(coin, hashrateGH, powerWatts, cryptoPriceUsd, electricityCost);
+});
+
+ipcMain.handle('get-supported-coins', async () => {
+  return profitability.getSupportedCoins();
+});
+
+ipcMain.handle('fetch-coin-price', async (_, coin: profitability.MiningCoin, currency: string) => {
+  return profitability.fetchCoinPrice(coin, currency);
 });
