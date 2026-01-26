@@ -700,7 +700,7 @@ ipcMain.handle('calculate-profitability', async (_, coin: profitability.MiningCo
   return profitability.calculateProfitability(coin, hashrateGH, powerWatts, cryptoPriceUsd, electricityCost);
 });
 
-ipcMain.handle('get-supported-coins', async () => {
+ipcMain.handle('get-mining-coins', async () => {
   return profitability.getSupportedCoins();
 });
 

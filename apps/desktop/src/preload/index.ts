@@ -66,7 +66,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getNetworkStats: (coin?: string) => ipcRenderer.invoke('get-network-stats', coin),
   calculateProfitability: (coin: string, hashrateGH: number, powerWatts: number, cryptoPriceUsd: number, electricityCost?: number) =>
     ipcRenderer.invoke('calculate-profitability', coin, hashrateGH, powerWatts, cryptoPriceUsd, electricityCost),
-  getMiningCoins: () => ipcRenderer.invoke('get-supported-coins'),
+  getMiningCoins: () => ipcRenderer.invoke('get-mining-coins'),
   fetchMiningCoinPrice: (coin: string, currency: string) => ipcRenderer.invoke('fetch-coin-price', coin, currency),
 
   // Password Management
