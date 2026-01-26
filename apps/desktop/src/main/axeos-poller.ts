@@ -210,6 +210,10 @@ export interface ClusterStatus {
 const latestMetrics = new Map<string, { data: AxeOSSystemInfo; timestamp: number }>();
 const pollIntervals = new Map<string, ReturnType<typeof setInterval>>();
 
+// Track consecutive failures per device - only go offline after multiple failures
+const consecutiveFailures = new Map<string, number>();
+const OFFLINE_THRESHOLD = 3; // Require 3 consecutive failures before marking offline
+
 // Event callback for UI updates
 type MetricsCallback = (deviceId: string, data: AxeOSSystemInfo, isOnline: boolean) => void;
 let metricsCallback: MetricsCallback | null = null;
@@ -259,7 +263,7 @@ export async function fetchClusterStatus(ipAddress: string): Promise<ClusterStat
 export async function fetchDeviceMetrics(ipAddress: string): Promise<AxeOSSystemInfo | null> {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout for slower devices like NerdMiner
 
     const response = await fetch(`http://${ipAddress}/api/system/info`, {
       signal: controller.signal,
@@ -314,6 +318,9 @@ async function pollDevice(device: devices.Device): Promise<void> {
     : await fetchDeviceMetrics(device.ip_address);
 
   if (data) {
+    // Reset consecutive failures on successful poll
+    consecutiveFailures.set(device.id, 0);
+
     // Update device status to online
     devices.updateDeviceStatus(device.id, true);
 
@@ -342,9 +349,19 @@ async function pollDevice(device: devices.Device): Promise<void> {
     // Notify callback
     metricsCallback?.(device.id, data, true);
   } else {
-    // Update device status to offline
-    devices.updateDeviceStatus(device.id, false);
-    metricsCallback?.(device.id, {} as AxeOSSystemInfo, false);
+    // Increment consecutive failures
+    const failures = (consecutiveFailures.get(device.id) || 0) + 1;
+    consecutiveFailures.set(device.id, failures);
+
+    // Only mark offline after OFFLINE_THRESHOLD consecutive failures
+    if (failures >= OFFLINE_THRESHOLD) {
+      console.log(`[Poller] ${device.name}: ${failures} consecutive failures, marking offline`);
+      devices.updateDeviceStatus(device.id, false);
+      metricsCallback?.(device.id, {} as AxeOSSystemInfo, false);
+    } else {
+      console.log(`[Poller] ${device.name}: poll failed (${failures}/${OFFLINE_THRESHOLD}), keeping online`);
+      // Keep the device online but don't send new metrics
+    }
   }
 }
 
@@ -553,7 +570,7 @@ function transformBitmainToAxeOS(data: BitmainMinerStatus, ipAddress: string): A
     efficiency: efficiency,
     temp: maxTemp,
     temp2: maxTemp2,
-    vrTemp: 0, // S9 doesn't report VR temp
+    vrTemp: maxTemp2, // Use temp2 (chip/board temp) for VR temp display
 
     // Hashrate
     hashRate: hashRateGH,
