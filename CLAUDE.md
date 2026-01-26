@@ -22,6 +22,10 @@ Vault-Tec Mining Operations Division - BitAxe Monitoring System for managing mul
 - **Web UI Charts** - Chart axes, tooltips, and stats now dynamically switch to TH/s when appropriate
 - **PH/s Support** - Added PH/s display for extremely large hashrates (>= 1,000,000 GH/s)
 
+### Web UI Device Detail Modal Reorder
+- **Device Control Moved** - Device Control panel now appears directly under Hardware stats for easier access
+- **New Section Order**: Main Metrics → Hardware → Device Control → Mining Stats → Solo Block Chance → Pool → Recent Metrics
+
 ---
 
 ## Previous Changes (v1.7.1)
