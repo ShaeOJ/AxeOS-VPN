@@ -936,12 +936,15 @@ function getWebDashboardHtml(): string {
         top: auto !important;
         left: 12px !important;
         right: 12px !important;
-        bottom: 20px;
+        bottom: calc(20px + env(safe-area-inset-bottom, 0px));
         width: auto;
         max-height: 50vh;
         overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 12px;
+        z-index: 10003;
       }
-      .ticker-dropdown button { padding: 12px 16px; font-size: 13px; }
+      .ticker-dropdown button { padding: 14px 16px; font-size: 14px; min-height: 48px; }
     }
     @media (max-width: 480px) {
       .crypto-ticker { padding: 8px 10px; margin-bottom: 12px; }
@@ -1247,7 +1250,7 @@ function getWebDashboardHtml(): string {
         left: 0;
         right: 0;
         min-width: 100%;
-        max-height: 85vh;
+        max-height: 60vh;
         border-radius: 16px 16px 0 0;
         border-bottom: none;
         padding-bottom: env(safe-area-inset-bottom, 20px);
@@ -1262,17 +1265,35 @@ function getWebDashboardHtml(): string {
         overflow-y: auto;
         flex: 1;
         -webkit-overflow-scrolling: touch;
-        max-height: calc(85vh - 60px);
+        max-height: none;
+        overscroll-behavior: contain;
       }
       .theme-option {
-        padding: 18px 20px;
-        font-size: 16px;
-        min-height: 56px;
+        padding: 16px 20px;
+        font-size: 15px;
+        min-height: 52px;
         border-bottom: 1px solid var(--color-border);
       }
-      .theme-option:last-child { border-bottom: none; }
-      .theme-swatch { width: 32px; height: 32px; }
-      .theme-swatch-inner { width: 14px; height: 14px; }
+      .theme-option:last-child { border-bottom: none; margin-bottom: 10px; }
+      .theme-swatch { width: 28px; height: 28px; }
+      .theme-swatch-inner { width: 12px; height: 12px; }
+    }
+    /* Extra small screens - ensure all 6 themes fit */
+    @media (max-width: 480px) {
+      .theme-dropdown {
+        max-height: 70vh;
+      }
+      .theme-dropdown-header {
+        padding: 12px 16px;
+        font-size: 14px;
+      }
+      .theme-option {
+        padding: 14px 16px;
+        font-size: 14px;
+        min-height: 48px;
+      }
+      .theme-swatch { width: 24px; height: 24px; }
+      .theme-swatch-inner { width: 10px; height: 10px; }
     }
   </style>
 </head>
