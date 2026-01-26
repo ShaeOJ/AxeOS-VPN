@@ -26,6 +26,11 @@ Vault-Tec Mining Operations Division - BitAxe Monitoring System for managing mul
 - **Device Control Moved** - Device Control panel now appears directly under Hardware stats for easier access
 - **New Section Order**: Main Metrics → Hardware → Device Control → Mining Stats → Solo Block Chance → Pool → Recent Metrics
 
+### False Offline Alert Fix
+- **Consecutive Failures Required** - Device must fail 3 consecutive polls before being marked offline
+- **Increased Timeout** - Poll timeout increased from 5s to 8s for slower devices like NerdMiner
+- **Prevents False Alerts** - Temporary network blips no longer trigger offline notifications
+
 ---
 
 ## Previous Changes (v1.7.1)
