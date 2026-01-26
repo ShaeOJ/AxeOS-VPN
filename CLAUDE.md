@@ -31,6 +31,11 @@ Vault-Tec Mining Operations Division - BitAxe Monitoring System for managing mul
 - **Increased Timeout** - Poll timeout increased from 5s to 8s for slower devices like NerdMiner
 - **Prevents False Alerts** - Temporary network blips no longer trigger offline notifications
 
+### Amps Calculation Fix
+- **Uses Mains Voltage** - Now calculates amps using 120V (wall voltage) instead of device input voltage (5V/12V)
+- **Correct Values** - 100W now shows ~0.83A, 130W shows ~1.08A (was showing 17.1A and 0.01A)
+- **Sanity Check** - Validates reported current values are in reasonable range (100-20000mA)
+
 ---
 
 ## Previous Changes (v1.7.1)
