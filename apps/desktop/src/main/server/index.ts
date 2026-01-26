@@ -2246,9 +2246,13 @@ function getWebDashboardHtml(): string {
     function formatTemp(t) { return t ? t.toFixed(1) + '°C' : '--'; }
     function formatPower(p) { return p ? p.toFixed(1) + ' W' : '--'; }
     function formatAmps(currentMa, power, voltage) {
-      // AxeOS reports current in milliamps
-      if (currentMa && currentMa > 0) return (currentMa / 1000).toFixed(2) + ' A';
-      if (power && voltage && voltage > 0) return (power / voltage).toFixed(2) + ' A';
+      // Use mains voltage for amps calculation (wall current is what users care about)
+      var MAINS_VOLTAGE = 120; // US standard
+      // Use reported current if available and reasonable (AxeOS reports in milliamps)
+      // Current should be reasonable: 0.1A to 20A range at mains voltage for mining devices
+      if (currentMa && currentMa > 100 && currentMa < 20000) return (currentMa / 1000).toFixed(2) + ' A';
+      // Calculate from power using mains voltage
+      if (power && power > 0) return (power / MAINS_VOLTAGE).toFixed(2) + ' A';
       return '--';
     }
     function formatUptime(s) { if (!s) return '--'; const d = Math.floor(s/86400), h = Math.floor((s%86400)/3600), m = Math.floor((s%3600)/60); return d > 0 ? d+'d '+h+'h' : h > 0 ? h+'h '+m+'m' : m+'m'; }

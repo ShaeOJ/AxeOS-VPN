@@ -282,14 +282,20 @@ function formatPower(power: number | null | undefined): string {
   return `${power.toFixed(1)} W`;
 }
 
-function formatAmps(currentMa: number | null | undefined, power?: number, voltage?: number): string {
-  // Use reported current if available (AxeOS reports in milliamps)
-  if (currentMa && currentMa > 0) {
+function formatAmps(currentMa: number | null | undefined, power?: number, _voltage?: number): string {
+  // Use mains voltage for amps calculation (wall current is what users care about)
+  const MAINS_VOLTAGE = 120; // US standard, could be made configurable
+
+  // Use reported current if available and reasonable (AxeOS reports in milliamps)
+  // Current should be reasonable: 0.1A to 20A range at mains voltage for mining devices
+  if (currentMa && currentMa > 100 && currentMa < 20000) {
     return `${(currentMa / 1000).toFixed(2)} A`;
   }
-  // Calculate from power/voltage as fallback
-  if (power && voltage && voltage > 0) {
-    return `${(power / voltage).toFixed(2)} A`;
+
+  // Calculate from power using mains voltage
+  if (power && power > 0) {
+    const amps = power / MAINS_VOLTAGE;
+    return `${amps.toFixed(2)} A`;
   }
   return '--';
 }
