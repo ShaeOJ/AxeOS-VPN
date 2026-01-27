@@ -1,0 +1,1148 @@
+/**
+ * ╔══════════════════════════════════════════════════════════════════╗
+ * ║     VAULT-TEC INDUSTRIES - OFFICIAL STYLE GUIDELINES             ║
+ * ║                    CLEARANCE: PUBLIC                              ║
+ * ╠══════════════════════════════════════════════════════════════════╣
+ * ║  VERSION: 1.0.0       AUTHOR: shae@undergroundroots.ca           ║
+ * ║  A retro-futuristic Fallout/Pip-Boy inspired CSS theme           ║
+ * ╚══════════════════════════════════════════════════════════════════╝
+ *
+ * USAGE:
+ * 1. Include this CSS file in your HTML: <link rel="stylesheet" href="vault-tec-theme.css">
+ * 2. Add theme class to body: <body class="theme-vault-tec"> (or other theme)
+ * 3. Use the utility classes on your elements
+ *
+ * AVAILABLE THEMES:
+ * - theme-vault-tec (default - yellow/blue)
+ * - theme-nuka-cola (red)
+ * - theme-brotherhood (steel blue)
+ * - theme-institute (light/clean)
+ * - theme-ncr (desert tan)
+ * - theme-enclave (dark patriotic)
+ */
+
+/* ========================================
+   GOOGLE FONTS
+   ======================================== */
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=Share+Tech+Mono&display=swap');
+
+/* ========================================
+   CSS CUSTOM PROPERTIES (THEMES)
+   ======================================== */
+
+:root,
+.theme-vault-tec {
+  /* Vault-Tec Theme Colors (Default) */
+  --color-bg-primary: #0a1929;
+  --color-bg-secondary: #0d2137;
+  --color-bg-tertiary: #112a45;
+  --color-bg-terminal: #001a0d;
+
+  --color-accent: #FFB000;
+  --color-accent-hover: #FFC940;
+  --color-accent-dim: #CC8C00;
+
+  --color-success: #00FF41;
+  --color-success-dim: #00CC33;
+  --color-warning: #FF8C00;
+  --color-danger: #FF3131;
+
+  --color-text-primary: #E8F4E8;
+  --color-text-secondary: #8BA88B;
+  --color-text-terminal: #00FF41;
+
+  --color-border: #1a4a5c;
+  --color-border-highlight: #00CED1;
+  --color-border-glow: #20B2AA;
+
+  --color-vault-yellow: #FFB000;
+  --color-vault-blue: #0055AA;
+  --color-pip-green: #00FF41;
+
+  --color-scanline: rgba(0, 255, 65, 0.03);
+  --color-scanline-glow: rgba(0, 255, 65, 0.15);
+
+  /* Font families */
+  --font-display: 'Orbitron', sans-serif;
+  --font-mono: 'Share Tech Mono', 'JetBrains Mono', Consolas, monospace;
+}
+
+/* Nuka-Cola Red Theme */
+.theme-nuka-cola {
+  --color-bg-primary: #1a0a0a;
+  --color-bg-secondary: #2a1515;
+  --color-bg-tertiary: #3a2020;
+  --color-bg-terminal: #1a0505;
+  --color-accent: #FF3131;
+  --color-accent-hover: #FF5555;
+  --color-accent-dim: #CC2020;
+  --color-success: #FF6B6B;
+  --color-success-dim: #FF4444;
+  --color-warning: #FFA500;
+  --color-danger: #FF0000;
+  --color-text-primary: #FFE8E8;
+  --color-text-secondary: #CC9999;
+  --color-text-terminal: #FF6B6B;
+  --color-border: #5c1a1a;
+  --color-border-highlight: #FF4444;
+  --color-border-glow: #FF3131;
+  --color-vault-yellow: #FF3131;
+  --color-pip-green: #FF6B6B;
+  --color-scanline: rgba(255, 49, 49, 0.03);
+  --color-scanline-glow: rgba(255, 49, 49, 0.15);
+}
+
+/* Brotherhood of Steel Theme */
+.theme-brotherhood {
+  --color-bg-primary: #0a0a1a;
+  --color-bg-secondary: #12122a;
+  --color-bg-tertiary: #1a1a3a;
+  --color-bg-terminal: #050510;
+  --color-accent: #4A90D9;
+  --color-accent-hover: #6AAAF9;
+  --color-accent-dim: #3070B9;
+  --color-success: #87CEEB;
+  --color-success-dim: #6BB8D5;
+  --color-warning: #FFD700;
+  --color-danger: #FF4444;
+  --color-text-primary: #E8E8FF;
+  --color-text-secondary: #9999CC;
+  --color-text-terminal: #87CEEB;
+  --color-border: #2a2a5c;
+  --color-border-highlight: #4A90D9;
+  --color-border-glow: #6AAAF9;
+  --color-vault-yellow: #4A90D9;
+  --color-pip-green: #87CEEB;
+  --color-scanline: rgba(74, 144, 217, 0.03);
+  --color-scanline-glow: rgba(74, 144, 217, 0.15);
+}
+
+/* Institute Theme (Light) */
+.theme-institute {
+  --color-bg-primary: #f0f0f0;
+  --color-bg-secondary: #e0e0e0;
+  --color-bg-tertiary: #d0d0d0;
+  --color-bg-terminal: #ffffff;
+  --color-accent: #00A0A0;
+  --color-accent-hover: #00C0C0;
+  --color-accent-dim: #008080;
+  --color-success: #00CED1;
+  --color-success-dim: #00B0B3;
+  --color-warning: #FF8C00;
+  --color-danger: #DC143C;
+  --color-text-primary: #1a1a1a;
+  --color-text-secondary: #555555;
+  --color-text-terminal: #00A0A0;
+  --color-border: #b0b0b0;
+  --color-border-highlight: #00A0A0;
+  --color-border-glow: #00CED1;
+  --color-vault-yellow: #00A0A0;
+  --color-pip-green: #00CED1;
+  --color-scanline: rgba(0, 160, 160, 0.02);
+  --color-scanline-glow: rgba(0, 160, 160, 0.1);
+}
+
+/* NCR Desert Theme */
+.theme-ncr {
+  --color-bg-primary: #1a1408;
+  --color-bg-secondary: #2a2010;
+  --color-bg-tertiary: #3a2c18;
+  --color-bg-terminal: #0d0a04;
+  --color-accent: #C4A35A;
+  --color-accent-hover: #D4B36A;
+  --color-accent-dim: #A4834A;
+  --color-success: #8B7355;
+  --color-success-dim: #6B5345;
+  --color-warning: #DAA520;
+  --color-danger: #CD5C5C;
+  --color-text-primary: #F5DEB3;
+  --color-text-secondary: #C4A060;
+  --color-text-terminal: #C4A35A;
+  --color-border: #5c4a2a;
+  --color-border-highlight: #C4A35A;
+  --color-border-glow: #D4B36A;
+  --color-vault-yellow: #C4A35A;
+  --color-pip-green: #DAA520;
+  --color-scanline: rgba(196, 163, 90, 0.03);
+  --color-scanline-glow: rgba(196, 163, 90, 0.15);
+}
+
+/* Enclave Dark Patriotic Theme */
+.theme-enclave {
+  --color-bg-primary: #0a0a14;
+  --color-bg-secondary: #141420;
+  --color-bg-tertiary: #1e1e2c;
+  --color-bg-terminal: #05050a;
+  --color-accent: #B22222;
+  --color-accent-hover: #D22222;
+  --color-accent-dim: #921212;
+  --color-success: #FFD700;
+  --color-success-dim: #CCAC00;
+  --color-warning: #FF6347;
+  --color-danger: #FF0000;
+  --color-text-primary: #F0F0F5;
+  --color-text-secondary: #9090A0;
+  --color-text-terminal: #FFD700;
+  --color-border: #3a3a5c;
+  --color-border-highlight: #B22222;
+  --color-border-glow: #FFD700;
+  --color-vault-yellow: #B22222;
+  --color-pip-green: #FFD700;
+  --color-scanline: rgba(178, 34, 34, 0.03);
+  --color-scanline-glow: rgba(255, 215, 0, 0.15);
+}
+
+/* ========================================
+   BASE RESET & STYLES
+   ======================================== */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-mono);
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* ========================================
+   CRT SCANLINE OVERLAY
+   ======================================== */
+
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0px,
+      transparent 2px,
+      var(--color-scanline) 2px,
+      var(--color-scanline) 4px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0px,
+      transparent 3px,
+      rgba(0, 0, 0, 0.03) 3px,
+      rgba(0, 0, 0, 0.03) 4px
+    );
+  animation: scanline-flicker 0.05s infinite;
+}
+
+/* CRT Vignette Effect */
+body::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9998;
+  background:
+    radial-gradient(
+      ellipse at center,
+      transparent 0%,
+      transparent 50%,
+      rgba(0, 10, 20, 0.4) 100%
+    );
+}
+
+/* Disable CRT effects if user prefers reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  body::before,
+  body::after {
+    display: none;
+  }
+}
+
+/* ========================================
+   TYPOGRAPHY
+   ======================================== */
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+  margin-bottom: 1rem;
+}
+
+h1 { font-size: 2.5rem; }
+h2 { font-size: 2rem; }
+h3 { font-size: 1.5rem; }
+h4 { font-size: 1.25rem; }
+h5 { font-size: 1rem; }
+h6 { font-size: 0.875rem; }
+
+p {
+  margin-bottom: 1rem;
+  color: var(--color-text-primary);
+}
+
+a {
+  color: var(--color-accent);
+  text-decoration: none;
+  transition: color 0.2s ease, text-shadow 0.2s ease;
+}
+
+a:hover {
+  color: var(--color-accent-hover);
+  text-shadow: 0 0 10px var(--color-accent);
+}
+
+code, pre {
+  font-family: var(--font-mono);
+  background: var(--color-bg-terminal);
+  color: var(--color-text-terminal);
+  padding: 0.25em 0.5em;
+  border: 1px solid var(--color-border);
+}
+
+pre {
+  padding: 1rem;
+  overflow-x: auto;
+  margin-bottom: 1rem;
+}
+
+/* ========================================
+   CUSTOM SCROLLBAR
+   ======================================== */
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-secondary);
+  border-left: 1px solid var(--color-border);
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--color-accent) 0%, var(--color-accent-dim) 100%);
+  border: 1px solid var(--color-accent);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--color-accent-hover) 0%, var(--color-accent) 100%);
+  box-shadow: 0 0 10px var(--color-accent);
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--color-bg-secondary);
+}
+
+/* ========================================
+   SELECTION
+   ======================================== */
+
+::selection {
+  background: var(--color-accent);
+  color: var(--color-bg-primary);
+}
+
+/* ========================================
+   FOCUS STATES
+   ======================================== */
+
+*:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* ========================================
+   LAYOUT CONTAINERS
+   ======================================== */
+
+.vault-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.vault-container-sm { max-width: 800px; }
+.vault-container-lg { max-width: 1800px; }
+.vault-container-fluid { max-width: 100%; }
+
+/* ========================================
+   CARDS
+   ======================================== */
+
+.vault-card {
+  background: var(--color-bg-secondary);
+  border: 2px solid var(--color-border);
+  position: relative;
+  overflow: hidden;
+  box-shadow:
+    0 0 10px rgba(255, 176, 0, 0.1),
+    inset 0 0 30px rgba(0, 0, 0, 0.3);
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.vault-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--color-accent), transparent);
+  opacity: 0.5;
+}
+
+.vault-card:hover {
+  border-color: var(--color-accent);
+  box-shadow:
+    0 0 20px rgba(255, 176, 0, 0.2),
+    inset 0 0 30px rgba(0, 0, 0, 0.3);
+}
+
+.vault-card-header {
+  background: linear-gradient(180deg, var(--color-bg-tertiary) 0%, var(--color-bg-secondary) 100%);
+  border-bottom: 2px solid var(--color-border);
+  padding: 1rem 1.5rem;
+  margin: -1.5rem -1.5rem 1.5rem -1.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.875rem;
+  color: var(--color-accent);
+}
+
+/* ========================================
+   BUTTONS
+   ======================================== */
+
+.vault-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: linear-gradient(180deg, var(--color-accent) 0%, var(--color-accent-dim) 100%);
+  color: var(--color-bg-primary);
+  border: 2px solid var(--color-accent);
+  box-shadow: 0 0 10px rgba(255, 176, 0, 0.3);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.vault-btn:hover {
+  background: linear-gradient(180deg, var(--color-accent-hover) 0%, var(--color-accent) 100%);
+  box-shadow: 0 0 20px rgba(255, 176, 0, 0.5);
+  transform: translateY(-2px);
+}
+
+.vault-btn:active {
+  transform: translateY(1px);
+  box-shadow: 0 0 5px rgba(255, 176, 0, 0.3);
+}
+
+.vault-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Button Variants */
+.vault-btn-outline {
+  background: transparent;
+  color: var(--color-accent);
+}
+
+.vault-btn-outline:hover {
+  background: var(--color-accent);
+  color: var(--color-bg-primary);
+}
+
+.vault-btn-success {
+  background: linear-gradient(180deg, var(--color-success) 0%, var(--color-success-dim) 100%);
+  border-color: var(--color-success);
+  box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
+}
+
+.vault-btn-danger {
+  background: linear-gradient(180deg, var(--color-danger) 0%, #CC2020 100%);
+  border-color: var(--color-danger);
+  box-shadow: 0 0 10px rgba(255, 49, 49, 0.3);
+}
+
+.vault-btn-sm {
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+}
+
+.vault-btn-lg {
+  padding: 1rem 2rem;
+  font-size: 1rem;
+}
+
+/* ========================================
+   FORM INPUTS
+   ======================================== */
+
+.vault-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  border: 2px solid var(--color-border);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.vault-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 10px rgba(255, 176, 0, 0.3);
+}
+
+.vault-input::placeholder {
+  color: var(--color-text-secondary);
+  opacity: 0.7;
+}
+
+.vault-label {
+  display: block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+/* Select */
+.vault-select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  border: 2px solid var(--color-border);
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23FFB000' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  padding-right: 2.5rem;
+}
+
+.vault-select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 10px rgba(255, 176, 0, 0.3);
+}
+
+/* ========================================
+   TABLES
+   ======================================== */
+
+.vault-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.vault-table th,
+.vault-table td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.vault-table th {
+  background: var(--color-bg-tertiary);
+  color: var(--color-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.75rem;
+}
+
+.vault-table tbody tr:hover {
+  background: rgba(255, 176, 0, 0.05);
+}
+
+/* ========================================
+   STATUS INDICATORS
+   ======================================== */
+
+.status-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.status-online {
+  background: var(--color-success);
+  box-shadow: 0 0 10px var(--color-success);
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+.status-offline {
+  background: var(--color-text-secondary);
+  box-shadow: 0 0 5px var(--color-text-secondary);
+}
+
+.status-warning {
+  background: var(--color-warning);
+  box-shadow: 0 0 10px var(--color-warning);
+  animation: glow-pulse 1.5s ease-in-out infinite;
+}
+
+.status-danger {
+  background: var(--color-danger);
+  box-shadow: 0 0 10px var(--color-danger);
+  animation: glow-pulse 1s ease-in-out infinite;
+}
+
+/* ========================================
+   ALERT BOXES
+   ======================================== */
+
+.vault-alert {
+  padding: 1rem 1.5rem;
+  border: 2px solid var(--color-border);
+  margin-bottom: 1rem;
+}
+
+.vault-alert-success {
+  border-color: var(--color-success);
+  background: rgba(0, 255, 65, 0.1);
+  box-shadow: inset 0 0 20px rgba(0, 255, 65, 0.1);
+}
+
+.vault-alert-warning {
+  border-color: var(--color-warning);
+  background: rgba(255, 140, 0, 0.1);
+  box-shadow: inset 0 0 20px rgba(255, 140, 0, 0.1);
+}
+
+.vault-alert-danger {
+  border-color: var(--color-danger);
+  background: rgba(255, 49, 49, 0.1);
+  box-shadow: inset 0 0 20px rgba(255, 49, 49, 0.1);
+}
+
+.vault-alert-info {
+  border-color: var(--color-border-highlight);
+  background: rgba(0, 206, 209, 0.1);
+  box-shadow: inset 0 0 20px rgba(0, 206, 209, 0.1);
+}
+
+/* ========================================
+   BADGES
+   ======================================== */
+
+.vault-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--color-accent);
+  color: var(--color-bg-primary);
+  clip-path: polygon(10% 0%, 90% 0%, 100% 50%, 90% 100%, 10% 100%, 0% 50%);
+}
+
+.vault-badge-success {
+  background: var(--color-success);
+}
+
+.vault-badge-warning {
+  background: var(--color-warning);
+}
+
+.vault-badge-danger {
+  background: var(--color-danger);
+}
+
+/* ========================================
+   PROGRESS BARS
+   ======================================== */
+
+.vault-progress {
+  height: 8px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+}
+
+.vault-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-accent-dim), var(--color-accent));
+  transition: width 0.3s ease;
+  position: relative;
+}
+
+.vault-progress-bar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.2) 50%,
+    transparent 100%
+  );
+  animation: progress-shine 2s infinite;
+}
+
+/* ========================================
+   NAVIGATION
+   ======================================== */
+
+.vault-nav {
+  background: var(--color-bg-secondary);
+  border-bottom: 2px solid var(--color-border);
+  padding: 0 1rem;
+}
+
+.vault-nav-list {
+  display: flex;
+  list-style: none;
+  gap: 0;
+}
+
+.vault-nav-item {
+  position: relative;
+}
+
+.vault-nav-link {
+  display: block;
+  padding: 1rem 1.5rem;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  border-bottom: 3px solid transparent;
+}
+
+.vault-nav-link:hover {
+  color: var(--color-accent);
+  background: rgba(255, 176, 0, 0.1);
+}
+
+.vault-nav-link.active {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
+  text-shadow: 0 0 10px var(--color-accent);
+}
+
+/* ========================================
+   GRID SYSTEM
+   ======================================== */
+
+.vault-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.vault-grid-2 { grid-template-columns: repeat(2, 1fr); }
+.vault-grid-3 { grid-template-columns: repeat(3, 1fr); }
+.vault-grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+@media (max-width: 768px) {
+  .vault-grid-2,
+  .vault-grid-3,
+  .vault-grid-4 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ========================================
+   FLEX UTILITIES
+   ======================================== */
+
+.vault-flex { display: flex; }
+.vault-flex-col { flex-direction: column; }
+.vault-flex-wrap { flex-wrap: wrap; }
+.vault-items-center { align-items: center; }
+.vault-justify-center { justify-content: center; }
+.vault-justify-between { justify-content: space-between; }
+.vault-gap-1 { gap: 0.5rem; }
+.vault-gap-2 { gap: 1rem; }
+.vault-gap-3 { gap: 1.5rem; }
+
+/* ========================================
+   SPACING UTILITIES
+   ======================================== */
+
+.vault-m-0 { margin: 0; }
+.vault-m-1 { margin: 0.5rem; }
+.vault-m-2 { margin: 1rem; }
+.vault-m-3 { margin: 1.5rem; }
+.vault-mt-1 { margin-top: 0.5rem; }
+.vault-mt-2 { margin-top: 1rem; }
+.vault-mb-1 { margin-bottom: 0.5rem; }
+.vault-mb-2 { margin-bottom: 1rem; }
+
+.vault-p-0 { padding: 0; }
+.vault-p-1 { padding: 0.5rem; }
+.vault-p-2 { padding: 1rem; }
+.vault-p-3 { padding: 1.5rem; }
+
+/* ========================================
+   TEXT UTILITIES
+   ======================================== */
+
+.vault-text-accent { color: var(--color-accent); }
+.vault-text-success { color: var(--color-success); }
+.vault-text-warning { color: var(--color-warning); }
+.vault-text-danger { color: var(--color-danger); }
+.vault-text-muted { color: var(--color-text-secondary); }
+.vault-text-terminal { color: var(--color-text-terminal); }
+
+.vault-text-center { text-align: center; }
+.vault-text-right { text-align: right; }
+.vault-text-uppercase { text-transform: uppercase; }
+.vault-text-mono { font-family: var(--font-mono); }
+.vault-text-display { font-family: var(--font-display); }
+
+.vault-text-sm { font-size: 0.75rem; }
+.vault-text-lg { font-size: 1.25rem; }
+.vault-text-xl { font-size: 1.5rem; }
+.vault-text-2xl { font-size: 2rem; }
+
+/* Terminal Glow Effect */
+.terminal-glow {
+  text-shadow: 0 0 5px var(--color-pip-green), 0 0 10px var(--color-pip-green);
+}
+
+.accent-glow {
+  text-shadow: 0 0 5px var(--color-accent), 0 0 10px var(--color-accent);
+}
+
+/* ========================================
+   DECORATIVE ELEMENTS
+   ======================================== */
+
+/* Corner Brackets */
+.vault-corners {
+  position: relative;
+}
+
+.vault-corners::before,
+.vault-corners::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-color: var(--color-accent);
+  border-style: solid;
+}
+
+.vault-corners::before {
+  top: -2px;
+  left: -2px;
+  border-width: 3px 0 0 3px;
+}
+
+.vault-corners::after {
+  bottom: -2px;
+  right: -2px;
+  border-width: 0 3px 3px 0;
+}
+
+/* Hazard Stripes */
+.hazard-stripes {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--color-warning),
+    var(--color-warning) 10px,
+    var(--color-bg-primary) 10px,
+    var(--color-bg-primary) 20px
+  );
+}
+
+/* Terminal Cursor */
+.terminal-cursor::after {
+  content: '█';
+  animation: terminal-blink 1s step-end infinite;
+  color: var(--color-pip-green);
+}
+
+/* Divider */
+.vault-divider {
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--color-border), var(--color-accent), var(--color-border), transparent);
+  margin: 2rem 0;
+}
+
+/* ========================================
+   ANIMATIONS
+   ======================================== */
+
+@keyframes scanline-flicker {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.98; }
+}
+
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 5px currentColor;
+    opacity: 1;
+  }
+  50% {
+    box-shadow: 0 0 20px currentColor, 0 0 30px currentColor;
+    opacity: 0.8;
+  }
+}
+
+@keyframes terminal-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+@keyframes progress-shine {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes glitch-horizontal {
+  0%, 100% { transform: translateX(0); }
+  10% { transform: translateX(-2px); }
+  20% { transform: translateX(2px); }
+  30% { transform: translateX(-1px); }
+  40% { transform: translateX(1px); }
+  50% { transform: translateX(0); }
+}
+
+@keyframes border-glow {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(255, 176, 0, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(255, 176, 0, 0.5), 0 0 30px rgba(255, 176, 0, 0.3);
+  }
+}
+
+/* Animation Classes */
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out forwards;
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+.animate-border-glow {
+  animation: border-glow 3s ease-in-out infinite;
+}
+
+.hover-glitch:hover {
+  animation: glitch-horizontal 0.3s ease-out;
+}
+
+/* ========================================
+   MODALS
+   ======================================== */
+
+.vault-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 2rem;
+  z-index: 1000;
+  overflow-y: auto;
+}
+
+.vault-modal {
+  background: var(--color-bg-secondary);
+  border: 2px solid var(--color-border);
+  width: 100%;
+  max-width: 600px;
+  position: relative;
+  animation: fade-in 0.3s ease-out;
+}
+
+.vault-modal::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-accent), var(--color-accent-hover), var(--color-accent));
+}
+
+.vault-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.vault-modal-title {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  color: var(--color-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 0;
+}
+
+.vault-modal-close {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  line-height: 1;
+  transition: color 0.2s ease;
+}
+
+.vault-modal-close:hover {
+  color: var(--color-danger);
+}
+
+.vault-modal-body {
+  padding: 1.5rem;
+}
+
+.vault-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--color-border);
+}
+
+/* ========================================
+   STATS/METRICS DISPLAY
+   ======================================== */
+
+.vault-stat {
+  text-align: center;
+  padding: 1rem;
+}
+
+.vault-stat-value {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: bold;
+  color: var(--color-accent);
+  text-shadow: 0 0 10px rgba(255, 176, 0, 0.5);
+  line-height: 1;
+  margin-bottom: 0.5rem;
+}
+
+.vault-stat-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-secondary);
+}
+
+/* Metric with icon */
+.vault-metric {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+}
+
+.vault-metric-icon {
+  width: 24px;
+  height: 24px;
+  color: var(--color-accent);
+}
+
+.vault-metric-label {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.vault-metric-value {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  color: var(--color-text-primary);
+}
+
+/* ========================================
+   SECTION HEADERS
+   ======================================== */
+
+.vault-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.875rem;
+  color: var(--color-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 1.5rem 0 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* ========================================
+   PRINT STYLES
+   ======================================== */
+
+@media print {
+  body::before,
+  body::after {
+    display: none;
+  }
+
+  body {
+    background: white;
+    color: black;
+  }
+
+  .vault-card {
+    border: 1px solid #ccc;
+    box-shadow: none;
+  }
+}
