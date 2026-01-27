@@ -403,7 +403,7 @@ export function DeviceCard({ device, groups, onGroupChange, networkStats, isNewR
   const allTimeBest = device.allTimeBestDiff || 0;
   // Use the higher of current session or all-time best
   const displayBestDiff = Math.max(currentBestDiff, allTimeBest);
-  const isCurrentSessionRecord = currentBestDiff > 0 && currentBestDiff >= allTimeBest;
+  const isCurrentSessionRecord = currentBestDiff > 0 && currentBestDiff > allTimeBest;
 
   const currentGroup = groups?.find(g => g.id === device.groupId);
 

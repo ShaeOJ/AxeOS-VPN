@@ -2133,7 +2133,7 @@ function getWebDashboardHtml(): string {
         const currentBestDiff = m ? parseDifficulty(m.bestDiff) : 0;
         const allTimeBest = d.allTimeBestDiff || 0;
         const displayBestDiff = Math.max(currentBestDiff, allTimeBest);
-        const isNewRecord = currentBestDiff > 0 && currentBestDiff >= allTimeBest;
+        const isNewRecord = currentBestDiff > 0 && currentBestDiff > allTimeBest;
         return '<div class="card clickable" onclick="showDeviceDetail(' + "'" + d.id + "'" + ')">' +
           '<div class="device-header"><div><div class="device-name">' + d.name + '</div><div class="device-ip">' + d.ipAddress + '</div>' +
           (m ? '<div class="device-model" style="display:flex;align-items:center;gap:6px;">' + (m.ASICModel || 'BitAxe') +
