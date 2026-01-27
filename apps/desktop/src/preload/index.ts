@@ -90,8 +90,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setDeviceFrequency: (ipAddress: string, frequency: number) => ipcRenderer.invoke('set-device-frequency', ipAddress, frequency),
   setDeviceVoltage: (ipAddress: string, voltage: number) => ipcRenderer.invoke('set-device-voltage', ipAddress, voltage),
   updateDeviceSettings: (ipAddress: string, settings: DeviceSettings) => ipcRenderer.invoke('update-device-settings', ipAddress, settings),
-  updatePoolSettings: (ipAddress: string, stratumURL: string, stratumUser: string, stratumPassword?: string) =>
-    ipcRenderer.invoke('update-pool-settings', ipAddress, stratumURL, stratumUser, stratumPassword),
+  updatePoolSettings: (ipAddress: string, stratumURL: string, stratumPort: number, stratumUser: string, stratumPassword?: string) =>
+    ipcRenderer.invoke('update-pool-settings', ipAddress, stratumURL, stratumPort, stratumUser, stratumPassword),
 
   // Events
   onDeviceMetrics: (callback: (data: { deviceId: string; data: AxeOSSystemInfo; isOnline: boolean }) => void) => {
@@ -145,6 +145,7 @@ export interface AxeOSSystemInfo {
   coreVoltage: number;
   poolDifficulty: number;
   stratumURL: string;
+  stratumPort: number;
   stratumUser: string;
   wifiStatus: string;
   freeHeap: number;
@@ -312,6 +313,7 @@ export interface DeviceSettings {
   coreVoltage?: number;
   fanSpeed?: number;
   stratumURL?: string;
+  stratumPort?: number;
   stratumUser?: string;
   stratumPassword?: string;
 }
@@ -429,7 +431,7 @@ declare global {
       setDeviceFrequency: (ipAddress: string, frequency: number) => Promise<DeviceControlResult>;
       setDeviceVoltage: (ipAddress: string, voltage: number) => Promise<DeviceControlResult>;
       updateDeviceSettings: (ipAddress: string, settings: DeviceSettings) => Promise<DeviceControlResult>;
-      updatePoolSettings: (ipAddress: string, stratumURL: string, stratumUser: string, stratumPassword?: string) => Promise<DeviceControlResult>;
+      updatePoolSettings: (ipAddress: string, stratumURL: string, stratumPort: number, stratumUser: string, stratumPassword?: string) => Promise<DeviceControlResult>;
 
       onDeviceMetrics: (callback: (data: { deviceId: string; data: AxeOSSystemInfo; isOnline: boolean }) => void) => void;
       onNewBestDiff: (callback: (data: { deviceId: string; deviceName: string; newBestDiff: number; previousBest: number }) => void) => void;

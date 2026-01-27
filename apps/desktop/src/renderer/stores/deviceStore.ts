@@ -29,6 +29,7 @@ interface AxeOSSystemInfo {
   coreVoltage: number;
   poolDifficulty: number;
   stratumURL: string;
+  stratumPort: number;
   stratumUser: string;
   wifiStatus: string;
   freeHeap: number;

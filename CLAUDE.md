@@ -10,11 +10,30 @@ Vault-Tec Mining Operations Division - BitAxe Monitoring System for managing mul
 - **Charts**: Recharts
 - **Build**: electron-vite + electron-builder
 
-## Current Version: v1.7.3
+## Current Version: v1.7.4
 
 ---
 
-## Recent Changes (v1.7.3)
+## Recent Changes (v1.7.4)
+
+### Pool Settings Fix
+- **Separate Port Field** - Now correctly reads `stratumPort` as a separate field from the AxeOS API (was missing entirely)
+- **Accurate Port Display** - Port is read directly from device instead of regex-parsing from URL (which always failed, defaulting to 3333)
+- **Correct API Updates** - Sends `stratumURL` and `stratumPort` as separate fields when saving pool settings (device expects them separate)
+- **S9 Port Extraction** - Bitmain S9 pool URL (`stratum+tcp://host:port`) is now parsed into separate URL and port fields
+- **Fixed Placeholder** - Pool URL placeholder changed from `stratum+tcp://pool.example.com` to `public-pool.io` (AxeOS docs: don't include TCP://)
+- **Desktop & Web UI** - Both display URL:port together in the read-only pool info view
+
+### Pool Settings Data Flow (Fixed)
+| Step | Before (Broken) | After (Fixed) |
+|------|-----------------|---------------|
+| API Response | Only read `stratumURL`, ignored `stratumPort` | Reads both `stratumURL` and `stratumPort` |
+| Port Display | Regex parsed from URL (always failed → default 3333) | Direct from `stratumPort` field |
+| Save to Device | Combined `URL:port` as single `stratumURL` field | Sends `stratumURL` + `stratumPort` separately |
+
+---
+
+## Previous Changes (v1.7.3)
 
 ### Hashrate Display Improvements
 - **Dynamic TH/s Formatting** - Hashrate now displays in TH/s when >= 1000 GH/s (e.g., 21475.90 GH/s → 21.48 TH/s)

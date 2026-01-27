@@ -146,6 +146,7 @@ export interface AxeOSSystemInfo {
   coreVoltage: number;
   poolDifficulty: number;
   stratumURL: string;
+  stratumPort: number;
   stratumUser: string;
   wifiStatus: string;
   freeHeap: number;
@@ -598,9 +599,20 @@ function transformBitmainToAxeOS(data: BitmainMinerStatus, ipAddress: string): A
     frequency: avgFreq,
     coreVoltage: avgVoltage,
 
-    // Pool info
+    // Pool info - S9 pools report URL as "stratum+tcp://host:port", parse them apart
     poolDifficulty: parseFloat(activePool?.diff?.replace('K', '000').replace('M', '000000') || '0'),
-    stratumURL: activePool?.url || '',
+    stratumURL: (() => {
+      const url = activePool?.url || '';
+      // Strip protocol prefix and port: "stratum+tcp://host:port" -> "host"
+      const stripped = url.replace(/^stratum\+tcp:\/\//, '');
+      const portIdx = stripped.lastIndexOf(':');
+      return portIdx > 0 ? stripped.substring(0, portIdx) : stripped;
+    })(),
+    stratumPort: (() => {
+      const url = activePool?.url || '';
+      const portMatch = url.match(/:(\d+)$/);
+      return portMatch ? parseInt(portMatch[1]) : 3333;
+    })(),
     stratumUser: activePool?.user || '',
 
     // System

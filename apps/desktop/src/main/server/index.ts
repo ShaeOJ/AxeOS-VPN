@@ -2029,7 +2029,7 @@ function getWebDashboardHtml(): string {
         }
 
         html += '<div class="section-title" style="display:flex;align-items:center;gap:8px;">' + ICONS.pool + 'Pool</div><div class="detail-grid">';
-        html += '<div class="detail-item" style="grid-column: span 2;"><div class="detail-label">' + iconLabel('pool', 'Stratum URL') + '</div><div class="detail-value" style="font-size:12px;word-break:break-all;">' + (m.stratumURL || 'Not configured') + '</div></div>';
+        html += '<div class="detail-item" style="grid-column: span 2;"><div class="detail-label">' + iconLabel('pool', 'Stratum URL') + '</div><div class="detail-value" style="font-size:12px;word-break:break-all;">' + (m.stratumURL || 'Not configured') + (m.stratumPort ? ':' + m.stratumPort : '') + '</div></div>';
         html += '<div class="detail-item" style="grid-column: span 2;"><div class="detail-label">' + iconLabel('ip', 'Worker') + '</div><div class="detail-value" style="font-size:12px;word-break:break-all;">' + (m.stratumUser || 'Not configured') + '</div></div>';
         html += '</div>';
 

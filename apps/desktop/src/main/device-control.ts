@@ -7,7 +7,8 @@ export interface DeviceSettings {
   frequency?: number;      // ASIC frequency in MHz
   coreVoltage?: number;    // Core voltage in mV
   fanSpeed?: number;       // Fan speed percentage (0-100)
-  stratumURL?: string;     // Pool stratum URL
+  stratumURL?: string;     // Pool stratum URL (hostname only, no port)
+  stratumPort?: number;    // Pool stratum port
   stratumUser?: string;    // Pool username/worker
   stratumPassword?: string; // Pool password
 }
@@ -72,6 +73,7 @@ export async function updateDeviceSettings(
   if (settings.frequency !== undefined) apiSettings.frequency = settings.frequency;
   if (settings.coreVoltage !== undefined) apiSettings.coreVoltage = settings.coreVoltage;
   if (settings.stratumURL !== undefined) apiSettings.stratumURL = settings.stratumURL;
+  if (settings.stratumPort !== undefined) apiSettings.stratumPort = settings.stratumPort;
   if (settings.stratumUser !== undefined) apiSettings.stratumUser = settings.stratumUser;
   if (settings.stratumPassword !== undefined) apiSettings.stratumPassword = settings.stratumPassword;
 
@@ -171,11 +173,13 @@ export async function setCoreVoltage(ipAddress: string, voltage: number): Promis
 export async function updatePoolSettings(
   ipAddress: string,
   stratumURL: string,
+  stratumPort: number,
   stratumUser: string,
   stratumPassword?: string
 ): Promise<ApiResponse> {
   const settings: DeviceSettings = {
     stratumURL,
+    stratumPort,
     stratumUser
   };
 

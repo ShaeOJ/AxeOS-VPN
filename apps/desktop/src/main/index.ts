@@ -344,8 +344,8 @@ ipcMain.handle('update-device-settings', async (_, ipAddress: string, settings: 
   return deviceControl.updateDeviceSettings(ipAddress, settings);
 });
 
-ipcMain.handle('update-pool-settings', async (_, ipAddress: string, stratumURL: string, stratumUser: string, stratumPassword?: string) => {
-  return deviceControl.updatePoolSettings(ipAddress, stratumURL, stratumUser, stratumPassword);
+ipcMain.handle('update-pool-settings', async (_, ipAddress: string, stratumURL: string, stratumPort: number, stratumUser: string, stratumPassword?: string) => {
+  return deviceControl.updatePoolSettings(ipAddress, stratumURL, stratumPort, stratumUser, stratumPassword);
 });
 
 // IPC Handlers - Device Groups

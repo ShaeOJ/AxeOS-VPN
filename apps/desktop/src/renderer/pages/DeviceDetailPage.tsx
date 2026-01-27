@@ -91,16 +91,12 @@ export function DeviceDetailPage() {
       if (m.fanspeed !== undefined) setFanSpeed(m.fanspeed);
       if (m.frequency !== undefined) setFrequency(m.frequency);
       if (m.coreVoltage !== undefined) setVoltage(m.coreVoltage);
-      // Pool settings - parse URL and port separately
+      // Pool settings - URL and port are separate fields from AxeOS API
       if (m.stratumURL !== undefined) {
-        // Parse port from URL like "stratum+tcp://pool.example.com:3333"
-        const urlMatch = m.stratumURL.match(/^(.+):(\d+)$/);
-        if (urlMatch) {
-          setPoolURL(urlMatch[1]);
-          setPoolPort(urlMatch[2]);
-        } else {
-          setPoolURL(m.stratumURL);
-        }
+        setPoolURL(m.stratumURL);
+      }
+      if (m.stratumPort !== undefined) {
+        setPoolPort(String(m.stratumPort));
       }
       if (m.stratumUser !== undefined) setPoolWorker(m.stratumUser);
     }
@@ -180,11 +176,11 @@ export function DeviceDetailPage() {
     setControlError(null);
     setControlSuccess(null);
     try {
-      // Combine URL and port
-      const fullURL = `${poolURL.trim()}:${poolPort.trim()}`;
+      // Send URL and port as separate fields (AxeOS API expects them separately)
       const result = await window.electronAPI.updatePoolSettings(
         device.ipAddress,
-        fullURL,
+        poolURL.trim(),
+        parseInt(poolPort),
         poolWorker.trim(),
         poolPassword.trim() || undefined
       );
@@ -599,7 +595,7 @@ export function DeviceDetailPage() {
                         type="text"
                         value={poolURL}
                         onChange={(e) => setPoolURL(e.target.value)}
-                        placeholder="stratum+tcp://pool.example.com"
+                        placeholder="public-pool.io"
                         className="w-full px-3 py-2 text-sm bg-bg-secondary border border-border rounded text-text-primary font-mono placeholder:text-text-secondary/50 focus:border-accent focus:outline-none"
                       />
                     </div>
@@ -664,7 +660,7 @@ export function DeviceDetailPage() {
               </div>
             ) : (
               /* Pool Display */
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <div className="p-3 bg-bg-primary border border-border">
                   <div className="flex items-center gap-2 mb-1">
                     <svg className="w-3 h-3 text-text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -673,7 +669,7 @@ export function DeviceDetailPage() {
                     <span className="text-text-secondary uppercase text-xs tracking-wide">Stratum URL</span>
                   </div>
                   <div className="text-pip-green font-mono text-xs truncate terminal-glow">
-                    {metrics.stratumURL || 'Not configured'}
+                    {metrics.stratumURL || 'Not configured'}{metrics.stratumPort ? `:${metrics.stratumPort}` : ''}
                   </div>
                 </div>
                 <div className="p-3 bg-bg-primary border border-border">
