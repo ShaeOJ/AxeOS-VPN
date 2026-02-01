@@ -437,7 +437,9 @@ export function DeviceDetailPage() {
                 />
               </div>
               <div className="text-xs text-text-secondary mt-2">
-                {metrics.voltage?.toFixed(1)}V @ {metrics.current?.toFixed(2)}A
+                {/* Voltage may be in mV (>1000) or V (<100), normalize to V */}
+                {metrics.voltage ? (metrics.voltage > 1000 ? (metrics.voltage / 1000).toFixed(2) : metrics.voltage.toFixed(2)) : '--'}V
+                {metrics.current ? ` @ ${(metrics.current > 1000 ? metrics.current / 1000 : metrics.current).toFixed(2)}A` : ''}
               </div>
             </div>
 
@@ -512,7 +514,8 @@ export function DeviceDetailPage() {
                   // Some firmware returns pre-formatted strings like "18.6G", others return numbers
                   if (typeof diff === 'string') return diff;
                   if (typeof diff === 'number') {
-                    if (diff >= 1e9) return (diff / 1e9).toFixed(2) + 'B';
+                    if (diff >= 1e12) return (diff / 1e12).toFixed(2) + 'T';
+                    if (diff >= 1e9) return (diff / 1e9).toFixed(2) + 'G';  // Use "G" to match miner firmware
                     if (diff >= 1e6) return (diff / 1e6).toFixed(2) + 'M';
                     if (diff >= 1e3) return (diff / 1e3).toFixed(2) + 'K';
                     return diff.toLocaleString();
@@ -683,24 +686,25 @@ export function DeviceDetailPage() {
                     {metrics.stratumUser || 'Not configured'}
                   </div>
                 </div>
-                <div className="p-3 bg-bg-primary border border-border">
-                  <div className="flex items-center gap-2 mb-1">
-                    <svg className="w-3 h-3 text-text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/>
-                    </svg>
-                    <span className="text-text-secondary uppercase text-xs tracking-wide">Pool Difficulty</span>
-                  </div>
-                  <div className="text-accent font-bold">
-                    {(() => {
-                      // Check for various field names used by different firmware
-                      const m = metrics as Record<string, unknown>;
-                      const diff = metrics.poolDifficulty ?? m.pool_difficulty ?? m.poolDiff ?? m.stratum_difficulty ?? m.stratumDifficulty ?? m.stratumSuggestedDifficulty;
-                      if (diff === undefined || diff === null) return '--';
-                      if (typeof diff === 'number') return formatDifficulty(diff);
-                      return String(diff);
-                    })()}
-                  </div>
-                </div>
+                {/* Only show Pool Difficulty if the firmware reports it */}
+                {(() => {
+                  const m = metrics as Record<string, unknown>;
+                  const diff = metrics.poolDifficulty ?? m.pool_difficulty ?? m.poolDiff ?? m.stratum_difficulty ?? m.stratumDifficulty ?? m.stratumSuggestedDifficulty;
+                  if (diff === undefined || diff === null || diff === 0) return null;
+                  return (
+                    <div className="p-3 bg-bg-primary border border-border">
+                      <div className="flex items-center gap-2 mb-1">
+                        <svg className="w-3 h-3 text-text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/>
+                        </svg>
+                        <span className="text-text-secondary uppercase text-xs tracking-wide">Pool Difficulty</span>
+                      </div>
+                      <div className="text-accent font-bold">
+                        {typeof diff === 'number' ? formatDifficulty(diff) : String(diff)}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>
@@ -946,7 +950,7 @@ export function DeviceDetailPage() {
               <div className="text-xs text-text-secondary uppercase tracking-wider mb-2">Slave Devices</div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {metrics.clusterInfo.slaves.map((slave, index) => (
-                  <div key={slave.slaveId} className="vault-card p-3 hover-glitch">
+                  <div key={`slave-${index}-${slave.slaveId}`} className="vault-card p-3 hover-glitch">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <div className={`w-2 h-2 rounded-full ${slave.state === 2 ? 'bg-success animate-pulse' : 'bg-warning'}`} />
@@ -1014,7 +1018,7 @@ export function DeviceDetailPage() {
                 </thead>
                 <tbody>
                   {historicalMetrics.map((m, i) => (
-                    <tr key={i} className="border-b border-border last:border-0">
+                    <tr key={`metric-${i}-${m.timestamp}`} className="border-b border-border last:border-0">
                       <td className="px-4 py-3 text-text-secondary text-sm">
                         {formatTime(m.timestamp)}
                       </td>
@@ -1041,7 +1045,8 @@ export function DeviceDetailPage() {
                           // Some firmware returns pre-formatted strings like "18.6G", others return numbers
                           if (typeof diff === 'string') return diff;
                           if (typeof diff === 'number') {
-                            if (diff >= 1e9) return (diff / 1e9).toFixed(2) + 'B';
+                            if (diff >= 1e12) return (diff / 1e12).toFixed(2) + 'T';
+                            if (diff >= 1e9) return (diff / 1e9).toFixed(2) + 'G';  // Use "G" to match miner firmware
                             if (diff >= 1e6) return (diff / 1e6).toFixed(2) + 'M';
                             if (diff >= 1e3) return (diff / 1e3).toFixed(2) + 'K';
                             return diff.toLocaleString();

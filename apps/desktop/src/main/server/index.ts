@@ -2075,7 +2075,7 @@ function getWebDashboardHtml(): string {
             const temp = metric.temperature ? metric.temperature.toFixed(1) + '°C' : '--';
             const power = metric.power ? metric.power.toFixed(1) + ' W' : '--';
             const diff = metric.data?.bestDiff;
-            const diffStr = diff ? (typeof diff === 'string' ? diff : (diff >= 1e9 ? (diff / 1e9).toFixed(2) + 'B' : diff >= 1e6 ? (diff / 1e6).toFixed(2) + 'M' : diff >= 1e3 ? (diff / 1e3).toFixed(2) + 'K' : diff.toLocaleString())) : '--';
+            const diffStr = diff ? (typeof diff === 'string' ? diff : (diff >= 1e12 ? (diff / 1e12).toFixed(2) + 'T' : diff >= 1e9 ? (diff / 1e9).toFixed(2) + 'G' : diff >= 1e6 ? (diff / 1e6).toFixed(2) + 'M' : diff >= 1e3 ? (diff / 1e3).toFixed(2) + 'K' : diff.toLocaleString())) : '--';
             html += '<tr style="border-bottom:1px solid #1a4a5c;">';
             html += '<td style="padding:6px 8px;color:#8BA88B;">' + time + '</td>';
             html += '<td style="padding:6px 8px;color:#FFB000;">' + hr + '</td>';
@@ -2291,7 +2291,7 @@ function getWebDashboardHtml(): string {
     function formatDifficulty(diff) {
       if (!diff) return '--';
       if (diff >= 1e12) return (diff / 1e12).toFixed(2) + 'T';
-      if (diff >= 1e9) return (diff / 1e9).toFixed(2) + 'B';
+      if (diff >= 1e9) return (diff / 1e9).toFixed(2) + 'G';  // Use "G" (giga) to match miner firmware
       if (diff >= 1e6) return (diff / 1e6).toFixed(2) + 'M';
       if (diff >= 1e3) return (diff / 1e3).toFixed(2) + 'K';
       return diff.toLocaleString();
@@ -3173,7 +3173,7 @@ function getWebDashboardHtml(): string {
           const diff = networkStats.difficulty;
           let diffText;
           if (diff >= 1e12) diffText = (diff / 1e12).toFixed(2) + 'T';
-          else if (diff >= 1e9) diffText = (diff / 1e9).toFixed(2) + 'B';
+          else if (diff >= 1e9) diffText = (diff / 1e9).toFixed(2) + 'G';  // Use "G" (giga) to match standard notation
           else if (diff >= 1e6) diffText = (diff / 1e6).toFixed(2) + 'M';
           else diffText = diff.toLocaleString();
 

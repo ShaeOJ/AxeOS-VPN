@@ -10,11 +10,28 @@ Vault-Tec Mining Operations Division - BitAxe Monitoring System for managing mul
 - **Charts**: Recharts
 - **Build**: electron-vite + electron-builder
 
-## Current Version: v1.7.4
+## Current Version: v1.7.5
 
 ---
 
-## Recent Changes (v1.7.4)
+## Recent Changes (v1.7.5)
+
+### Difficulty Display Fix
+- **Standardized on "G" (giga)** - All difficulty displays now use "G" instead of "B" to match miner firmware output
+- **Consistent across UI** - DeviceCard, DeviceDetailPage, ProfitabilityDisplay, and Web UI all show difficulty the same way
+- **S9 Pool Difficulty Parsing Fixed** - Bitmain S9 pool difficulty now correctly parses G, B, and T suffixes (was only handling K and M)
+- **Shared Utilities** - Added centralized `formatDifficulty()` and `parseDifficulty()` to shared-utils package
+
+### Difficulty Display Examples
+| Value | Before | After |
+|-------|--------|-------|
+| 1,230,000,000 | 1.23B | 1.23G |
+| 1,230,000,000,000 | 1.23T | 1.23T |
+| 56,400,000 | 56.40M | 56.40M |
+
+---
+
+## Previous Changes (v1.7.4)
 
 ### Pool Settings Fix
 - **Separate Port Field** - Now correctly reads `stratumPort` as a separate field from the AxeOS API (was missing entirely)

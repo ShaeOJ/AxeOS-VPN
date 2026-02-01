@@ -87,6 +87,35 @@ export function formatPercentage(value: number, decimals = 1): string {
   return `${value.toFixed(decimals)}%`;
 }
 
+// Difficulty formatting - uses "G" (giga) for 1e9 to match miner firmware output
+export function formatDifficulty(diff: number | null | undefined): string {
+  if (!diff) return '--';
+  if (diff >= 1e12) return `${(diff / 1e12).toFixed(2)}T`;
+  if (diff >= 1e9) return `${(diff / 1e9).toFixed(2)}G`;
+  if (diff >= 1e6) return `${(diff / 1e6).toFixed(2)}M`;
+  if (diff >= 1e3) return `${(diff / 1e3).toFixed(2)}K`;
+  return diff.toLocaleString();
+}
+
+// Parse difficulty from various formats - handles raw numbers and formatted strings like "56.4M", "18.6G"
+export function parseDifficulty(value: unknown): number {
+  if (typeof value === 'number' && !isNaN(value)) return value;
+  if (typeof value === 'string') {
+    // Try to parse formatted strings like "56.4M", "18.6G", "3.31G", "1.2T", "500K"
+    const match = value.match(/^([\d.]+)\s*([KMGBT])?$/i);
+    if (match) {
+      const num = parseFloat(match[1]);
+      const suffix = match[2]?.toUpperCase();
+      const multipliers: Record<string, number> = { K: 1e3, M: 1e6, G: 1e9, B: 1e9, T: 1e12 };
+      return num * (multipliers[suffix] || 1);
+    }
+    // Try plain number string
+    const parsed = parseFloat(value);
+    if (!isNaN(parsed)) return parsed;
+  }
+  return 0;
+}
+
 // Relative time formatting
 export function formatRelativeTime(date: Date): string {
   const now = new Date();

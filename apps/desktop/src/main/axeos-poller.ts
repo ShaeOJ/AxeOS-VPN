@@ -279,6 +279,21 @@ export async function fetchDeviceMetrics(ipAddress: string): Promise<AxeOSSystem
 
     const data = await response.json() as AxeOSSystemInfo;
 
+    // Normalize field names - different firmware versions use different names
+    const raw = data as Record<string, unknown>;
+
+    // Pool difficulty - check various field names
+    if (data.poolDifficulty === undefined || data.poolDifficulty === null) {
+      data.poolDifficulty = (raw.pool_difficulty ?? raw.poolDiff ?? raw.stratum_difficulty ??
+        raw.stratumDifficulty ?? raw.stratumSuggestedDifficulty ?? raw.difficulty) as number || 0;
+    }
+
+    // Best diff - check various field names
+    if (data.bestDiff === undefined || data.bestDiff === null) {
+      data.bestDiff = (raw.best_diff ?? raw.bestdiff ?? raw.BestDiff ??
+        raw.bestDifficulty ?? raw.best_difficulty) as number || 0;
+    }
+
     // Calculate efficiency if not provided or invalid from the API
     // Efficiency (J/TH) = Power (W) / Hashrate (TH/s)
     if ((!data.efficiency || data.efficiency <= 0) && data.power && data.hashRate) {
@@ -560,8 +575,9 @@ function transformBitmainToAxeOS(data: BitmainMinerStatus, ipAddress: string): A
   const mainsVoltage = 120; // Default assumption for US
   const mainsAmps = totalPower / mainsVoltage;
 
-  // Get active pool info
-  const activePool = data.pools.find(p => p.status === 'Alive' && p.priority === 0) || data.pools[0];
+  // Get active pool info (safely handle missing pools array)
+  const pools = data.pools || [];
+  const activePool = pools.find(p => p.status === 'Alive' && p.priority === 0) || pools[0];
 
   return {
     // Core metrics
@@ -600,7 +616,18 @@ function transformBitmainToAxeOS(data: BitmainMinerStatus, ipAddress: string): A
     coreVoltage: avgVoltage,
 
     // Pool info - S9 pools report URL as "stratum+tcp://host:port", parse them apart
-    poolDifficulty: parseFloat(activePool?.diff?.replace('K', '000').replace('M', '000000') || '0'),
+    // Parse pool difficulty properly - handles K, M, G, B, T suffixes
+    poolDifficulty: (() => {
+      const diffStr = activePool?.diff || '0';
+      const match = diffStr.match(/^([\d.]+)\s*([KMGBT])?$/i);
+      if (match) {
+        const num = parseFloat(match[1]);
+        const suffix = match[2]?.toUpperCase();
+        const multipliers: Record<string, number> = { K: 1e3, M: 1e6, G: 1e9, B: 1e9, T: 1e12 };
+        return num * (multipliers[suffix] || 1);
+      }
+      return parseFloat(diffStr) || 0;
+    })(),
     stratumURL: (() => {
       const url = activePool?.url || '';
       // Strip protocol prefix and port: "stratum+tcp://host:port" -> "host"
