@@ -66,6 +66,13 @@ jobs:
         if: matrix.platform == 'win'
         run: npm install -g windows-build-tools || true
 
+      - name: Install cross-compilation tools (Linux ARM64)
+        if: matrix.platform == 'linux'
+        run: |
+          sudo dpkg --add-architecture arm64
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
       - name: Rebuild native modules for Electron
         shell: bash
         run: |

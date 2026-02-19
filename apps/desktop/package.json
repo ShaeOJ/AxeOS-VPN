@@ -120,11 +120,17 @@
     },
     "linux": {
       "target": [
-        "AppImage",
-        "deb"
+        {
+          "target": "AppImage",
+          "arch": ["x64", "arm64"]
+        },
+        {
+          "target": "deb",
+          "arch": ["x64", "arm64"]
+        }
       ],
       "icon": "resources/icon.png",
-      "artifactName": "AxeOS-VPN-Monitor-${version}-Linux.${ext}",
+      "artifactName": "AxeOS-VPN-Monitor-${version}-Linux-${arch}.${ext}",
       "category": "Utility"
     }
   }
