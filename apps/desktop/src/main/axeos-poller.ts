@@ -377,13 +377,46 @@ async function pollDevice(device: devices.Device): Promise<void> {
     devices.updateDeviceStatus(device.id, true);
 
     // Check for new all-time best difficulty
-    if (data.bestDiff && data.bestDiff > 0) {
+    // Parse bestDiff which may be a formatted string like "56.4M" from some devices
+    const parsedBestDiff = typeof data.bestDiff === 'string'
+      ? (() => {
+          const match = String(data.bestDiff).match(/^([\d.]+)\s*([KMGBT])?$/i);
+          if (match) {
+            const num = parseFloat(match[1]);
+            const suffix = match[2]?.toUpperCase();
+            const multipliers: Record<string, number> = { K: 1e3, M: 1e6, G: 1e9, B: 1e9, T: 1e12 };
+            return num * (multipliers[suffix] || 1);
+          }
+          return parseFloat(String(data.bestDiff)) || 0;
+        })()
+      : Number(data.bestDiff) || 0;
+
+    // Normalize bestDiff to numeric value so renderer doesn't get strings
+    data.bestDiff = parsedBestDiff;
+
+    if (parsedBestDiff > 0) {
       const previousBest = device.all_time_best_diff || 0;
-      const isNewRecord = devices.updateAllTimeBestDiff(device.id, data.bestDiff);
+      const isNewRecord = devices.updateAllTimeBestDiff(device.id, parsedBestDiff);
       if (isNewRecord) {
-        console.log(`[Poller] 🏆 NEW RECORD! ${device.name}: bestDiff=${data.bestDiff} (previous: ${previousBest})`);
-        newBestDiffCallback?.(device.id, device.name, data.bestDiff, previousBest);
+        console.log(`[Poller] 🏆 NEW RECORD! ${device.name}: bestDiff=${parsedBestDiff} (previous: ${previousBest})`);
+        newBestDiffCallback?.(device.id, device.name, parsedBestDiff, previousBest);
       }
+    }
+
+    // Also normalize bestSessionDiff if it's a string
+    if (data.bestSessionDiff !== undefined) {
+      data.bestSessionDiff = typeof data.bestSessionDiff === 'string'
+        ? (() => {
+            const match = String(data.bestSessionDiff).match(/^([\d.]+)\s*([KMGBT])?$/i);
+            if (match) {
+              const num = parseFloat(match[1]);
+              const suffix = match[2]?.toUpperCase();
+              const multipliers: Record<string, number> = { K: 1e3, M: 1e6, G: 1e9, B: 1e9, T: 1e12 };
+              return num * (multipliers[suffix] || 1);
+            }
+            return parseFloat(String(data.bestSessionDiff)) || 0;
+          })()
+        : Number(data.bestSessionDiff) || 0;
     }
 
     // Store latest metrics

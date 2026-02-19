@@ -128,9 +128,20 @@ export const useDeviceStore = create<DeviceState>()((set, get) => ({
 
   updateDeviceMetrics: (deviceId, metrics) => {
     set((state) => ({
-      devices: state.devices.map((d) =>
-        d.id === deviceId ? { ...d, latestMetrics: metrics, isOnline: true, lastSeen: Date.now() } : d
-      ),
+      devices: state.devices.map((d) => {
+        if (d.id !== deviceId) return d;
+        // Sync allTimeBestDiff from incoming metrics - if bestDiff is higher, update the store
+        const incomingBestDiff = Number(metrics.bestDiff) || 0;
+        const currentAllTimeBest = d.allTimeBestDiff || 0;
+        const newAllTimeBest = incomingBestDiff > currentAllTimeBest ? incomingBestDiff : currentAllTimeBest;
+        return {
+          ...d,
+          latestMetrics: metrics,
+          isOnline: true,
+          lastSeen: Date.now(),
+          allTimeBestDiff: newAllTimeBest,
+        };
+      }),
     }));
   },
 

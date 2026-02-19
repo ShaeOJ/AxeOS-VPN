@@ -2148,9 +2148,11 @@ function getWebDashboardHtml(): string {
         const blockChance = m && m.hashRate && networkStats ? calculateBlockChance(m.hashRate, networkStats.difficulty) : null;
         // Parse best diff - handles formatted strings like "56.4M" from AxeOS
         const currentBestDiff = m ? parseDifficulty(m.bestDiff) : 0;
+        const currentSessionDiff = m ? parseDifficulty(m.bestSessionDiff) : 0;
         const allTimeBest = d.allTimeBestDiff || 0;
         const displayBestDiff = Math.max(currentBestDiff, allTimeBest);
-        const isNewRecord = currentBestDiff > 0 && currentBestDiff > allTimeBest;
+        // Only show NEW! when the session diff matches or exceeds all-time best (record set THIS session)
+        const isNewRecord = currentSessionDiff > 0 && allTimeBest > 0 && currentSessionDiff >= allTimeBest;
         return '<div class="card clickable" onclick="showDeviceDetail(' + "'" + d.id + "'" + ')">' +
           '<div class="device-header"><div><div class="device-name">' + d.name + '</div><div class="device-ip">' + d.ipAddress + '</div>' +
           (m ? '<div class="device-model" style="display:flex;align-items:center;gap:6px;">' + (m.ASICModel || 'BitAxe') +

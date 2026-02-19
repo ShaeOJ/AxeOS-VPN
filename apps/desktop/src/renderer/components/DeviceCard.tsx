@@ -414,13 +414,18 @@ export function DeviceCard({ device, groups, onGroupChange, networkStats, isNewR
     prevSharesRef.current = currentShares;
   }, [metrics?.sharesAccepted, device.name]);
 
-  // Check if current session best diff equals all-time best (new record achieved this session)
-  // Parse bestDiff which may be a formatted string like "56.4M" or a raw number
+  // Check if current session best diff has beaten the stored all-time best
+  // Use bestSessionDiff (current session only) to detect records set THIS session
+  // bestDiff = device firmware all-time best (persists across reboots)
+  // bestSessionDiff = current session only (resets on reboot)
   const currentBestDiff = parseDifficulty(metrics?.bestDiff);
+  const currentSessionDiff = parseDifficulty(metrics?.bestSessionDiff);
   const allTimeBest = device.allTimeBestDiff || 0;
-  // Use the higher of current session or all-time best
+  // Use the higher of current best or all-time best for display
   const displayBestDiff = Math.max(currentBestDiff, allTimeBest);
-  const isCurrentSessionRecord = currentBestDiff > 0 && currentBestDiff > allTimeBest;
+  // Only show NEW! when the session diff matches or exceeds all-time best
+  // This means the record was set in the CURRENT session, not a previous one
+  const isCurrentSessionRecord = currentSessionDiff > 0 && allTimeBest > 0 && currentSessionDiff >= allTimeBest;
 
   const currentGroup = groups?.find(g => g.id === device.groupId);
 
