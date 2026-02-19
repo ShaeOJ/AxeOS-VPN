@@ -102,6 +102,12 @@ export function getAggregatedMetrics(
   };
 }
 
+export function deleteMetricsForDevice(deviceId: string): number {
+  const db = getDatabase();
+  const result = db.prepare('DELETE FROM metrics WHERE device_id = ?').run(deviceId);
+  return result.changes;
+}
+
 export function cleanupOldMetrics(olderThanDays: number): number {
   const db = getDatabase();
   const cutoffTime = Date.now() - olderThanDays * 24 * 60 * 60 * 1000;

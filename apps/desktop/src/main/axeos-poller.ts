@@ -1,4 +1,5 @@
 import * as crypto from 'crypto';
+import * as net from 'net';
 import * as devices from './database/devices';
 import * as metrics from './database/metrics';
 import { DeviceType } from './database/devices';
@@ -151,6 +152,10 @@ export interface AxeOSSystemInfo {
   wifiStatus: string;
   freeHeap: number;
   smallCoreCount: number;
+  // Algorithm identifier
+  algorithm?: 'sha256' | 'scrypt';
+  // Canaan-specific
+  isCanaan?: boolean;
   // ClusterAxe fields - added when cluster is detected
   isClusterMaster?: boolean;
   clusterInfo?: ClusterStatus;
@@ -331,7 +336,14 @@ async function pollDevice(device: devices.Device): Promise<void> {
   // Fetch metrics based on device type
   const data = device.device_type === 'bitmain'
     ? await fetchBitmainMetrics(device.ip_address, device.auth_user || undefined, device.auth_pass || undefined)
+    : device.device_type === 'canaan'
+    ? await fetchCanaanMetrics(device.ip_address)
     : await fetchDeviceMetrics(device.ip_address);
+
+  // Check if device was deleted while HTTP request was in-flight
+  if (!pollIntervals.has(device.id)) {
+    return;
+  }
 
   if (data) {
     // Reset consecutive failures on successful poll
@@ -404,6 +416,9 @@ export function stopPolling(deviceId: string): void {
     pollIntervals.delete(deviceId);
     console.log(`Stopped polling device ${deviceId}`);
   }
+  // Clean up cached state for this device
+  latestMetrics.delete(deviceId);
+  consecutiveFailures.delete(deviceId);
 }
 
 export function stopAllPolling(): void {
@@ -445,7 +460,7 @@ export async function testConnection(ipAddress: string): Promise<{ success: bool
 // BITMAIN S9 SUPPORT (BETA)
 // ============================================
 
-// Fetch metrics from Bitmain S9/Antminer with Digest Authentication
+// Fetch metrics from Bitmain Antminer with Digest Authentication (supports S9, L3+, etc.)
 export async function fetchBitmainMetrics(ipAddress: string, username?: string, password?: string): Promise<AxeOSSystemInfo | null> {
   const url = `http://${ipAddress}/cgi-bin/get_miner_status.cgi`;
   const uri = '/cgi-bin/get_miner_status.cgi';
@@ -502,7 +517,9 @@ export async function fetchBitmainMetrics(ipAddress: string, username?: string, 
       }
 
       const data = await authResponse.json() as BitmainMinerStatus;
-      return transformBitmainToAxeOS(data, ipAddress);
+      // Detect specific model (S9, L3+, etc.)
+      const model = await detectBitmainModel(ipAddress, username, password);
+      return transformBitmainToAxeOS(data, ipAddress, model);
     }
 
     // If no auth required (shouldn't happen with S9)
@@ -512,15 +529,84 @@ export async function fetchBitmainMetrics(ipAddress: string, username?: string, 
     }
 
     const data = await initialResponse.json() as BitmainMinerStatus;
-    return transformBitmainToAxeOS(data, ipAddress);
+    const model = await detectBitmainModel(ipAddress, username, password);
+    return transformBitmainToAxeOS(data, ipAddress, model);
   } catch (error) {
     console.error(`[Bitmain] Error fetching from ${ipAddress}:`, error instanceof Error ? error.message : error);
     return null;
   }
 }
 
-// Transform Bitmain S9 data to AxeOSSystemInfo format
-function transformBitmainToAxeOS(data: BitmainMinerStatus, ipAddress: string): AxeOSSystemInfo {
+// Detect Bitmain model by querying system info endpoint
+async function detectBitmainModel(ipAddress: string, username?: string, password?: string): Promise<string> {
+  const url = `http://${ipAddress}/cgi-bin/get_system_info.cgi`;
+  const uri = '/cgi-bin/get_system_info.cgi';
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    const initialResponse = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (initialResponse.status === 401 && username && password) {
+      const wwwAuth = initialResponse.headers.get('www-authenticate');
+      if (!wwwAuth) return 'Unknown Antminer';
+
+      const digestParams = parseDigestChallenge(wwwAuth);
+      if (!digestParams) return 'Unknown Antminer';
+
+      const authHeader = createDigestHeader('GET', uri, username, password, digestParams);
+      const controller2 = new AbortController();
+      const timeoutId2 = setTimeout(() => controller2.abort(), 5000);
+
+      const authResponse = await fetch(url, {
+        signal: controller2.signal,
+        headers: { 'Authorization': authHeader },
+      });
+      clearTimeout(timeoutId2);
+
+      if (authResponse.ok) {
+        const info = await authResponse.json() as Record<string, unknown>;
+        if (info.minertype && typeof info.minertype === 'string') {
+          return info.minertype; // e.g., "Antminer S9", "Antminer L3+"
+        }
+      }
+    } else if (initialResponse.ok) {
+      const info = await initialResponse.json() as Record<string, unknown>;
+      if (info.minertype && typeof info.minertype === 'string') {
+        return info.minertype;
+      }
+    }
+  } catch {
+    // Fall through to heuristic
+  }
+
+  return 'Unknown Antminer';
+}
+
+// Infer Bitmain model from chain data heuristics
+function inferBitmainModel(data: BitmainMinerStatus): { model: string; algorithm: 'sha256' | 'scrypt'; chipsPerChain: number } {
+  const chainCount = data.devs.length;
+  const hashRateGH = parseFloat(data.summary.ghs5s) || 0;
+
+  // L3+ typically has 4 chains and much lower hashrate (in GH/s terms, ~0.5 GH/s for Scrypt)
+  // S9 typically has 3 chains and ~14 TH/s (14000 GH/s for SHA-256)
+  if (chainCount === 4 && hashRateGH < 10) {
+    return { model: 'Antminer L3+', algorithm: 'scrypt', chipsPerChain: 72 };
+  }
+
+  // S9: 3 chains, high hashrate
+  if (chainCount === 3) {
+    return { model: 'Antminer S9', algorithm: 'sha256', chipsPerChain: 63 };
+  }
+
+  // Default: assume SHA-256 miner
+  return { model: 'Unknown Antminer', algorithm: 'sha256', chipsPerChain: 63 };
+}
+
+// Transform Bitmain data to AxeOSSystemInfo format (supports S9, L3+, and other Antminers)
+function transformBitmainToAxeOS(data: BitmainMinerStatus, ipAddress: string, detectedModel?: string): AxeOSSystemInfo {
   // Calculate totals from all chains
   let totalPower = 0;
   let maxTemp = 0;
@@ -566,14 +652,38 @@ function transformBitmainToAxeOS(data: BitmainMinerStatus, ipAddress: string): A
   const avgVoltage = chainCount > 0 ? totalVoltage / chainCount : 0;
   const hashRateGH = parseFloat(data.summary.ghs5s) || 0;
 
+  // Detect model - use detected model from system info, or infer from data
+  const inferred = inferBitmainModel(data);
+  const modelName = detectedModel && detectedModel !== 'Unknown Antminer' ? detectedModel : inferred.model;
+  const algorithm = detectedModel?.toLowerCase().includes('l3') ? 'scrypt' as const : inferred.algorithm;
+  const chipsPerChain = inferred.chipsPerChain;
+
+  // Generate hostname prefix from model
+  const hostnamePrefix = modelName.replace('Antminer ', '').replace('+', 'p').split(' ')[0];
+
   // Calculate efficiency (J/TH)
   const hashrateTH = hashRateGH / 1000;
   const efficiency = hashrateTH > 0 ? totalPower / hashrateTH : 0;
 
-  // Calculate amps from mains voltage (assume 120V for US, could be configurable)
-  // S9 PSUs are typically 90-264V AC input
-  const mainsVoltage = 120; // Default assumption for US
-  const mainsAmps = totalPower / mainsVoltage;
+  // Chain voltage handling
+  // avgVoltage is the average chain voltage from dev.chain_vol
+  // Convert to mV if it looks like it's in V (< 100 means V, otherwise mV)
+  // Use 8.5V fallback if chain_vol not reported (typical operating voltage)
+  const DEFAULT_S9_VOLTAGE = 8.5;
+  let chainVoltage: number;
+  if (avgVoltage > 0) {
+    chainVoltage = avgVoltage < 100 ? avgVoltage * 1000 : avgVoltage; // Normalize to mV
+  } else {
+    chainVoltage = DEFAULT_S9_VOLTAGE * 1000; // Use fallback in mV
+    console.log(`[Bitmain] ${ipAddress}: chain_vol not reported, using fallback ${DEFAULT_S9_VOLTAGE}V`);
+  }
+
+  // Calculate DC current at chain voltage
+  const chainVoltageV = chainVoltage / 1000;
+  const dcAmps = chainVoltageV > 0 ? totalPower / chainVoltageV : 0;
+
+  // Mains voltage for wall current reference
+  const mainsVoltage = 120;
 
   // Get active pool info (safely handle missing pools array)
   const pools = data.pools || [];
@@ -582,8 +692,8 @@ function transformBitmainToAxeOS(data: BitmainMinerStatus, ipAddress: string): A
   return {
     // Core metrics
     power: totalPower,
-    voltage: mainsVoltage, // Use mains voltage for display
-    current: mainsAmps * 1000, // Store in milliamps like BitAxe does
+    voltage: chainVoltage, // Chain DC voltage in mV (for DC current calculation)
+    current: dcAmps * 1000, // DC current in milliamps
     efficiency: efficiency,
     temp: maxTemp,
     temp2: maxTemp2,
@@ -604,9 +714,9 @@ function transformBitmainToAxeOS(data: BitmainMinerStatus, ipAddress: string): A
 
     // System info
     uptimeSeconds: data.summary.elapsed,
-    hostname: `S9-${ipAddress.split('.').pop()}`,
+    hostname: `${hostnamePrefix}-${ipAddress.split('.').pop()}`,
     ipv4: ipAddress,
-    ASICModel: 'Bitmain Antminer S9',
+    ASICModel: `Bitmain ${modelName}`,
     version: 'Bitmain (BETA)',
 
     // Fan and frequency
@@ -645,14 +755,257 @@ function transformBitmainToAxeOS(data: BitmainMinerStatus, ipAddress: string): A
     // System
     wifiStatus: 'Ethernet',
     freeHeap: 0,
-    smallCoreCount: chainCount * 63, // S9 has 63 chips per chain
+    smallCoreCount: chainCount * chipsPerChain,
 
-    // Extra S9-specific fields
+    // Algorithm
+    algorithm: algorithm,
+
+    // Extra Bitmain-specific fields
     hwErrors: data.summary.hw,
     chainCount: chainCount,
     isBitmain: true,
     boards: boards, // Per-board breakdown
     mainsVoltage: mainsVoltage, // Track assumed mains voltage
+  };
+}
+
+// ============================================
+// CANAAN AVALON SUPPORT (BETA)
+// ============================================
+
+// Send a CGMiner API command over TCP and receive the response
+function cgminerCommand(ipAddress: string, command: string, port: number = 4028, timeoutMs: number = 8000): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const socket = new net.Socket();
+    let data = '';
+
+    socket.setTimeout(timeoutMs);
+
+    socket.connect(port, ipAddress, () => {
+      socket.write(JSON.stringify({ command }) + '\n');
+    });
+
+    socket.on('data', (chunk) => {
+      data += chunk.toString();
+    });
+
+    socket.on('end', () => {
+      resolve(data);
+    });
+
+    socket.on('timeout', () => {
+      socket.destroy();
+      reject(new Error('CGMiner TCP timeout'));
+    });
+
+    socket.on('error', (err) => {
+      socket.destroy();
+      reject(err);
+    });
+
+    // CGMiner sometimes doesn't send FIN, so close after receiving data + short delay
+    socket.on('data', () => {
+      // Reset a close timer each time data arrives
+      clearTimeout(closeTimer);
+      closeTimer = setTimeout(() => {
+        socket.end();
+      }, 500);
+    });
+
+    let closeTimer = setTimeout(() => {
+      socket.end();
+    }, timeoutMs - 500);
+  });
+}
+
+// Check if a Canaan/CGMiner device is reachable on TCP 4028
+export async function checkCanaanDevice(ipAddress: string): Promise<boolean> {
+  try {
+    const raw = await cgminerCommand(ipAddress, 'version', 4028, 3000);
+    // CGMiner responses may have null bytes, clean them
+    const cleaned = raw.replace(/\0/g, '');
+    const parsed = JSON.parse(cleaned);
+    return parsed && (parsed.VERSION || parsed.version);
+  } catch {
+    return false;
+  }
+}
+
+// Fetch metrics from Canaan Avalon (CGMiner API on TCP 4028)
+export async function fetchCanaanMetrics(ipAddress: string): Promise<AxeOSSystemInfo | null> {
+  try {
+    const raw = await cgminerCommand(ipAddress, 'summary+pools+stats', 4028, 8000);
+    // CGMiner responses may have null bytes and multiple JSON objects
+    const cleaned = raw.replace(/\0/g, '');
+
+    // CGMiner multi-command responses are concatenated JSON objects
+    // Parse them by splitting on }{ boundaries
+    let summary: Record<string, unknown> | null = null;
+    let pools: Array<Record<string, unknown>> = [];
+    let stats: Array<Record<string, unknown>> = [];
+
+    // Try parsing as a single JSON object first (some implementations)
+    try {
+      const parsed = JSON.parse(cleaned);
+      if (parsed.SUMMARY) summary = Array.isArray(parsed.SUMMARY) ? parsed.SUMMARY[0] : parsed.SUMMARY;
+      if (parsed.POOLS) pools = Array.isArray(parsed.POOLS) ? parsed.POOLS : [parsed.POOLS];
+      if (parsed.STATS) stats = Array.isArray(parsed.STATS) ? parsed.STATS : [parsed.STATS];
+    } catch {
+      // Try splitting multiple JSON responses
+      const parts = cleaned.split(/\}\s*\{/).map((p, i, arr) => {
+        if (i === 0) return p + '}';
+        if (i === arr.length - 1) return '{' + p;
+        return '{' + p + '}';
+      });
+
+      for (const part of parts) {
+        try {
+          const parsed = JSON.parse(part);
+          if (parsed.SUMMARY) summary = Array.isArray(parsed.SUMMARY) ? parsed.SUMMARY[0] : parsed.SUMMARY;
+          if (parsed.POOLS) pools = Array.isArray(parsed.POOLS) ? parsed.POOLS : [parsed.POOLS];
+          if (parsed.STATS) stats = Array.isArray(parsed.STATS) ? parsed.STATS : [parsed.STATS];
+        } catch {
+          // Skip unparseable parts
+        }
+      }
+    }
+
+    if (!summary) {
+      console.error(`[Canaan] ${ipAddress}: No SUMMARY data in CGMiner response`);
+      return null;
+    }
+
+    return transformCanaanToAxeOS(summary, pools, stats, ipAddress);
+  } catch (error) {
+    console.error(`[Canaan] Error fetching from ${ipAddress}:`, error instanceof Error ? error.message : error);
+    return null;
+  }
+}
+
+// Transform CGMiner API data to unified AxeOSSystemInfo format
+function transformCanaanToAxeOS(
+  summary: Record<string, unknown>,
+  pools: Array<Record<string, unknown>>,
+  stats: Array<Record<string, unknown>>,
+  ipAddress: string
+): AxeOSSystemInfo {
+  // Hashrate: CGMiner reports MHS 5s (megahashes per second over 5s)
+  const mhs5s = Number(summary['MHS 5s'] || summary['MHS5s'] || 0);
+  const mhsAv = Number(summary['MHS av'] || summary['MHSav'] || 0);
+  const hashRateGH = mhs5s / 1000; // Convert MH/s to GH/s
+  const hashRateAvgGH = mhsAv / 1000;
+
+  // Shares
+  const sharesAccepted = Number(summary['Accepted'] || 0);
+  const sharesRejected = Number(summary['Rejected'] || 0);
+  const bestShare = Number(summary['Best Share'] || 0);
+  const hwErrors = Number(summary['Hardware Errors'] || 0);
+  const uptimeSeconds = Number(summary['Elapsed'] || 0);
+
+  // Extract temperature and fan from stats
+  let maxTemp = 0;
+  let maxFanRpm = 0;
+  let frequency = 0;
+  let totalPower = 0;
+
+  for (const stat of stats) {
+    // Temperature fields: temp, temp1, temp2, temp3, etc.
+    for (const key of Object.keys(stat)) {
+      if (key.match(/^temp\d*$/i)) {
+        const val = Number(stat[key]);
+        if (val > 0 && val < 150) maxTemp = Math.max(maxTemp, val);
+      }
+      if (key.match(/^fan\d*$/i)) {
+        const val = Number(stat[key]);
+        if (val > 0) maxFanRpm = Math.max(maxFanRpm, val);
+      }
+      if (key.toLowerCase() === 'frequency' || key.toLowerCase() === 'freq') {
+        const val = Number(stat[key]);
+        if (val > 0) frequency = val;
+      }
+    }
+  }
+
+  // Estimate power for Nano 3S (~600W typical at 6 TH/s)
+  // Use hashrate-based estimation since CGMiner doesn't report power
+  const hashrateTH = hashRateGH / 1000;
+  if (hashrateTH > 0) {
+    // Nano 3S efficiency is ~100 J/TH
+    totalPower = hashrateTH * 100;
+  }
+
+  const efficiency = hashrateTH > 0 && totalPower > 0 ? totalPower / hashrateTH : 0;
+
+  // Pool info from first active pool
+  const activePool = pools.find(p => p['Status'] === 'Alive') || pools[0] || {};
+  const poolUrl = String(activePool['URL'] || '');
+  // Parse stratum URL: "stratum+tcp://host:port" or "host:port"
+  const strippedUrl = poolUrl.replace(/^stratum\+tcp:\/\//, '');
+  const portIdx = strippedUrl.lastIndexOf(':');
+  const stratumURL = portIdx > 0 ? strippedUrl.substring(0, portIdx) : strippedUrl;
+  const stratumPort = portIdx > 0 ? parseInt(strippedUrl.substring(portIdx + 1)) || 3333 : 3333;
+
+  // Detect model from stats (version string or type field)
+  let modelName = 'Avalon Nano 3S';
+  for (const stat of stats) {
+    const type = String(stat['Type'] || stat['type'] || '');
+    if (type) {
+      modelName = type;
+      break;
+    }
+  }
+
+  return {
+    // Core metrics
+    power: totalPower,
+    voltage: 0,
+    current: 0,
+    efficiency: efficiency,
+    temp: maxTemp,
+    temp2: 0,
+    vrTemp: 0,
+
+    // Hashrate
+    hashRate: hashRateGH,
+    hashRate_1m: hashRateGH,
+    hashRate_10m: hashRateAvgGH,
+    hashRate_1h: hashRateAvgGH,
+    expectedHashrate: hashRateGH,
+
+    // Shares and difficulty
+    bestDiff: bestShare,
+    bestSessionDiff: bestShare,
+    sharesAccepted: sharesAccepted,
+    sharesRejected: sharesRejected,
+
+    // System info
+    uptimeSeconds: uptimeSeconds,
+    hostname: `Nano3S-${ipAddress.split('.').pop()}`,
+    ipv4: ipAddress,
+    ASICModel: modelName,
+    version: 'Canaan (BETA)',
+
+    // Fan and frequency
+    fanspeed: 0, // CGMiner reports RPM, not percentage
+    fanrpm: maxFanRpm,
+    frequency: frequency,
+    coreVoltage: 0,
+
+    // Pool info
+    poolDifficulty: Number(activePool['Difficulty Accepted'] || 0),
+    stratumURL: stratumURL,
+    stratumPort: stratumPort,
+    stratumUser: String(activePool['User'] || ''),
+
+    // System
+    wifiStatus: 'Ethernet',
+    freeHeap: 0,
+    smallCoreCount: 0,
+
+    // Canaan-specific
+    algorithm: 'sha256',
+    isCanaan: true,
+    hwErrors: hwErrors,
   };
 }
 
@@ -682,11 +1035,18 @@ export async function detectDeviceType(ipAddress: string, username?: string, pas
     return { type: 'bitaxe', data: axeosData };
   }
 
-  // Try Bitmain/CGMiner
+  // Try Bitmain/CGMiner HTTP
   const bitmainData = await fetchBitmainMetrics(ipAddress, username, password);
   if (bitmainData) {
     console.log(`[Detection] ${ipAddress} is Bitmain: ${bitmainData.ASICModel}`);
     return { type: 'bitmain', data: bitmainData };
+  }
+
+  // Try Canaan/CGMiner TCP (port 4028)
+  const canaanData = await fetchCanaanMetrics(ipAddress);
+  if (canaanData) {
+    console.log(`[Detection] ${ipAddress} is Canaan: ${canaanData.ASICModel}`);
+    return { type: 'canaan', data: canaanData };
   }
 
   // Check if it's a Bitmain that needs auth

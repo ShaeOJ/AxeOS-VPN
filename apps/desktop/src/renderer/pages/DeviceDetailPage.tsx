@@ -14,6 +14,7 @@ function formatHashrate(hashrate: number | null | undefined): string {
   if (!hashrate) return '--';
   // AxeOS reports in GH/s
   if (hashrate >= 1000) return `${(hashrate / 1000).toFixed(2)} TH/s`;
+  if (hashrate < 1) return `${(hashrate * 1000).toFixed(2)} MH/s`;
   return `${hashrate.toFixed(2)} GH/s`;
 }
 
@@ -242,10 +243,12 @@ export function DeviceDetailPage() {
 
     try {
       await removeDevice(deviceId);
+      setShowDeleteConfirm(false);
       navigate('/dashboard');
     } catch (error) {
       console.error('Failed to delete device:', error);
       setIsDeleting(false);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -299,7 +302,15 @@ export function DeviceDetailPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
                 <div className="text-text-secondary mb-1">Model</div>
-                <div className="text-text-primary font-medium">{metrics.ASICModel || 'Unknown'}</div>
+                <div className="text-text-primary font-medium flex items-center gap-2">
+                  {metrics.ASICModel || 'Unknown'}
+                  {device.deviceType === 'bitmain' && (
+                    <span className="px-1.5 py-0.5 text-[10px] bg-warning/20 border border-warning/40 text-warning uppercase font-bold">BETA</span>
+                  )}
+                  {device.deviceType === 'canaan' && (
+                    <span className="px-1.5 py-0.5 text-[10px] bg-success/20 border border-success/40 text-success uppercase font-bold">BETA</span>
+                  )}
+                </div>
               </div>
               <div>
                 <div className="text-text-secondary mb-1">Hostname</div>
@@ -313,6 +324,12 @@ export function DeviceDetailPage() {
                 <div className="text-text-secondary mb-1">Uptime</div>
                 <div className="text-text-primary font-medium">{formatUptime(metrics.uptimeSeconds)}</div>
               </div>
+              {metrics.algorithm && (
+                <div>
+                  <div className="text-text-secondary mb-1">Algorithm</div>
+                  <div className="text-text-primary font-medium uppercase">{metrics.algorithm}</div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -437,9 +454,19 @@ export function DeviceDetailPage() {
                 />
               </div>
               <div className="text-xs text-text-secondary mt-2">
-                {/* Voltage may be in mV (>1000) or V (<100), normalize to V */}
-                {metrics.voltage ? (metrics.voltage > 1000 ? (metrics.voltage / 1000).toFixed(2) : metrics.voltage.toFixed(2)) : '--'}V
-                {metrics.current ? ` @ ${(metrics.current > 1000 ? metrics.current / 1000 : metrics.current).toFixed(2)}A` : ''}
+                {(() => {
+                  const MAINS_VOLTAGE = 120;
+                  const power = metrics.power || 0;
+                  const voltage = metrics.voltage || 0;
+                  const voltageV = voltage > 1000 ? voltage / 1000 : voltage;
+                  const wallAmps = power > 0 ? (power / MAINS_VOLTAGE).toFixed(1) : '--';
+                  const dcAmps = voltageV > 1 && voltageV < 50 && power > 0 ? (power / voltageV).toFixed(1) : null;
+
+                  if (dcAmps) {
+                    return `${voltageV.toFixed(1)}V @ ${dcAmps}A DC / ${wallAmps}A wall`;
+                  }
+                  return `${wallAmps}A wall`;
+                })()}
               </div>
             </div>
 
@@ -709,7 +736,8 @@ export function DeviceDetailPage() {
             )}
           </div>
 
-          {/* Device Control Panel */}
+          {/* Device Control Panel - Hidden for Canaan (monitoring only) */}
+          {device.deviceType !== 'canaan' && (
           <div className="vault-card p-4">
             <div className="flex items-center justify-between mb-4 pb-2 border-b border-border">
               <div className="flex items-center gap-2">
@@ -874,6 +902,7 @@ export function DeviceDetailPage() {
               </div>
             )}
           </div>
+          )}
 
           {/* ClusterAxe Cluster Info - Shows when device is a cluster master */}
           {metrics.isClusterMaster && metrics.clusterInfo && (

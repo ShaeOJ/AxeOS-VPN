@@ -109,6 +109,7 @@ export function SettingsPage() {
 
   // Theme state
   const [currentTheme, setCurrentTheme] = useState('vault-tec');
+  const [scanlinesEnabled, setScanlinesEnabled] = useState(true);
 
   // Update check state
   const [updateStatus, setUpdateStatus] = useState<{
@@ -140,6 +141,13 @@ export function SettingsPage() {
     if (settings.theme) {
       setCurrentTheme(settings.theme);
     }
+    // Load scanlines setting (default to true if not set)
+    const scanlines = settings.scanlinesEnabled !== false;
+    setScanlinesEnabled(scanlines);
+    // Apply scanlines state to body
+    if (!scanlines) {
+      document.body.classList.add('scanline-disabled');
+    }
   };
 
   const checkForUpdates = async () => {
@@ -167,6 +175,17 @@ export function SettingsPage() {
     await window.electronAPI.setSetting('theme', themeId);
     // Apply theme to document
     document.documentElement.className = `theme-${themeId}`;
+  };
+
+  const handleScanlinesChange = async (enabled: boolean) => {
+    setScanlinesEnabled(enabled);
+    await window.electronAPI.setSetting('scanlinesEnabled', enabled);
+    // Apply scanlines state to body
+    if (enabled) {
+      document.body.classList.remove('scanline-disabled');
+    } else {
+      document.body.classList.add('scanline-disabled');
+    }
   };
 
   const loadTraySettings = async () => {
@@ -640,6 +659,27 @@ export function SettingsPage() {
                 )}
               </button>
             ))}
+          </div>
+
+          {/* Scanlines Toggle */}
+          <div className="pt-4 border-t border-border/30">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium text-text-primary">CRT Scanlines</div>
+                <div className="text-xs text-text-secondary">
+                  Animated scanline overlay for retro CRT effect
+                </div>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={scanlinesEnabled}
+                  onChange={(e) => handleScanlinesChange(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-bg-tertiary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-secondary after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent peer-checked:after:bg-bg-primary"></div>
+              </label>
+            </div>
           </div>
         </div>
       </section>

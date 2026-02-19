@@ -35,7 +35,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Device Discovery
   startDeviceDiscovery: () => ipcRenderer.invoke('start-device-discovery'),
   cancelDeviceDiscovery: () => ipcRenderer.invoke('cancel-device-discovery'),
-  addDiscoveredDevice: (ip: string, hostname: string) => ipcRenderer.invoke('add-discovered-device', ip, hostname),
+  addDiscoveredDevice: (ip: string, hostname: string, deviceType?: string) => ipcRenderer.invoke('add-discovered-device', ip, hostname, deviceType),
 
   // Metrics
   getMetrics: (deviceId: string, options?: { startTime?: number; endTime?: number; limit?: number }) =>
@@ -150,6 +150,8 @@ export interface AxeOSSystemInfo {
   wifiStatus: string;
   freeHeap: number;
   smallCoreCount: number;
+  algorithm?: 'sha256' | 'scrypt';
+  isCanaan?: boolean;
   [key: string]: unknown;
 }
 
@@ -169,7 +171,7 @@ export interface DeviceGroup {
   createdAt: number;
 }
 
-export type DeviceType = 'bitaxe' | 'bitmain';
+export type DeviceType = 'bitaxe' | 'bitmain' | 'canaan';
 
 export interface Device {
   id: string;
@@ -389,7 +391,7 @@ declare global {
 
       startDeviceDiscovery: () => Promise<DiscoveryResult>;
       cancelDeviceDiscovery: () => Promise<{ success: boolean }>;
-      addDiscoveredDevice: (ip: string, hostname: string) => Promise<AddDeviceResult>;
+      addDiscoveredDevice: (ip: string, hostname: string, deviceType?: string) => Promise<AddDeviceResult>;
 
       getMetrics: (deviceId: string, options?: { startTime?: number; endTime?: number; limit?: number }) => Promise<MetricData[]>;
       getLatestMetrics: (deviceId: string) => Promise<{ timestamp: number; data: AxeOSSystemInfo } | null>;

@@ -8,6 +8,7 @@ interface DiscoveredDevice {
   hashRate: number;
   version: string;
   alreadyAdded: boolean;
+  deviceType?: string;
 }
 
 interface DiscoveryProgress {
@@ -123,7 +124,7 @@ export function DiscoveryModal({ isOpen, onClose }: Props) {
     for (const device of progress.found) {
       if (selectedDevices.has(device.ip) && !device.alreadyAdded) {
         try {
-          const result = await window.electronAPI.addDiscoveredDevice(device.ip, device.hostname);
+          const result = await window.electronAPI.addDiscoveredDevice(device.ip, device.hostname, device.deviceType);
           if (result.success) {
             added++;
             // Mark as added in the UI

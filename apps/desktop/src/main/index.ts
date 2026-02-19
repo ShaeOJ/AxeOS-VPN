@@ -437,15 +437,27 @@ ipcMain.handle('add-device', async (_, ipAddress: string, name?: string, usernam
 });
 
 ipcMain.handle('delete-device', async (_, id: string) => {
-  poller.stopPolling(id);
-  devices.deleteDevice(id);
-  return { success: true };
+  try {
+    poller.stopPolling(id);
+    metrics.deleteMetricsForDevice(id);
+    devices.deleteDevice(id);
+    return { success: true };
+  } catch (err) {
+    console.error('Failed to delete device:', err);
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to delete device' };
+  }
 });
 
 ipcMain.handle('remove-device', async (_, id: string) => {
-  poller.stopPolling(id);
-  devices.deleteDevice(id);
-  return { success: true };
+  try {
+    poller.stopPolling(id);
+    metrics.deleteMetricsForDevice(id);
+    devices.deleteDevice(id);
+    return { success: true };
+  } catch (err) {
+    console.error('Failed to remove device:', err);
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to remove device' };
+  }
 });
 
 ipcMain.handle('update-device-name', async (_, id: string, name: string) => {
@@ -468,7 +480,12 @@ ipcMain.handle('refresh-device', async (_, id: string) => {
   if (!device) {
     return { success: false, error: 'Device not found' };
   }
-  const data = await poller.fetchDeviceMetrics(device.ip_address);
+  // Use correct API based on device type
+  const data = device.device_type === 'bitmain'
+    ? await poller.fetchBitmainMetrics(device.ip_address, device.auth_user || undefined, device.auth_pass || undefined)
+    : device.device_type === 'canaan'
+    ? await poller.fetchCanaanMetrics(device.ip_address)
+    : await poller.fetchDeviceMetrics(device.ip_address);
   if (data) {
     return { success: true, data };
   }
@@ -518,14 +535,38 @@ ipcMain.handle('cancel-device-discovery', () => {
   return { success: true };
 });
 
-ipcMain.handle('add-discovered-device', async (_, ip: string, hostname: string) => {
+ipcMain.handle('add-discovered-device', async (_, ip: string, hostname: string, deviceType?: string) => {
   // Check if already exists
   const existing = devices.getDeviceByIp(ip);
   if (existing) {
     return { success: false, error: 'Device already added' };
   }
 
-  const newDevice = devices.createDevice(hostname, ip);
+  // Use provided deviceType from discovery, or auto-detect
+  let finalType: devices.DeviceType = (deviceType as devices.DeviceType) || 'bitaxe';
+  let authUser: string | undefined;
+  let authPass: string | undefined;
+
+  if (!deviceType || deviceType === 'bitaxe') {
+    // Run auto-detection to confirm device type (discovery may not have detected correctly)
+    const testResult = await poller.testConnectionWithDetection(ip);
+    if (testResult.success && testResult.deviceType) {
+      finalType = testResult.deviceType;
+    } else if (testResult.requiresAuth && testResult.deviceType) {
+      // Bitmain device requiring auth - use default credentials
+      finalType = testResult.deviceType;
+      authUser = 'root';
+      authPass = 'root';
+    }
+  } else if (deviceType === 'bitmain') {
+    // Bitmain devices need auth - try default credentials
+    authUser = 'root';
+    authPass = 'root';
+  }
+
+  console.log(`[Add Discovered Device] Adding ${hostname} (${ip}) as ${finalType}`);
+
+  const newDevice = devices.createDevice(hostname, ip, finalType, authUser, authPass);
   if (newDevice) {
     poller.startPolling(newDevice);
     return { success: true, device: newDevice };

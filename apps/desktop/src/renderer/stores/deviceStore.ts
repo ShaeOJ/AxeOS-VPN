@@ -49,6 +49,7 @@ interface Device {
   id: string;
   name: string;
   ipAddress: string;
+  deviceType?: 'bitaxe' | 'bitmain' | 'canaan';
   isOnline: boolean;
   lastSeen: number | null;
   createdAt: number;

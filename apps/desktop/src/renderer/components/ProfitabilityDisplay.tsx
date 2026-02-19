@@ -123,12 +123,12 @@ export function ProfitabilityDisplay() {
         return;
       }
 
-      // Sum up total hashrate and power from all devices
+      // Sum up total hashrate and power from SHA-256 devices only (exclude Scrypt miners like L3+)
       let totalHashrateGH = 0;
       let totalPowerWatts = 0;
 
       for (const device of onlineDevices) {
-        if (device.latestMetrics) {
+        if (device.latestMetrics && device.latestMetrics.algorithm !== 'scrypt') {
           totalHashrateGH += device.latestMetrics.hashRate || 0;
           totalPowerWatts += device.latestMetrics.power || 0;
         }

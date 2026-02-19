@@ -292,6 +292,7 @@ body::after {
 }
 
 /* Animated scanline that moves down the screen */
+/* Enhanced with glow and tapered edges (fat in middle, thin at edges) */
 .scanline-animate {
   position: relative;
 }
@@ -302,25 +303,63 @@ body::after {
   top: 0;
   left: 0;
   right: 0;
-  height: 4px;
-  background: linear-gradient(
-    180deg,
-    transparent,
-    var(--color-scanline-glow),
-    transparent
-  );
+  height: 6px;
+  /* Horizontal gradient: thin at edges, fat in middle */
+  background:
+    radial-gradient(
+      ellipse 50% 100% at 50% 50%,
+      var(--color-scanline-glow) 0%,
+      var(--color-scanline-glow) 40%,
+      transparent 100%
+    );
+  /* Add glow effect */
+  box-shadow:
+    0 0 10px var(--color-scanline-glow),
+    0 0 20px var(--color-scanline-glow),
+    0 0 30px color-mix(in srgb, var(--color-scanline-glow) 50%, transparent);
   animation: scanline-move 6s linear infinite;
   pointer-events: none;
   z-index: 10;
+  /* Mask to create tapered effect - thick center, thin edges */
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255,255,255,0.3) 10%,
+    rgba(255,255,255,1) 50%,
+    rgba(255,255,255,0.3) 90%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255,255,255,0.3) 10%,
+    rgba(255,255,255,1) 50%,
+    rgba(255,255,255,0.3) 90%,
+    transparent 100%
+  );
 }
 
 @keyframes scanline-move {
   0% {
-    top: -4px;
+    top: -6px;
   }
   100% {
     top: 100vh;
   }
+}
+
+/* Scanline disabled state - hide all CRT effects */
+body.scanline-disabled::before,
+body.scanline-disabled::after {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+body.scanline-disabled .scanline-animate::after {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
 }
 
 @keyframes scanline-flicker {

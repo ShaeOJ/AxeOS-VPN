@@ -1,4 +1,7 @@
 import { networkInterfaces } from 'os';
+import * as net from 'net';
+
+export type DeviceType = 'bitaxe' | 'bitmain' | 'canaan';
 
 export interface DiscoveredDevice {
   ip: string;
@@ -7,6 +10,7 @@ export interface DiscoveredDevice {
   hashRate: number;
   version: string;
   alreadyAdded: boolean;
+  deviceType: DeviceType;
 }
 
 export interface DiscoveryProgress {
@@ -106,7 +110,8 @@ async function probeDevice(ip: string, timeout: number = 3000): Promise<Discover
       model: data.ASICModel || 'Unknown',
       hashRate: data.hashRate || 0,
       version: data.version || 'Unknown',
-      alreadyAdded: false
+      alreadyAdded: false,
+      deviceType: 'bitaxe' as DeviceType,
     };
   } catch {
     clearTimeout(timeoutId);
@@ -115,7 +120,165 @@ async function probeDevice(ip: string, timeout: number = 3000): Promise<Discover
 }
 
 /**
- * Scan network for BitAxe devices
+ * Test if an IP is a Canaan/CGMiner device by probing TCP port 4028
+ */
+async function probeCanaanDevice(ip: string, timeout: number = 3000): Promise<DiscoveredDevice | null> {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    let data = '';
+    let resolved = false;
+
+    const done = (result: DiscoveredDevice | null) => {
+      if (resolved) return;
+      resolved = true;
+      socket.destroy();
+      resolve(result);
+    };
+
+    socket.setTimeout(timeout);
+
+    socket.connect(4028, ip, () => {
+      // Send summary+version command to get model info and hashrate
+      socket.write(JSON.stringify({ command: 'summary+version' }) + '\n');
+    });
+
+    socket.on('data', (chunk) => {
+      data += chunk.toString();
+      // Try to parse after a short delay (data may come in chunks)
+      clearTimeout(parseTimer);
+      parseTimer = setTimeout(() => {
+        try {
+          const cleaned = data.replace(/\0/g, '');
+          // Try parsing - CGMiner may return multiple JSON objects
+          let parsed: Record<string, unknown> | null = null;
+          try {
+            parsed = JSON.parse(cleaned);
+          } catch {
+            // Try first JSON object
+            const endIdx = cleaned.indexOf('}{');
+            if (endIdx > 0) {
+              try { parsed = JSON.parse(cleaned.substring(0, endIdx + 1)); } catch { /* skip */ }
+            }
+          }
+
+          if (parsed) {
+            const summary = Array.isArray(parsed['SUMMARY']) ? parsed['SUMMARY'][0] : parsed['SUMMARY'];
+            const version = Array.isArray(parsed['VERSION']) ? parsed['VERSION'][0] : parsed['VERSION'];
+            const mhs = summary ? Number((summary as Record<string, unknown>)['MHS 5s'] || (summary as Record<string, unknown>)['MHS5s'] || 0) : 0;
+            const hashRateGH = mhs / 1000;
+            const versionType = version ? String((version as Record<string, unknown>)['Type'] || '') : '';
+            const modelName = versionType || 'Avalon Nano 3S';
+
+            done({
+              ip,
+              hostname: `Nano3S-${ip.split('.').pop()}`,
+              model: modelName,
+              hashRate: hashRateGH,
+              version: 'Canaan (BETA)',
+              alreadyAdded: false,
+              deviceType: 'canaan' as DeviceType,
+            });
+          } else {
+            done(null);
+          }
+        } catch {
+          done(null);
+        }
+      }, 300);
+    });
+
+    let parseTimer = setTimeout(() => {}, 0);
+
+    socket.on('timeout', () => done(null));
+    socket.on('error', () => done(null));
+
+    // Absolute timeout safety
+    setTimeout(() => done(null), timeout + 500);
+  });
+}
+
+/**
+ * Test if an IP is a Bitmain/Antminer device by probing CGI endpoint
+ */
+async function probeBitmainDevice(ip: string, timeout: number = 3000): Promise<DiscoveredDevice | null> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    // Try unauthenticated first - some Bitmain devices allow status read without auth
+    const response = await fetch(`http://${ip}/cgi-bin/get_miner_status.cgi`, {
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (response.status === 401) {
+      // Device exists and requires auth - still a Bitmain device
+      // Try with default credentials (root/root)
+      const controller2 = new AbortController();
+      const timeoutId2 = setTimeout(() => controller2.abort(), timeout);
+      try {
+        const authResponse = await fetch(`http://${ip}/cgi-bin/get_miner_status.cgi`, {
+          signal: controller2.signal,
+          headers: {
+            'Authorization': 'Digest username="root"',
+          },
+        });
+        clearTimeout(timeoutId2);
+        // Even if auth fails, we know it's a Bitmain device
+        return {
+          ip,
+          hostname: `Antminer-${ip.split('.').pop()}`,
+          model: 'Antminer (Auth Required)',
+          hashRate: 0,
+          version: 'Bitmain (BETA)',
+          alreadyAdded: false,
+          deviceType: 'bitmain' as DeviceType,
+        };
+      } catch {
+        clearTimeout(timeoutId2);
+        // Still a Bitmain device, just can't get details
+        return {
+          ip,
+          hostname: `Antminer-${ip.split('.').pop()}`,
+          model: 'Antminer (Auth Required)',
+          hashRate: 0,
+          version: 'Bitmain (BETA)',
+          alreadyAdded: false,
+          deviceType: 'bitmain' as DeviceType,
+        };
+      }
+    }
+
+    if (!response.ok) return null;
+
+    const data = await response.json();
+
+    // Validate it looks like a Bitmain miner status response
+    if (!data.STATS && !data.stats) return null;
+
+    const stats = data.STATS || data.stats;
+    const chains = Array.isArray(stats) ? stats : [];
+    const chainCount = chains.length;
+    const hostname = `Antminer-${ip.split('.').pop()}`;
+
+    return {
+      ip,
+      hostname,
+      model: chainCount === 4 ? 'Antminer L3+' : chainCount === 3 ? 'Antminer S9' : 'Antminer',
+      hashRate: 0,
+      version: 'Bitmain (BETA)',
+      alreadyAdded: false,
+      deviceType: 'bitmain' as DeviceType,
+    };
+  } catch {
+    clearTimeout(timeoutId);
+    return null;
+  }
+}
+
+/**
+ * Scan network for BitAxe, Bitmain, and Canaan devices
  */
 export async function discoverDevices(
   onProgress: ProgressCallback,
@@ -177,9 +340,15 @@ export async function discoverDevices(
       isCancelled: false
     });
 
-    // Probe batch in parallel
+    // Probe batch in parallel - try BitAxe HTTP first, then Bitmain, then Canaan TCP
     const results = await Promise.all(
-      batch.map(ip => probeDevice(ip))
+      batch.map(async (ip) => {
+        const bitaxe = await probeDevice(ip);
+        if (bitaxe) return bitaxe;
+        const bitmain = await probeBitmainDevice(ip);
+        if (bitmain) return bitmain;
+        return await probeCanaanDevice(ip);
+      })
     );
 
     // Process results

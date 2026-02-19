@@ -1,6 +1,6 @@
 import { getDatabase, generateId } from './index';
 
-export type DeviceType = 'bitaxe' | 'bitmain';
+export type DeviceType = 'bitaxe' | 'bitmain' | 'canaan';
 
 export interface Device {
   id: string;

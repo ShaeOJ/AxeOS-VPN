@@ -221,9 +221,15 @@ export function startServer(): { port: number; addresses: string[] } {
 
   // Delete device
   app.delete('/api/devices/:id', requireAuth, (req, res) => {
-    poller.stopPolling(req.params.id);
-    devices.deleteDevice(req.params.id);
-    res.json({ success: true });
+    try {
+      poller.stopPolling(req.params.id);
+      metrics.deleteMetricsForDevice(req.params.id);
+      devices.deleteDevice(req.params.id);
+      res.json({ success: true });
+    } catch (err) {
+      console.error('Failed to delete device:', err);
+      res.status(500).json({ success: false, error: 'Failed to delete device' });
+    }
   });
 
   // Test device connection
@@ -1961,6 +1967,7 @@ function getWebDashboardHtml(): string {
         html += '<div class="detail-item"><div class="detail-label">' + iconLabel('voltage', 'Core Voltage') + '</div><div class="detail-value">' + (m.coreVoltage ? m.coreVoltage + ' mV' : '--') + '</div></div>';
         html += '<div class="detail-item"><div class="detail-label">' + iconLabel('fan', 'Fan Speed') + '</div><div class="detail-value">' + (m.fanspeed ? m.fanspeed + '%' : '--') + '</div></div>';
         html += '<div class="detail-item"><div class="detail-label">' + iconLabel('temp', 'VR Temp', m.vrTemp > 80 ? '#FF3131' : m.vrTemp > 70 ? '#FF8C00' : '#00FF41') + '</div><div class="detail-value">' + formatTemp(m.vrTemp) + '</div></div>';
+        if (m.algorithm) { html += '<div class="detail-item"><div class="detail-label">' + iconLabel('gear', 'Algorithm') + '</div><div class="detail-value" style="text-transform:uppercase;">' + m.algorithm + '</div></div>'; }
         html += '</div>';
 
         // Device Control Panel (moved here, under Hardware)
@@ -2111,15 +2118,23 @@ function getWebDashboardHtml(): string {
       const offlineDevices = devices.filter(d => !d.isOnline);
       onlineDevices.forEach(d => {
         const m = d.latestMetrics;
-        if (m) { totalHashrate += m.hashRate || 0; totalPower += m.power || 0; if (m.temp) { tempSum += m.temp; onlineCount++; } totalShares += m.sharesAccepted || 0; }
-        // Track best difficulty across all devices - check multiple field name variants
-        // Use parseDifficulty to handle formatted strings like "56.4M" from AxeOS
-        const sessionBest = parseDifficulty(m?.bestDiff || m?.bestdiff || m?.best_diff || m?.BestDiff);
-        const sessionBest2 = parseDifficulty(m?.bestSessionDiff || m?.bestsessiondiff || m?.best_session_diff);
-        const deviceBest = Math.max(d.allTimeBestDiff || 0, sessionBest, sessionBest2);
-        if (deviceBest > bestDiff) bestDiff = deviceBest;
+        const isScryptDevice = m && m.algorithm === 'scrypt';
+        if (m) {
+          // Include all devices in power/temp/shares, but only SHA-256 in hashrate
+          if (!isScryptDevice) { totalHashrate += m.hashRate || 0; }
+          totalPower += m.power || 0;
+          if (m.temp) { tempSum += m.temp; onlineCount++; }
+          totalShares += m.sharesAccepted || 0;
+        }
+        // Track best difficulty across SHA-256 devices only (exclude Scrypt miners)
+        if (!isScryptDevice) {
+          const sessionBest = parseDifficulty(m?.bestDiff || m?.bestdiff || m?.best_diff || m?.BestDiff);
+          const sessionBest2 = parseDifficulty(m?.bestSessionDiff || m?.bestsessiondiff || m?.best_session_diff);
+          const deviceBest = Math.max(d.allTimeBestDiff || 0, sessionBest, sessionBest2);
+          if (deviceBest > bestDiff) bestDiff = deviceBest;
+        }
       });
-      // Also check offline devices for all-time best
+      // Also check offline SHA-256 devices for all-time best (skip if we know it's scrypt from deviceType)
       offlineDevices.forEach(d => {
         if (d.allTimeBestDiff && d.allTimeBestDiff > bestDiff) bestDiff = d.allTimeBestDiff;
       });
@@ -2128,6 +2143,8 @@ function getWebDashboardHtml(): string {
         const m = d.latestMetrics;
         const isCluster = m && m.isClusterMaster && m.clusterInfo;
         const isBitmain = d.deviceType === 'bitmain';
+        const isCanaan = d.deviceType === 'canaan';
+        const isScrypt = m && m.algorithm === 'scrypt';
         const blockChance = m && m.hashRate && networkStats ? calculateBlockChance(m.hashRate, networkStats.difficulty) : null;
         // Parse best diff - handles formatted strings like "56.4M" from AxeOS
         const currentBestDiff = m ? parseDifficulty(m.bestDiff) : 0;
@@ -2138,13 +2155,15 @@ function getWebDashboardHtml(): string {
           '<div class="device-header"><div><div class="device-name">' + d.name + '</div><div class="device-ip">' + d.ipAddress + '</div>' +
           (m ? '<div class="device-model" style="display:flex;align-items:center;gap:6px;">' + (m.ASICModel || 'BitAxe') +
             (isBitmain ? '<span style="padding:1px 6px;font-size:9px;background:rgba(255,140,0,0.2);border:1px solid rgba(255,140,0,0.4);color:#FF8C00;text-transform:uppercase;font-weight:bold;">BETA</span>' : '') +
+            (isCanaan ? '<span style="padding:1px 6px;font-size:9px;background:rgba(0,255,65,0.2);border:1px solid rgba(0,255,65,0.4);color:#00FF41;text-transform:uppercase;font-weight:bold;">BETA</span>' : '') +
+            (isScrypt ? '<span style="padding:1px 6px;font-size:9px;background:rgba(255,176,0,0.2);border:1px solid rgba(255,176,0,0.4);color:#FFB000;text-transform:uppercase;font-weight:bold;">SCRYPT</span>' : '') +
             (isCluster ? '<span style="padding:1px 6px;font-size:9px;background:rgba(255,176,0,0.2);border:1px solid rgba(255,176,0,0.4);color:#FFB000;text-transform:uppercase;">Cluster (' + m.clusterInfo.activeSlaves + ')</span>' : '') +
           '</div>' : '') +
           '</div><div class="status-dot ' + (d.isOnline ? 'online' : 'offline') + '"></div></div>' +
           (d.isOnline && m ?
             '<div class="metrics-grid"><div class="metric"><div class="metric-label accent"><svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>Hashrate</div><div class="metric-value accent">' + formatHashrate(m.hashRate) + '</div></div>' +
             '<div class="metric"><div class="metric-label ' + getTempClass(m.temp) + '"><svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 2a1 1 0 011 1v6.5a.5.5 0 00.5.5h.5a.5.5 0 01.5.5V12a4 4 0 11-5 0v-1.5a.5.5 0 01.5-.5h.5a.5.5 0 00.5-.5V3a1 1 0 011-1z" clip-rule="evenodd"/></svg>Temp</div><div class="metric-value ' + getTempClass(m.temp) + '">' + formatTemp(m.temp) + '</div></div>' +
-            '<div class="metric"><div class="metric-label" style="color:#00CED1;"><svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>Power</div><div class="metric-value">' + formatPower(m.power) + '<div style="font-size:11px;color:#8BA88B;margin-top:2px;">' + (m.isBitmain && m.chainCount ? '~' + formatAmps(m.current, m.power, m.voltage) + ' (' + m.chainCount + ' boards)' : formatAmps(m.current, m.power, m.voltage)) + '</div></div></div></div>' +
+            '<div class="metric"><div class="metric-label" style="color:#00CED1;"><svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>Power</div><div class="metric-value">' + formatPower(m.power) + '<div style="font-size:11px;color:#8BA88B;margin-top:2px;" title="' + (m.isBitmain && m.chainCount ? m.chainCount + ' hash boards' : '') + '">' + formatAmps(m.current, m.power, m.voltage) + '</div></div></div></div>' +
             '<div class="secondary-stats"><div class="secondary-stat"><div class="secondary-stat-label success"><svg width="10" height="10" viewBox="0 0 20 20" fill="currentColor"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zm6-4a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm6-3a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>Efficiency</div><div class="secondary-stat-value">' + (m.efficiency ? m.efficiency.toFixed(1) + ' J/TH' : '--') + '</div></div>' +
             '<div class="secondary-stat"><div class="secondary-stat-label success"><svg width="10" height="10" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>Shares</div><div class="secondary-stat-value success">' + (m.sharesAccepted || 0).toLocaleString() + '</div></div>' +
             '<div class="secondary-stat"><div class="secondary-stat-label"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Fan</div><div class="secondary-stat-value">' + (m.fanspeed ? m.fanspeed + '%' : '--') + '</div></div></div>' +
@@ -2242,18 +2261,36 @@ function getWebDashboardHtml(): string {
       }
     }
 
-    function formatHashrate(h) { if (!h) return '--'; return h >= 1000 ? (h / 1000).toFixed(2) + ' TH/s' : h.toFixed(2) + ' GH/s'; }
+    function formatHashrate(h) { if (!h) return '--'; if (h >= 1000) return (h / 1000).toFixed(2) + ' TH/s'; if (h < 1) return (h * 1000).toFixed(2) + ' MH/s'; return h.toFixed(2) + ' GH/s'; }
     function formatTemp(t) { return t ? t.toFixed(1) + '°C' : '--'; }
     function formatPower(p) { return p ? p.toFixed(1) + ' W' : '--'; }
     function formatAmps(currentMa, power, voltage) {
-      // Use mains voltage for amps calculation (wall current is what users care about)
-      var MAINS_VOLTAGE = 120; // US standard
-      // Use reported current if available and reasonable (AxeOS reports in milliamps)
-      // Current should be reasonable: 0.1A to 20A range at mains voltage for mining devices
-      if (currentMa && currentMa > 100 && currentMa < 20000) return (currentMa / 1000).toFixed(2) + ' A';
-      // Calculate from power using mains voltage
-      if (power && power > 0) return (power / MAINS_VOLTAGE).toFixed(2) + ' A';
-      return '--';
+      var MAINS_VOLTAGE = 120; // US standard wall voltage
+      if (!power || power <= 0) return '--';
+
+      // Calculate wall current (at mains voltage)
+      var wallAmps = power / MAINS_VOLTAGE;
+
+      // Calculate DC current at device voltage (voltage may be in mV if > 1000)
+      var dcAmps = null;
+      if (voltage && voltage > 0) {
+        var voltageV = voltage > 1000 ? voltage / 1000 : voltage;
+        if (voltageV > 1 && voltageV < 50) { // Reasonable DC voltage range
+          dcAmps = power / voltageV;
+        }
+      }
+
+      // If device reports current directly, use that as DC current
+      // Upper limit 200000mA (200A) to handle high-power miners like S9 (~100A DC)
+      if (currentMa && currentMa > 100 && currentMa < 200000) {
+        dcAmps = currentMa / 1000;
+      }
+
+      // Show both: "10.3A DC / 1.0A wall" or just wall if no DC available
+      if (dcAmps !== null && dcAmps > 0) {
+        return dcAmps.toFixed(1) + 'A DC / ' + wallAmps.toFixed(1) + 'A wall';
+      }
+      return wallAmps.toFixed(2) + ' A';
     }
     function formatUptime(s) { if (!s) return '--'; const d = Math.floor(s/86400), h = Math.floor((s%86400)/3600), m = Math.floor((s%3600)/60); return d > 0 ? d+'d '+h+'h' : h > 0 ? h+'h '+m+'m' : m+'m'; }
     function getTempClass(t) { if (!t) return ''; return t > 80 ? 'danger' : t > 70 ? 'warning' : 'success'; }
@@ -3248,12 +3285,12 @@ function getWebDashboardHtml(): string {
 
       if (!currentBtcPrice) return;
 
-      // Calculate total hashrate and power from devices
+      // Calculate total hashrate and power from SHA-256 devices only (exclude Scrypt miners)
       let totalHashrateGH = 0;
       let totalPowerWatts = 0;
 
       devices.forEach(d => {
-        if (d.isOnline && d.latestMetrics) {
+        if (d.isOnline && d.latestMetrics && d.latestMetrics.algorithm !== 'scrypt') {
           totalHashrateGH += d.latestMetrics.hashRate || 0;
           totalPowerWatts += d.latestMetrics.power || 0;
         }

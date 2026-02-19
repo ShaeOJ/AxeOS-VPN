@@ -219,6 +219,10 @@ interface AxeOSSystemInfo {
   fanspeed: number;
   isClusterMaster?: boolean;
   clusterInfo?: ClusterInfo;
+  // Algorithm identifier
+  algorithm?: 'sha256' | 'scrypt';
+  // Canaan-specific
+  isCanaan?: boolean;
   // Bitmain-specific fields
   isBitmain?: boolean;
   chainCount?: number;
@@ -241,7 +245,7 @@ interface DeviceGroup {
   createdAt: number;
 }
 
-type DeviceType = 'bitaxe' | 'bitmain';
+type DeviceType = 'bitaxe' | 'bitmain' | 'canaan';
 
 interface Device {
   id: string;
@@ -269,6 +273,7 @@ function formatHashrate(hashrate: number | null | undefined): string {
   if (!hashrate) return '--';
   // AxeOS reports in GH/s
   if (hashrate >= 1000) return `${(hashrate / 1000).toFixed(2)} TH/s`;
+  if (hashrate < 1) return `${(hashrate * 1000).toFixed(2)} MH/s`;
   return `${hashrate.toFixed(2)} GH/s`;
 }
 
@@ -282,22 +287,34 @@ function formatPower(power: number | null | undefined): string {
   return `${power.toFixed(1)} W`;
 }
 
-function formatAmps(currentMa: number | null | undefined, power?: number, _voltage?: number): string {
-  // Use mains voltage for amps calculation (wall current is what users care about)
-  const MAINS_VOLTAGE = 120; // US standard, could be made configurable
+function formatAmps(currentMa: number | null | undefined, power?: number, voltage?: number): string {
+  const MAINS_VOLTAGE = 120; // US standard wall voltage
 
-  // Use reported current if available and reasonable (AxeOS reports in milliamps)
-  // Current should be reasonable: 0.1A to 20A range at mains voltage for mining devices
-  if (currentMa && currentMa > 100 && currentMa < 20000) {
-    return `${(currentMa / 1000).toFixed(2)} A`;
+  if (!power || power <= 0) return '--';
+
+  // Calculate wall current (at mains voltage)
+  const wallAmps = power / MAINS_VOLTAGE;
+
+  // Calculate DC current at device voltage (voltage may be in mV if > 1000)
+  let dcAmps: number | null = null;
+  if (voltage && voltage > 0) {
+    const voltageV = voltage > 1000 ? voltage / 1000 : voltage; // Convert mV to V if needed
+    if (voltageV > 1 && voltageV < 50) { // Reasonable DC voltage range (5V-48V)
+      dcAmps = power / voltageV;
+    }
   }
 
-  // Calculate from power using mains voltage
-  if (power && power > 0) {
-    const amps = power / MAINS_VOLTAGE;
-    return `${amps.toFixed(2)} A`;
+  // If device reports current directly, use that as DC current
+  // Upper limit 200000mA (200A) to handle high-power miners like S9 (~100A DC)
+  if (currentMa && currentMa > 100 && currentMa < 200000) {
+    dcAmps = currentMa / 1000;
   }
-  return '--';
+
+  // Show both: "10.3A DC / 1.0A wall" or just wall if no DC available
+  if (dcAmps !== null && dcAmps > 0) {
+    return `${dcAmps.toFixed(1)}A DC / ${wallAmps.toFixed(1)}A wall`;
+  }
+  return `${wallAmps.toFixed(2)} A`;
 }
 
 function calculateBlockChance(hashRateGH: number, difficulty: number): { daysToBlock: number; dailyOdds: number } | null {
@@ -466,6 +483,16 @@ export function DeviceCard({ device, groups, onGroupChange, networkStats, isNewR
                   BETA
                 </span>
               )}
+              {device.deviceType === 'canaan' && (
+                <span className="px-1.5 py-0.5 text-[10px] bg-success/20 border border-success/40 text-success uppercase font-bold">
+                  BETA
+                </span>
+              )}
+              {metrics.algorithm === 'scrypt' && (
+                <span className="px-1.5 py-0.5 text-[10px] bg-accent/20 border border-accent/40 text-accent uppercase font-bold">
+                  SCRYPT
+                </span>
+              )}
               {metrics.isClusterMaster && metrics.clusterInfo && (
                 <span className="px-1.5 py-0.5 text-[10px] bg-accent/20 border border-accent/40 text-accent uppercase font-bold">
                   Cluster ({metrics.clusterInfo.activeSlaves})
@@ -520,13 +547,9 @@ export function DeviceCard({ device, groups, onGroupChange, networkStats, isNewR
                 {formatPower(metrics.power)}
               </div>
               <div className="text-xs text-text-secondary">
-                {metrics.isBitmain && metrics.chainCount ? (
-                  <span title={`${metrics.chainCount} boards @ ~${metrics.mainsVoltage || 120}V`}>
-                    ~{formatAmps(metrics.current, metrics.power, metrics.voltage)} ({metrics.chainCount} boards)
-                  </span>
-                ) : (
-                  formatAmps(metrics.current, metrics.power, metrics.voltage)
-                )}
+                <span title={metrics.isBitmain && metrics.chainCount ? `${metrics.chainCount} hash boards` : undefined}>
+                  {formatAmps(metrics.current, metrics.power, metrics.voltage)}
+                </span>
               </div>
             </div>
           </div>

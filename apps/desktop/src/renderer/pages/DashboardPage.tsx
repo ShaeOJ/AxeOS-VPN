@@ -229,8 +229,13 @@ export function DashboardPage() {
   const onlineDevices = devices.filter((d) => d.isOnline);
   const offlineDevices = devices.filter((d) => !d.isOnline);
 
-  // Calculate totals from AxeOS metrics
-  const totalHashrate = onlineDevices.reduce(
+  // SHA-256 devices only for hashrate/diff aggregation (exclude Scrypt miners like L3+)
+  const sha256OnlineDevices = onlineDevices.filter(
+    (d) => d.latestMetrics?.algorithm !== 'scrypt'
+  );
+
+  // Calculate totals from AxeOS metrics (SHA-256 only for hashrate)
+  const totalHashrate = sha256OnlineDevices.reduce(
     (sum, d) => sum + (d.latestMetrics?.hashRate ?? 0),
     0
   );
@@ -252,13 +257,20 @@ export function DashboardPage() {
     0
   );
 
-  // Calculate overall efficiency (J/TH)
+  // Calculate overall efficiency (J/TH) - SHA-256 devices only
+  const sha256Power = sha256OnlineDevices.reduce(
+    (sum, d) => sum + (d.latestMetrics?.power ?? 0),
+    0
+  );
   const avgEfficiency = totalHashrate > 0
-    ? (totalPower / (totalHashrate / 1000))
+    ? (sha256Power / (totalHashrate / 1000))
     : 0;
 
-  // Best difficulty from all devices (session best or all-time best)
-  const bestDifficulty = devices.reduce((max, d) => {
+  // Best difficulty from SHA-256 devices only (exclude Scrypt miners)
+  const sha256Devices = devices.filter(
+    (d) => d.latestMetrics?.algorithm !== 'scrypt'
+  );
+  const bestDifficulty = sha256Devices.reduce((max, d) => {
     // Get all possible best diff values - check multiple field name variants
     const metrics = d.latestMetrics as Record<string, unknown> | null | undefined;
     const allTimeBest = parseDifficulty(d.allTimeBestDiff);

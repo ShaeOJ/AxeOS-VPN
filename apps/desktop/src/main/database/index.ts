@@ -25,6 +25,7 @@ export function initDatabase(): Database.Database {
 
   db = new Database(dbPath);
   db.pragma('journal_mode = WAL');
+  db.pragma('foreign_keys = ON');
 
   // Check if we need to migrate the devices table (old schema had device_token, new has ip_address)
   const tableInfo = db.prepare("PRAGMA table_info(devices)").all() as { name: string }[];

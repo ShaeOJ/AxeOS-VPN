@@ -15,10 +15,14 @@ export function Layout() {
     fetchDevices();
     fetchStatus();
 
-    // Load and apply saved theme
+    // Load and apply saved theme and scanlines
     window.electronAPI.getSettings().then((settings) => {
       if (settings.theme) {
         document.documentElement.className = `theme-${settings.theme}`;
+      }
+      // Apply scanlines setting (default to enabled)
+      if (settings.scanlinesEnabled === false) {
+        document.body.classList.add('scanline-disabled');
       }
     });
 

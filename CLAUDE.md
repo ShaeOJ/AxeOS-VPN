@@ -10,11 +10,52 @@ Vault-Tec Mining Operations Division - BitAxe Monitoring System for managing mul
 - **Charts**: Recharts
 - **Build**: electron-vite + electron-builder
 
-## Current Version: v1.7.5
+## Current Version: v1.7.7
 
 ---
 
-## Recent Changes (v1.7.5)
+## Recent Changes (v1.7.7)
+
+### L3+ / Bitmain Detection & Display Fixes
+- **Fixed Device Type Detection** - Discovered devices now auto-detect as `bitmain`/`canaan` instead of hardcoding `bitaxe`
+- **Bitmain Network Discovery** - Network scan now probes `/cgi-bin/get_miner_status.cgi` to find Antminer devices
+- **Fixed Refresh Handler** - Manual refresh now uses correct API per device type (was always calling BitAxe API)
+- **Fixed Blank Detail Page** - Bitmain devices no longer show blank page (was caused by wrong API calls marking device offline)
+- **Scrypt Exclusion from Stats** - L3+ and other Scrypt miners excluded from total hashrate, efficiency, best difficulty, and profitability calculations (monitoring only)
+
+---
+
+## Previous Changes (v1.7.6)
+
+### Canaan Avalon Nano 3S Support (BETA)
+- **CGMiner TCP API** - Connects to Canaan miners via TCP port 4028 (CGMiner protocol)
+- **Auto-Detection** - Both manual add and network discovery detect Canaan devices
+- **Monitoring Only** - Device controls are hidden (monitoring only for BETA)
+- **Unified Display** - All metrics (hashrate, temp, fan, shares) displayed in standard format
+- **BETA Badge** - Green "BETA" tag shown on Canaan device cards
+- **Network Discovery** - TCP probe on port 4028 finds Canaan devices during network scan
+
+### Bitmain Antminer L3+ Support (BETA)
+- **Model Auto-Detection** - Queries `/cgi-bin/get_system_info.cgi` for model name
+- **Heuristic Fallback** - Infers model from chain count and hashrate range
+- **L3+ Specific** - Correct model name, hostname prefix, chip count (72/chain)
+- **Scrypt Algorithm Tag** - "SCRYPT" badge shown for Scrypt miners (L3+)
+- **Algorithm Field** - All devices now report their algorithm (sha256 or scrypt)
+
+### Hashrate Display Improvements
+- **MH/s Support** - Hashrate below 1 GH/s now displays as MH/s (for Scrypt miners)
+- **Dynamic Formatting** - MH/s → GH/s → TH/s based on value
+
+### Device Type Expansion
+| Type | API Protocol | Examples |
+|------|-------------|----------|
+| `bitaxe` | HTTP REST `/api/system/info` | BitAxe, NerdMiner, ClusterAxe |
+| `bitmain` | HTTP CGI + Digest Auth | Antminer S9, L3+, L3 |
+| `canaan` | TCP CGMiner port 4028 | Avalon Nano 3S |
+
+---
+
+## Previous Changes (v1.7.5)
 
 ### Difficulty Display Fix
 - **Standardized on "G" (giga)** - All difficulty displays now use "G" instead of "B" to match miner firmware output
