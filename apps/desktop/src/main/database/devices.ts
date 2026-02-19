@@ -87,6 +87,12 @@ export function updateDeviceIp(id: string, ipAddress: string): void {
   db.prepare('UPDATE devices SET ip_address = ? WHERE id = ?').run(ipAddress, id);
 }
 
+export function updateDeviceType(id: string, deviceType: DeviceType, authUser?: string, authPass?: string): void {
+  const db = getDatabase();
+  db.prepare('UPDATE devices SET device_type = ?, auth_user = ?, auth_pass = ? WHERE id = ?')
+    .run(deviceType, authUser || null, authPass || null, id);
+}
+
 export function updatePollInterval(id: string, interval: number): void {
   const db = getDatabase();
   db.prepare('UPDATE devices SET poll_interval = ? WHERE id = ?').run(interval, id);

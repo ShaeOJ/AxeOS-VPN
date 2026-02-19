@@ -489,6 +489,25 @@ ipcMain.handle('refresh-device', async (_, id: string) => {
   if (data) {
     return { success: true, data };
   }
+
+  // If fetch failed, try auto-detection - device type may be wrong in DB
+  console.log(`[Refresh] ${device.name}: fetch failed with type '${device.device_type}', trying auto-detection...`);
+  const detection = await poller.testConnectionWithDetection(device.ip_address);
+  if (detection.success && detection.data && detection.deviceType) {
+    // Update device type in DB if it changed
+    if (detection.deviceType !== device.device_type) {
+      console.log(`[Refresh] ${device.name}: detected as '${detection.deviceType}' (was '${device.device_type}'), updating DB`);
+      const authUser = detection.deviceType === 'bitmain' ? 'root' : undefined;
+      const authPass = detection.deviceType === 'bitmain' ? 'root' : undefined;
+      devices.updateDeviceType(id, detection.deviceType, authUser, authPass);
+      // Restart polling with correct type
+      poller.stopPolling(id);
+      const updatedDevice = devices.getDeviceById(id);
+      if (updatedDevice) poller.startPolling(updatedDevice);
+    }
+    return { success: true, data: detection.data };
+  }
+
   return { success: false, error: 'Could not fetch device data' };
 });
 

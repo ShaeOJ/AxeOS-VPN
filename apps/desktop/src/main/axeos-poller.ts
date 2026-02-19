@@ -332,9 +332,12 @@ export async function fetchDeviceMetrics(ipAddress: string): Promise<AxeOSSystem
   }
 }
 
+// Track which devices have already been re-detected to avoid repeated detection attempts
+const redetectedDevices = new Set<string>();
+
 async function pollDevice(device: devices.Device): Promise<void> {
   // Fetch metrics based on device type
-  const data = device.device_type === 'bitmain'
+  let data = device.device_type === 'bitmain'
     ? await fetchBitmainMetrics(device.ip_address, device.auth_user || undefined, device.auth_pass || undefined)
     : device.device_type === 'canaan'
     ? await fetchCanaanMetrics(device.ip_address)
@@ -343,6 +346,27 @@ async function pollDevice(device: devices.Device): Promise<void> {
   // Check if device was deleted while HTTP request was in-flight
   if (!pollIntervals.has(device.id)) {
     return;
+  }
+
+  // If fetch failed and we haven't re-detected this device yet, try auto-detection
+  // This fixes devices added with wrong type before the detection fix
+  if (!data && !redetectedDevices.has(device.id)) {
+    redetectedDevices.add(device.id);
+    console.log(`[Poller] ${device.name}: fetch failed with type '${device.device_type}', trying auto-detection...`);
+    const detection = await detectDeviceType(device.ip_address);
+    if (detection && detection.type !== device.device_type) {
+      console.log(`[Poller] ${device.name}: re-detected as '${detection.type}' (was '${device.device_type}'), updating`);
+      const authUser = detection.type === 'bitmain' ? 'root' : undefined;
+      const authPass = detection.type === 'bitmain' ? 'root' : undefined;
+      devices.updateDeviceType(device.id, detection.type, authUser, authPass);
+      // Use the detection data as our metrics
+      data = detection.data;
+      // Update the device reference for the rest of this function
+      device = devices.getDeviceById(device.id) || device;
+      // Restart polling with correct type
+      stopPolling(device.id);
+      startPolling(device);
+    }
   }
 
   if (data) {
@@ -703,17 +727,17 @@ function transformBitmainToAxeOS(data: BitmainMinerStatus, ipAddress: string, de
     hashRate: hashRateGH,
     hashRate_1m: hashRateGH,
     hashRate_10m: hashRateGH,
-    hashRate_1h: data.summary.ghsav,
+    hashRate_1h: Number(data.summary.ghsav) || 0,
     expectedHashrate: hashRateGH,
 
-    // Shares and difficulty
-    bestDiff: data.summary.bestshare,
-    bestSessionDiff: data.summary.bestshare,
-    sharesAccepted: data.summary.accepted,
-    sharesRejected: data.summary.rejected,
+    // Shares and difficulty - ensure numeric (Bitmain API may return strings)
+    bestDiff: Number(data.summary.bestshare) || 0,
+    bestSessionDiff: Number(data.summary.bestshare) || 0,
+    sharesAccepted: Number(data.summary.accepted) || 0,
+    sharesRejected: Number(data.summary.rejected) || 0,
 
     // System info
-    uptimeSeconds: data.summary.elapsed,
+    uptimeSeconds: Number(data.summary.elapsed) || 0,
     hostname: `${hostnamePrefix}-${ipAddress.split('.').pop()}`,
     ipv4: ipAddress,
     ASICModel: `Bitmain ${modelName}`,
@@ -761,7 +785,7 @@ function transformBitmainToAxeOS(data: BitmainMinerStatus, ipAddress: string, de
     algorithm: algorithm,
 
     // Extra Bitmain-specific fields
-    hwErrors: data.summary.hw,
+    hwErrors: Number(data.summary.hw) || 0,
     chainCount: chainCount,
     isBitmain: true,
     boards: boards, // Per-board breakdown

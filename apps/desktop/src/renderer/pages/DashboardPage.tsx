@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useDeviceStore } from '../stores/deviceStore';
 import { useServerStore } from '../stores/serverStore';
 import { DeviceCard } from '../components/DeviceCard';
@@ -235,31 +236,32 @@ export function DashboardPage() {
   );
 
   // Calculate totals from AxeOS metrics (SHA-256 only for hashrate)
+  // Use Number() on all metrics to handle Bitmain API returning strings
   const totalHashrate = sha256OnlineDevices.reduce(
-    (sum, d) => sum + (d.latestMetrics?.hashRate ?? 0),
+    (sum, d) => sum + (Number(d.latestMetrics?.hashRate) || 0),
     0
   );
 
   const temps = onlineDevices
-    .filter(d => d.latestMetrics?.temp)
-    .map(d => d.latestMetrics!.temp);
+    .filter(d => Number(d.latestMetrics?.temp) > 0)
+    .map(d => Number(d.latestMetrics!.temp));
   const avgTemperature = temps.length > 0
     ? temps.reduce((sum, t) => sum + t, 0) / temps.length
     : 0;
 
   const totalPower = onlineDevices.reduce(
-    (sum, d) => sum + (d.latestMetrics?.power ?? 0),
+    (sum, d) => sum + (Number(d.latestMetrics?.power) || 0),
     0
   );
 
   const totalShares = onlineDevices.reduce(
-    (sum, d) => sum + (d.latestMetrics?.sharesAccepted ?? 0),
+    (sum, d) => sum + (Number(d.latestMetrics?.sharesAccepted) || 0),
     0
   );
 
   // Calculate overall efficiency (J/TH) - SHA-256 devices only
   const sha256Power = sha256OnlineDevices.reduce(
-    (sum, d) => sum + (d.latestMetrics?.power ?? 0),
+    (sum, d) => sum + (Number(d.latestMetrics?.power) || 0),
     0
   );
   const avgEfficiency = totalHashrate > 0
@@ -790,9 +792,9 @@ export function DashboardPage() {
               const temp = metrics?.temp ?? 0;
 
               return (
-                <a
+                <Link
                   key={device.id}
-                  href={`#/device/${device.id}`}
+                  to={`/devices/${device.id}`}
                   className={`grid grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2 p-3 hover:bg-bg-tertiary/30 transition-colors animate-card-enter animate-card-enter-${Math.min(index + 1, 8)} min-w-[500px]`}
                 >
                   {/* Device Name */}
@@ -843,7 +845,7 @@ export function DashboardPage() {
                   <div className="col-span-1 md:col-span-1 lg:col-span-2 flex items-center justify-center text-success font-mono text-sm">
                     {device.isOnline ? (metrics?.sharesAccepted ?? 0).toLocaleString() : '--'}
                   </div>
-                </a>
+                </Link>
               );
             })}
           </div>

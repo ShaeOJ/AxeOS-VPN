@@ -10,41 +10,46 @@ interface MetricData {
   data: { bestDiff?: number; [key: string]: unknown } | null;
 }
 
-function formatHashrate(hashrate: number | null | undefined): string {
-  if (!hashrate) return '--';
+function formatHashrate(hashrate: number | string | null | undefined): string {
+  const val = Number(hashrate);
+  if (!val || isNaN(val)) return '--';
   // AxeOS reports in GH/s
-  if (hashrate >= 1000) return `${(hashrate / 1000).toFixed(2)} TH/s`;
-  if (hashrate < 1) return `${(hashrate * 1000).toFixed(2)} MH/s`;
-  return `${hashrate.toFixed(2)} GH/s`;
+  if (val >= 1000) return `${(val / 1000).toFixed(2)} TH/s`;
+  if (val < 1) return `${(val * 1000).toFixed(2)} MH/s`;
+  return `${val.toFixed(2)} GH/s`;
 }
 
-function formatTemperature(temp: number | null | undefined): string {
-  if (!temp) return '--';
-  return `${temp.toFixed(1)}°C`;
+function formatTemperature(temp: number | string | null | undefined): string {
+  const val = Number(temp);
+  if (!val || isNaN(val)) return '--';
+  return `${val.toFixed(1)}°C`;
 }
 
-function formatPower(power: number | null | undefined): string {
-  if (!power) return '--';
-  return `${power.toFixed(1)} W`;
+function formatPower(power: number | string | null | undefined): string {
+  const val = Number(power);
+  if (!val || isNaN(val)) return '--';
+  return `${val.toFixed(1)} W`;
 }
 
-function formatUptime(seconds: number | null | undefined): string {
-  if (!seconds) return '--';
-  const days = Math.floor(seconds / 86400);
-  const hours = Math.floor((seconds % 86400) / 3600);
-  const mins = Math.floor((seconds % 3600) / 60);
+function formatUptime(seconds: number | string | null | undefined): string {
+  const val = Number(seconds);
+  if (!val || isNaN(val)) return '--';
+  const days = Math.floor(val / 86400);
+  const hours = Math.floor((val % 86400) / 3600);
+  const mins = Math.floor((val % 3600) / 60);
   if (days > 0) return `${days}d ${hours}h ${mins}m`;
   if (hours > 0) return `${hours}h ${mins}m`;
   return `${mins}m`;
 }
 
-function formatDifficulty(diff: number | null | undefined): string {
-  if (!diff) return '--';
-  if (diff >= 1e12) return `${(diff / 1e12).toFixed(2)}T`;
-  if (diff >= 1e9) return `${(diff / 1e9).toFixed(2)}G`;
-  if (diff >= 1e6) return `${(diff / 1e6).toFixed(2)}M`;
-  if (diff >= 1e3) return `${(diff / 1e3).toFixed(2)}K`;
-  return diff.toFixed(2);
+function formatDifficulty(diff: number | string | null | undefined): string {
+  const val = Number(diff);
+  if (!val || isNaN(val)) return '--';
+  if (val >= 1e12) return `${(val / 1e12).toFixed(2)}T`;
+  if (val >= 1e9) return `${(val / 1e9).toFixed(2)}G`;
+  if (val >= 1e6) return `${(val / 1e6).toFixed(2)}M`;
+  if (val >= 1e3) return `${(val / 1e3).toFixed(2)}K`;
+  return val.toFixed(2);
 }
 
 function formatTime(timestamp: number): string {
@@ -388,12 +393,12 @@ export function DeviceDetailPage() {
               <div className="h-2 bg-bg-primary border border-border overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-accent to-accent-hover transition-all duration-500"
-                  style={{ width: `${Math.min((metrics.hashRate || 0) / (metrics.expectedHashrate || metrics.hashRate || 1) * 100, 100)}%` }}
+                  style={{ width: `${Math.min((Number(metrics.hashRate) || 0) / (Number(metrics.expectedHashrate) || Number(metrics.hashRate) || 1) * 100, 100)}%` }}
                 />
               </div>
               <div className="text-xs text-text-secondary mt-2 flex justify-between">
                 <span>{metrics.isClusterMaster ? `${metrics.clusterInfo?.activeSlaves || 0} devices` : `1h avg: ${formatHashrate(metrics.hashRate_1h)}`}</span>
-                <span className="text-accent">{metrics.isClusterMaster ? 'TOTAL' : `${((metrics.hashRate || 0) / (metrics.expectedHashrate || metrics.hashRate || 1) * 100).toFixed(0)}%`}</span>
+                <span className="text-accent">{metrics.isClusterMaster ? 'TOTAL' : `${((Number(metrics.hashRate) || 0) / (Number(metrics.expectedHashrate) || Number(metrics.hashRate) || 1) * 100).toFixed(0)}%`}</span>
               </div>
             </div>
 
@@ -401,16 +406,16 @@ export function DeviceDetailPage() {
             <div className="vault-card p-5 hover-glitch group">
               <div className="flex items-center gap-3 mb-3">
                 <div className={`p-2 border rounded ${
-                  metrics.temp > 80 ? 'bg-danger/20 border-danger/40' : metrics.temp > 70 ? 'bg-warning/20 border-warning/40' : 'bg-success/20 border-success/40'
+                  Number(metrics.temp) > 80 ? 'bg-danger/20 border-danger/40' : Number(metrics.temp) > 70 ? 'bg-warning/20 border-warning/40' : 'bg-success/20 border-success/40'
                 }`}>
-                  <svg className={`w-6 h-6 ${metrics.temp > 80 ? 'text-danger' : metrics.temp > 70 ? 'text-warning' : 'text-success'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg className={`w-6 h-6 ${Number(metrics.temp) > 80 ? 'text-danger' : Number(metrics.temp) > 70 ? 'text-warning' : 'text-success'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </div>
                 <div className="text-xs text-text-secondary uppercase tracking-wider">Temperature</div>
               </div>
               <div className={`text-3xl font-bold mb-2 ${
-                metrics.temp > 80 ? 'text-danger' : metrics.temp > 70 ? 'text-warning' : 'text-success terminal-glow'
+                Number(metrics.temp) > 80 ? 'text-danger' : Number(metrics.temp) > 70 ? 'text-warning' : 'text-success terminal-glow'
               }`}>
                 {formatTemperature(metrics.temp)}
               </div>
@@ -418,15 +423,15 @@ export function DeviceDetailPage() {
               <div className="h-2 bg-bg-primary border border-border overflow-hidden">
                 <div
                   className={`h-full transition-all duration-500 ${
-                    metrics.temp > 80 ? 'bg-danger' : metrics.temp > 70 ? 'bg-warning' : 'bg-success'
+                    Number(metrics.temp) > 80 ? 'bg-danger' : Number(metrics.temp) > 70 ? 'bg-warning' : 'bg-success'
                   }`}
-                  style={{ width: `${Math.min((metrics.temp || 0) / 100 * 100, 100)}%` }}
+                  style={{ width: `${Math.min((Number(metrics.temp) || 0) / 100 * 100, 100)}%` }}
                 />
               </div>
               <div className="text-xs text-text-secondary mt-2 flex justify-between">
                 <span>VR: {formatTemperature(metrics.vrTemp)}</span>
-                <span className={metrics.temp > 80 ? 'text-danger' : metrics.temp > 70 ? 'text-warning' : 'text-success'}>
-                  {metrics.temp > 80 ? 'CRITICAL' : metrics.temp > 70 ? 'WARM' : 'OPTIMAL'}
+                <span className={Number(metrics.temp) > 80 ? 'text-danger' : Number(metrics.temp) > 70 ? 'text-warning' : 'text-success'}>
+                  {Number(metrics.temp) > 80 ? 'CRITICAL' : Number(metrics.temp) > 70 ? 'WARM' : 'OPTIMAL'}
                 </span>
               </div>
             </div>
@@ -450,14 +455,14 @@ export function DeviceDetailPage() {
               <div className="h-2 bg-bg-primary border border-border overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-border-highlight to-border-glow transition-all duration-500"
-                  style={{ width: `${Math.min((metrics.power || 0) / 20 * 100, 100)}%` }}
+                  style={{ width: `${Math.min((Number(metrics.power) || 0) / 20 * 100, 100)}%` }}
                 />
               </div>
               <div className="text-xs text-text-secondary mt-2">
                 {(() => {
                   const MAINS_VOLTAGE = 120;
-                  const power = metrics.power || 0;
-                  const voltage = metrics.voltage || 0;
+                  const power = Number(metrics.power) || 0;
+                  const voltage = Number(metrics.voltage) || 0;
                   const voltageV = voltage > 1000 ? voltage / 1000 : voltage;
                   const wallAmps = power > 0 ? (power / MAINS_VOLTAGE).toFixed(1) : '--';
                   const dcAmps = voltageV > 1 && voltageV < 50 && power > 0 ? (power / voltageV).toFixed(1) : null;
@@ -484,13 +489,13 @@ export function DeviceDetailPage() {
                 </div>
               </div>
               <div className="text-3xl font-bold text-pip-green terminal-glow mb-2">
-                {metrics.efficiency?.toFixed(1) || '--'} <span className="text-lg">J/TH</span>
+                {Number(metrics.efficiency) ? Number(metrics.efficiency).toFixed(1) : '--'} <span className="text-lg">J/TH</span>
               </div>
               {/* Efficiency gauge (lower is better, so invert) */}
               <div className="h-2 bg-bg-primary border border-border overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-pip-green to-success transition-all duration-500"
-                  style={{ width: `${Math.max(100 - ((metrics.efficiency || 25) / 50 * 100), 10)}%` }}
+                  style={{ width: `${Math.max(100 - ((Number(metrics.efficiency) || 25) / 50 * 100), 10)}%` }}
                 />
               </div>
               <div className="text-xs text-text-secondary mt-2">
@@ -595,12 +600,14 @@ export function DeviceDetailPage() {
                 </svg>
                 <h3 className="text-sm font-bold text-accent uppercase tracking-wider">Pool Connection</h3>
               </div>
-              <button
-                onClick={() => setShowPoolEdit(!showPoolEdit)}
-                className="text-xs px-3 py-1 rounded bg-accent/20 text-accent border border-accent/30 hover:bg-accent/30 transition-colors"
-              >
-                {showPoolEdit ? 'Cancel' : 'Edit Pool'}
-              </button>
+              {device.deviceType !== 'bitmain' && device.deviceType !== 'canaan' && (
+                <button
+                  onClick={() => setShowPoolEdit(!showPoolEdit)}
+                  className="text-xs px-3 py-1 rounded bg-accent/20 text-accent border border-accent/30 hover:bg-accent/30 transition-colors"
+                >
+                  {showPoolEdit ? 'Cancel' : 'Edit Pool'}
+                </button>
+              )}
             </div>
 
             {/* Pool Edit Form */}
@@ -736,8 +743,8 @@ export function DeviceDetailPage() {
             )}
           </div>
 
-          {/* Device Control Panel - Hidden for Canaan (monitoring only) */}
-          {device.deviceType !== 'canaan' && (
+          {/* Device Control Panel - Hidden for Bitmain and Canaan (monitoring only) */}
+          {device.deviceType !== 'canaan' && device.deviceType !== 'bitmain' && (
           <div className="vault-card p-4">
             <div className="flex items-center justify-between mb-4 pb-2 border-b border-border">
               <div className="flex items-center gap-2">

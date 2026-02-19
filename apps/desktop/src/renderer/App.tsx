@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { TitleBar } from './components/TitleBar';
 import { DashboardPage } from './pages/DashboardPage';
 import { DeviceDetailPage } from './pages/DeviceDetailPage';
@@ -10,7 +10,7 @@ export function App() {
   return (
     <div className="h-screen flex flex-col bg-bg-primary">
       <TitleBar />
-      <BrowserRouter>
+      <HashRouter>
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<Navigate to="/dashboard" replace />} />
@@ -21,7 +21,7 @@ export function App() {
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </BrowserRouter>
+      </HashRouter>
     </div>
   );
 }
