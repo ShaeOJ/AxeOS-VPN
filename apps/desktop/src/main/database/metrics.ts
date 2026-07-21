@@ -110,8 +110,26 @@ export function deleteMetricsForDevice(deviceId: string): number {
 
 export function cleanupOldMetrics(olderThanDays: number): number {
   const db = getDatabase();
+  // 0 (or negative) means keep forever — do nothing.
+  if (!Number.isFinite(olderThanDays) || olderThanDays <= 0) return 0;
   const cutoffTime = Date.now() - olderThanDays * 24 * 60 * 60 * 1000;
 
   const result = db.prepare('DELETE FROM metrics WHERE timestamp < ?').run(cutoffTime);
   return result.changes;
+}
+
+// Reclaim disk space after large deletes. VACUUM rewrites the DB file and needs
+// a brief exclusive lock + free disk (~size of the DB); can take a while on
+// large databases. Also truncates the WAL first.
+export function vacuumDatabase(): void {
+  const db = getDatabase();
+  db.pragma('wal_checkpoint(TRUNCATE)');
+  db.exec('VACUUM');
+}
+
+// Total metrics row count (fast estimate for diagnostics/UI).
+export function getMetricsCount(): number {
+  const db = getDatabase();
+  const row = db.prepare('SELECT COUNT(*) as c FROM metrics').get() as { c: number };
+  return row.c;
 }

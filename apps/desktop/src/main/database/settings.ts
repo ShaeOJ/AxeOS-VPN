@@ -46,6 +46,19 @@ export function setServerPort(port: number): void {
   setSetting('server_port', port.toString());
 }
 
+// Metrics retention — how many days of history to keep (0 = keep forever).
+// Default 14 days: at ~200 MB/device-week this caps DB growth sensibly.
+export function getMetricsRetentionDays(): number {
+  const v = getSetting('metrics_retention_days');
+  const n = v !== undefined ? parseInt(v, 10) : 14;
+  return Number.isFinite(n) && n >= 0 ? n : 14;
+}
+
+export function setMetricsRetentionDays(days: number): void {
+  const d = Number.isFinite(days) && days >= 0 ? Math.floor(days) : 14;
+  setSetting('metrics_retention_days', d.toString());
+}
+
 export function getConnectionCode(): string {
   return getSetting('connection_code') || 'ERROR';
 }

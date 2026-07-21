@@ -111,6 +111,12 @@ export function SettingsPage() {
   const [currentTheme, setCurrentTheme] = useState('vault-tec');
   const [scanlinesEnabled, setScanlinesEnabled] = useState(true);
 
+  // Data & storage (metrics retention)
+  const [retentionDays, setRetentionDays] = useState(14);
+  const [metricsRowCount, setMetricsRowCount] = useState<number | null>(null);
+  const [isCompacting, setIsCompacting] = useState(false);
+  const [compactResult, setCompactResult] = useState<string | null>(null);
+
   // Update check state
   const [updateStatus, setUpdateStatus] = useState<{
     checking: boolean;
@@ -134,6 +140,7 @@ export function SettingsPage() {
     loadTraySettings();
     loadAlertConfig();
     loadTheme();
+    loadMetricsRetention();
   }, []);
 
   const loadTheme = async () => {
@@ -141,8 +148,8 @@ export function SettingsPage() {
     if (settings.theme) {
       setCurrentTheme(settings.theme);
     }
-    // Load scanlines setting (default to true if not set)
-    const scanlines = settings.scanlinesEnabled !== false;
+    // Load scanlines setting (default to true if not set; stored as a string)
+    const scanlines = settings.scanlinesEnabled !== 'false';
     setScanlinesEnabled(scanlines);
     // Apply scanlines state to body
     if (!scanlines) {
@@ -179,7 +186,7 @@ export function SettingsPage() {
 
   const handleScanlinesChange = async (enabled: boolean) => {
     setScanlinesEnabled(enabled);
-    await window.electronAPI.setSetting('scanlinesEnabled', enabled);
+    await window.electronAPI.setSetting('scanlinesEnabled', String(enabled));
     // Apply scanlines state to body
     if (enabled) {
       document.body.classList.remove('scanline-disabled');
@@ -191,6 +198,41 @@ export function SettingsPage() {
   const loadTraySettings = async () => {
     const enabled = await window.electronAPI.getMinimizeToTray();
     setMinimizeToTray(enabled);
+  };
+
+  const loadMetricsRetention = async () => {
+    try {
+      const r = await window.electronAPI.getMetricsRetention();
+      setRetentionDays(r.days);
+      setMetricsRowCount(r.rowCount);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleRetentionChange = async (days: number) => {
+    setRetentionDays(days);
+    await window.electronAPI.setMetricsRetention(days);
+  };
+
+  const handleCompactDatabase = async () => {
+    setIsCompacting(true);
+    setCompactResult(null);
+    try {
+      const res = await window.electronAPI.compactDatabase();
+      if (res.success) {
+        if (typeof res.rowCount === 'number') setMetricsRowCount(res.rowCount);
+        setCompactResult(
+          `Removed ${(res.deleted ?? 0).toLocaleString()} old records; ${(res.rowCount ?? 0).toLocaleString()} remain.`
+        );
+      } else {
+        setCompactResult(res.error || 'Compact failed');
+      }
+    } catch (e) {
+      setCompactResult(e instanceof Error ? e.message : 'Compact failed');
+    } finally {
+      setIsCompacting(false);
+    }
   };
 
   const handleMinimizeToTrayChange = async (enabled: boolean) => {
@@ -858,6 +900,54 @@ export function SettingsPage() {
               </div>
             )}
           </div>
+        </div>
+      </section>
+
+      {/* Data & Storage */}
+      <section className="rounded-xl bg-bg-secondary border border-border overflow-hidden">
+        <div className="p-4 border-b border-border">
+          <h2 className="text-lg font-medium text-text-primary">Data &amp; Storage</h2>
+        </div>
+        <div className="p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="pr-4">
+              <div className="text-sm font-medium text-text-primary">Metrics Retention</div>
+              <div className="text-xs text-text-secondary">
+                How long to keep per-device history. Older data is pruned automatically on startup and every 12 hours.
+                {metricsRowCount !== null && ` Currently storing ${metricsRowCount.toLocaleString()} records.`}
+              </div>
+            </div>
+            <select
+              value={retentionDays}
+              onChange={(e) => handleRetentionChange(Number(e.target.value))}
+              className="px-3 py-1.5 text-sm rounded bg-bg-tertiary border border-border text-text-primary shrink-0"
+            >
+              <option value={3}>3 days</option>
+              <option value={7}>7 days</option>
+              <option value={14}>14 days</option>
+              <option value={30}>30 days</option>
+              <option value={90}>90 days</option>
+              <option value={0}>Keep forever</option>
+            </select>
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="pr-4">
+              <div className="text-sm font-medium text-text-primary">Compact Database</div>
+              <div className="text-xs text-text-secondary">
+                Prune to the retention window now and reclaim disk space.
+              </div>
+            </div>
+            <button
+              onClick={handleCompactDatabase}
+              disabled={isCompacting}
+              className="px-3 py-1.5 text-xs rounded bg-accent/20 text-accent border border-accent/30 hover:bg-accent/30 transition-colors disabled:opacity-50 shrink-0"
+            >
+              {isCompacting ? 'Compacting…' : 'Compact Now'}
+            </button>
+          </div>
+          {compactResult && (
+            <div className="text-xs text-text-secondary bg-bg-tertiary rounded p-2">{compactResult}</div>
+          )}
         </div>
       </section>
 

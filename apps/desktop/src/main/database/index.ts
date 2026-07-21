@@ -117,6 +117,8 @@ export function initDatabase(): Database.Database {
 
     -- Indexes for performance
     CREATE INDEX IF NOT EXISTS idx_metrics_device_timestamp ON metrics(device_id, timestamp);
+    -- Bare timestamp index so retention cleanup (DELETE WHERE timestamp < ?) is fast
+    CREATE INDEX IF NOT EXISTS idx_metrics_timestamp ON metrics(timestamp);
     CREATE INDEX IF NOT EXISTS idx_alerts_device ON alerts(device_id);
     CREATE INDEX IF NOT EXISTS idx_devices_ip ON devices(ip_address);
   `);

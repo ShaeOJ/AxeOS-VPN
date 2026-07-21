@@ -20,6 +20,26 @@ import * as deviceControl from './device-control';
 
 let mainWindow: BrowserWindow | null = null;
 
+// Prune metrics older than the configured retention, and VACUUM to reclaim disk
+// when a large amount was deleted (VACUUM is heavy, so only when it's worth it).
+function runMetricsCleanup(vacuumIfLarge: boolean): void {
+  try {
+    const days = settings.getMetricsRetentionDays();
+    if (days <= 0) return; // 0 = keep forever
+    const deleted = metrics.cleanupOldMetrics(days);
+    if (deleted > 0) {
+      console.log(`[Retention] Deleted ${deleted} metric rows older than ${days} days`);
+      if (vacuumIfLarge && deleted >= 50000) {
+        console.log('[Retention] Reclaiming disk space (VACUUM)...');
+        metrics.vacuumDatabase();
+        console.log('[Retention] VACUUM complete');
+      }
+    }
+  } catch (err) {
+    console.error('[Retention] cleanup failed:', err instanceof Error ? err.message : err);
+  }
+}
+
 // Register custom protocol for serving files with proper MIME types
 function registerProtocol(): void {
   protocol.handle('app', (request) => {
@@ -72,7 +92,7 @@ function createWindow(): void {
   });
 
   // Enable F12 to toggle DevTools
-  mainWindow.webContents.on('before-input-event', (event, input) => {
+  mainWindow.webContents.on('before-input-event', (_event, input) => {
     if (input.key === 'F12') {
       mainWindow?.webContents.toggleDevTools();
     }
@@ -166,6 +186,11 @@ if (!gotTheLock) {
       poller.startPolling(device);
     });
 
+    // Metrics retention: prune old history on startup and every 12h so the DB
+    // doesn't grow without bound. Deferred so it never blocks app startup.
+    setTimeout(() => runMetricsCleanup(true), 15000);
+    setInterval(() => runMetricsCleanup(false), 12 * 60 * 60 * 1000);
+
     // Create main window
     createWindow();
 
@@ -180,6 +205,8 @@ if (!gotTheLock) {
       poller.stopAllPolling();
       // Destroy tray
       systemTray.destroyTray();
+      // Kill the cloudflared tunnel process so it doesn't leak
+      tunnel.stopTunnel();
       // Close database
       closeDatabase();
       app.quit();
@@ -189,6 +216,8 @@ if (!gotTheLock) {
   // Clean up before quit
   app.on('before-quit', () => {
     systemTray.destroyTray();
+    // Ensure the cloudflared child process is terminated on normal exit
+    tunnel.stopTunnel();
   });
 }
 
@@ -216,7 +245,7 @@ ipcMain.handle('check-for-updates', async () => {
       };
     }
 
-    const release = await response.json();
+    const release = await response.json() as any;
     const latestVersion = release.tag_name?.replace(/^v/, '') || release.name?.replace(/^v/, '');
 
     if (!latestVersion) {
@@ -527,7 +556,7 @@ ipcMain.handle('update-device', async (_, id: string, device: { name?: string; i
 });
 
 // IPC Handlers - Device Discovery
-ipcMain.handle('start-device-discovery', async (event) => {
+ipcMain.handle('start-device-discovery', async () => {
   const checkExisting = (ip: string): boolean => {
     const existing = devices.getDeviceByIp(ip);
     return existing !== null;
@@ -633,6 +662,31 @@ ipcMain.handle('get-setting', async (_, key: string) => {
 
 ipcMain.handle('set-setting', async (_, key: string, value: string) => {
   return settings.setSetting(key, value);
+});
+
+// Metrics retention: read/set how many days of history to keep, and compact now
+ipcMain.handle('get-metrics-retention', async () => {
+  return { days: settings.getMetricsRetentionDays(), rowCount: metrics.getMetricsCount() };
+});
+
+ipcMain.handle('set-metrics-retention', async (_, days: number) => {
+  if (typeof days !== 'number' || !Number.isFinite(days) || days < 0) {
+    return { success: false, error: 'Invalid retention (must be >= 0 days)' };
+  }
+  settings.setMetricsRetentionDays(days);
+  return { success: true, days: settings.getMetricsRetentionDays() };
+});
+
+// Prune to the current retention now and VACUUM to reclaim disk space
+ipcMain.handle('compact-database', async () => {
+  try {
+    const days = settings.getMetricsRetentionDays();
+    const deleted = metrics.cleanupOldMetrics(days);
+    metrics.vacuumDatabase();
+    return { success: true, deleted, rowCount: metrics.getMetricsCount() };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Compact failed' };
+  }
 });
 
 ipcMain.handle('reset-app-data', async () => {

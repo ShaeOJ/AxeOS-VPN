@@ -47,6 +47,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setSetting: (key: string, value: string) => ipcRenderer.invoke('set-setting', key, value),
   resetAppData: () => ipcRenderer.invoke('reset-app-data'),
 
+  // Metrics retention
+  getMetricsRetention: () => ipcRenderer.invoke('get-metrics-retention'),
+  setMetricsRetention: (days: number) => ipcRenderer.invoke('set-metrics-retention', days),
+  compactDatabase: () => ipcRenderer.invoke('compact-database'),
+
   // Cloudflare Tunnel (Remote Access)
   getTunnelStatus: () => ipcRenderer.invoke('get-tunnel-status'),
   startTunnel: () => ipcRenderer.invoke('start-tunnel'),
@@ -116,6 +121,53 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 });
 
+// ClusterAxe types (mirrors the shapes populated in axeos-poller.ts)
+export interface ClusterTransport {
+  type: string;
+  channel: number;
+  encrypted: boolean;
+  discoveryActive: boolean;
+  peerCount: number;
+}
+
+export interface ClusterSlave {
+  slot: number;
+  slaveId: number;
+  hostname: string;
+  ipAddr: string;
+  state: number;
+  hashrate: number;
+  temperature: number;
+  fanRpm: number;
+  sharesSubmitted: number;
+  sharesAccepted: number;
+  lastSeen: number;
+  frequency: number;
+  coreVoltage: number;
+  power: number;
+  voltageIn: number;
+}
+
+export interface ClusterStatus {
+  enabled: boolean;
+  mode: number;
+  modeString: string;
+  activeSlaves: number;
+  totalHashrate: number;
+  totalShares: number;
+  totalSharesAccepted: number;
+  totalSharesRejected: number;
+  primarySharesAccepted: number;
+  primarySharesRejected: number;
+  secondarySharesAccepted: number;
+  secondarySharesRejected: number;
+  totalPower: number;
+  totalEfficiency: number;
+  transport: ClusterTransport;
+  currentTime: number;
+  slaves: ClusterSlave[];
+}
+
 // AxeOS API response type
 export interface AxeOSSystemInfo {
   power: number;
@@ -152,6 +204,8 @@ export interface AxeOSSystemInfo {
   smallCoreCount: number;
   algorithm?: 'sha256' | 'scrypt';
   isCanaan?: boolean;
+  isClusterMaster?: boolean;
+  clusterInfo?: ClusterStatus;
   [key: string]: unknown;
 }
 
@@ -171,7 +225,7 @@ export interface DeviceGroup {
   createdAt: number;
 }
 
-export type DeviceType = 'bitaxe' | 'bitmain' | 'canaan';
+export type DeviceType = 'bitaxe' | 'bitmain' | 'canaan' | 'braiins';
 
 export interface Device {
   id: string;
@@ -361,9 +415,7 @@ interface UpdateCheckResult {
   error?: string;
 }
 
-declare global {
-  interface Window {
-    electronAPI: {
+export interface ElectronAPI {
       getAppVersion: () => Promise<string>;
       checkForUpdates: () => Promise<UpdateCheckResult>;
       minimizeWindow: () => Promise<void>;
@@ -399,6 +451,10 @@ declare global {
       getSettings: () => Promise<Record<string, string>>;
       setSetting: (key: string, value: string) => Promise<{ success: boolean }>;
       resetAppData: () => Promise<void>;
+
+      getMetricsRetention: () => Promise<{ days: number; rowCount: number }>;
+      setMetricsRetention: (days: number) => Promise<{ success: boolean; days?: number; error?: string }>;
+      compactDatabase: () => Promise<{ success: boolean; deleted?: number; rowCount?: number; error?: string }>;
 
       getTunnelStatus: () => Promise<TunnelStatus>;
       startTunnel: () => Promise<TunnelResult>;
@@ -441,6 +497,10 @@ declare global {
       onDiscoveryProgress: (callback: (progress: DiscoveryProgress) => void) => void;
       onDeviceAlert: (callback: (alert: DeviceAlert) => void) => void;
       removeAllListeners: (channel: string) => void;
-    };
+}
+
+declare global {
+  interface Window {
+    electronAPI: ElectronAPI;
   }
 }
