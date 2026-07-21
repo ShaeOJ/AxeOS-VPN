@@ -315,6 +315,9 @@ export function DeviceDetailPage() {
                   {device.deviceType === 'canaan' && (
                     <span className="px-1.5 py-0.5 text-[10px] bg-success/20 border border-success/40 text-success uppercase font-bold">BETA</span>
                   )}
+                  {device.deviceType === 'braiins' && (
+                    <span className="px-1.5 py-0.5 text-[10px] bg-accent/20 border border-accent/40 text-accent uppercase font-bold">BRAIINS</span>
+                  )}
                 </div>
               </div>
               <div>

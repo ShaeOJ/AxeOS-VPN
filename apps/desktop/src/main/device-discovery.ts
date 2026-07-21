@@ -1,7 +1,7 @@
 import { networkInterfaces } from 'os';
 import * as net from 'net';
 
-export type DeviceType = 'bitaxe' | 'bitmain' | 'canaan';
+export type DeviceType = 'bitaxe' | 'bitmain' | 'canaan' | 'braiins';
 
 export interface DiscoveredDevice {
   ip: string;
@@ -89,7 +89,7 @@ async function probeDevice(ip: string, timeout: number = 3000): Promise<Discover
 
     if (!response.ok) return null;
 
-    const data = await response.json();
+    const data = await response.json() as any;
 
     // Validate it's a BitAxe device by checking for expected fields
     if (!data.ASICModel && !data.hostname) return null;
@@ -127,10 +127,13 @@ async function probeCanaanDevice(ip: string, timeout: number = 3000): Promise<Di
     const socket = new net.Socket();
     let data = '';
     let resolved = false;
+    let parseTimer: NodeJS.Timeout | undefined;
 
     const done = (result: DiscoveredDevice | null) => {
       if (resolved) return;
       resolved = true;
+      if (parseTimer) clearTimeout(parseTimer);
+      clearTimeout(safety);
       socket.destroy();
       resolve(result);
     };
@@ -162,6 +165,28 @@ async function probeCanaanDevice(ip: string, timeout: number = 3000): Promise<Di
           }
 
           if (parsed) {
+            // Braiins OS (BOSer) also answers on 4028 — detect it first. Its
+            // multi-command response is keyed by command name; the exact model
+            // (from devdetails) is resolved once the device is added.
+            if (/BOSer|Braiins/i.test(cleaned)) {
+              const keyedSum = (parsed as Record<string, unknown>)['summary'];
+              const sumArr = Array.isArray(keyedSum)
+                ? (keyedSum[0] as Record<string, unknown>)?.['SUMMARY']
+                : parsed['SUMMARY'];
+              const sum = Array.isArray(sumArr) ? sumArr[0] as Record<string, unknown> : undefined;
+              const bMhs = sum ? Number(sum['MHS 5s'] || 0) : 0;
+              done({
+                ip,
+                hostname: `Braiins-${ip.split('.').pop()}`,
+                model: 'Braiins OS Miner',
+                hashRate: bMhs / 1000,
+                version: 'Braiins OS (BETA)',
+                alreadyAdded: false,
+                deviceType: 'braiins' as DeviceType,
+              });
+              return;
+            }
+
             const summary = Array.isArray(parsed['SUMMARY']) ? parsed['SUMMARY'][0] : parsed['SUMMARY'];
             const version = Array.isArray(parsed['VERSION']) ? parsed['VERSION'][0] : parsed['VERSION'];
             const mhs = summary ? Number((summary as Record<string, unknown>)['MHS 5s'] || (summary as Record<string, unknown>)['MHS5s'] || 0) : 0;
@@ -187,13 +212,11 @@ async function probeCanaanDevice(ip: string, timeout: number = 3000): Promise<Di
       }, 300);
     });
 
-    let parseTimer = setTimeout(() => {}, 0);
-
     socket.on('timeout', () => done(null));
     socket.on('error', () => done(null));
 
     // Absolute timeout safety
-    setTimeout(() => done(null), timeout + 500);
+    const safety = setTimeout(() => done(null), timeout + 500);
   });
 }
 
@@ -218,7 +241,7 @@ async function probeBitmainDevice(ip: string, timeout: number = 3000): Promise<D
       const controller2 = new AbortController();
       const timeoutId2 = setTimeout(() => controller2.abort(), timeout);
       try {
-        const authResponse = await fetch(`http://${ip}/cgi-bin/get_miner_status.cgi`, {
+        await fetch(`http://${ip}/cgi-bin/get_miner_status.cgi`, {
           signal: controller2.signal,
           headers: {
             'Authorization': 'Digest username="root"',
@@ -252,7 +275,7 @@ async function probeBitmainDevice(ip: string, timeout: number = 3000): Promise<D
 
     if (!response.ok) return null;
 
-    const data = await response.json();
+    const data = await response.json() as any;
 
     // Validate it looks like a Bitmain miner status response
     if (!data.STATS && !data.stats) return null;
@@ -262,10 +285,13 @@ async function probeBitmainDevice(ip: string, timeout: number = 3000): Promise<D
     const chainCount = chains.length;
     const hostname = `Antminer-${ip.split('.').pop()}`;
 
+    // At discovery time (pre-auth) we only know chain count, which can't tell
+    // S9/S17/S19/T-series apart (all 3 chains). Label generically; the exact
+    // model is resolved from `minertype` once the device is added.
     return {
       ip,
       hostname,
-      model: chainCount === 4 ? 'Antminer L3+' : chainCount === 3 ? 'Antminer S9' : 'Antminer',
+      model: chainCount === 4 ? 'Antminer L3+' : 'Antminer (SHA-256)',
       hashRate: 0,
       version: 'Bitmain (BETA)',
       alreadyAdded: false,
@@ -359,7 +385,7 @@ export async function discoverDevices(
 
         // Immediate progress update when device found
         onProgress({
-          scanned: scanned + batch.indexOf(results.find(r => r === device)!) + 1,
+          scanned: scanned + results.indexOf(device) + 1,
           total,
           found: [...discovered],
           currentIp: device.ip,

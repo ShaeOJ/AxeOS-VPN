@@ -339,6 +339,8 @@ async function pollDevice(device: devices.Device): Promise<void> {
   // Fetch metrics based on device type
   let data = device.device_type === 'bitmain'
     ? await fetchBitmainMetrics(device.ip_address, device.auth_user || undefined, device.auth_pass || undefined)
+    : device.device_type === 'braiins'
+    ? await fetchBraiinsMetrics(device.ip_address)
     : device.device_type === 'canaan'
     ? await fetchCanaanMetrics(device.ip_address)
     : await fetchDeviceMetrics(device.ip_address);
@@ -642,24 +644,64 @@ async function detectBitmainModel(ipAddress: string, username?: string, password
   return 'Unknown Antminer';
 }
 
-// Infer Bitmain model from chain data heuristics
-function inferBitmainModel(data: BitmainMinerStatus): { model: string; algorithm: 'sha256' | 'scrypt'; chipsPerChain: number } {
+// Per-model Bitmain specs. chipsPerChain feeds the "small core count" display;
+// defaultChainVoltageV is the per-domain voltage fallback used only when the
+// miner doesn't report chain_vol. Values are approximate/representative.
+interface BitmainModelSpec {
+  name: string;
+  algorithm: 'sha256' | 'scrypt';
+  chipsPerChain: number;
+  defaultChainVoltageV: number;
+}
+
+// Matched by uppercase substring against the reported `minertype`.
+// Order matters: more specific variants must come before their prefix
+// (e.g. "S19 XP" / "S19 PRO" before "S19", "S17 PRO" before "S17").
+const BITMAIN_MODELS: Array<{ match: string; spec: BitmainModelSpec }> = [
+  { match: 'L3',       spec: { name: 'Antminer L3+',     algorithm: 'scrypt', chipsPerChain: 72,  defaultChainVoltageV: 8.5 } },
+  { match: 'S19 XP',   spec: { name: 'Antminer S19 XP',  algorithm: 'sha256', chipsPerChain: 110, defaultChainVoltageV: 13.5 } },
+  { match: 'S19J PRO', spec: { name: 'Antminer S19j Pro', algorithm: 'sha256', chipsPerChain: 110, defaultChainVoltageV: 14 } },
+  { match: 'S19 PRO',  spec: { name: 'Antminer S19 Pro', algorithm: 'sha256', chipsPerChain: 114, defaultChainVoltageV: 14 } },
+  { match: 'S19J',     spec: { name: 'Antminer S19j',    algorithm: 'sha256', chipsPerChain: 88,  defaultChainVoltageV: 14 } },
+  { match: 'S19',      spec: { name: 'Antminer S19',     algorithm: 'sha256', chipsPerChain: 76,  defaultChainVoltageV: 14 } },
+  { match: 'T19',      spec: { name: 'Antminer T19',     algorithm: 'sha256', chipsPerChain: 76,  defaultChainVoltageV: 14 } },
+  { match: 'S17 PRO',  spec: { name: 'Antminer S17 Pro', algorithm: 'sha256', chipsPerChain: 48,  defaultChainVoltageV: 15 } },
+  { match: 'S17',      spec: { name: 'Antminer S17',     algorithm: 'sha256', chipsPerChain: 48,  defaultChainVoltageV: 15 } },
+  { match: 'T17',      spec: { name: 'Antminer T17',     algorithm: 'sha256', chipsPerChain: 30,  defaultChainVoltageV: 15 } },
+  { match: 'S9',       spec: { name: 'Antminer S9',      algorithm: 'sha256', chipsPerChain: 63,  defaultChainVoltageV: 8.5 } },
+];
+
+// Resolve the model spec: prefer the device-reported `minertype`, and only
+// fall back to chain-count/hashrate heuristics when it isn't available.
+function resolveBitmainModel(detectedModel: string | undefined, data: BitmainMinerStatus): BitmainModelSpec {
+  const detected = (detectedModel || '').toUpperCase();
+  if (detected && detected !== 'UNKNOWN ANTMINER') {
+    for (const { match, spec } of BITMAIN_MODELS) {
+      if (detected.includes(match)) {
+        // Keep the exact device-reported name; use the table's spec values.
+        return { ...spec, name: detectedModel as string };
+      }
+    }
+    // Known to be some Antminer we don't have specs for — keep its name.
+    return { name: detectedModel as string, algorithm: 'sha256', chipsPerChain: 63, defaultChainVoltageV: 12 };
+  }
+
+  // No usable model string: infer from chains + hashrate.
   const chainCount = data.devs.length;
   const hashRateGH = parseFloat(data.summary.ghs5s) || 0;
+  const hashRateTH = hashRateGH / 1000;
 
-  // L3+ typically has 4 chains and much lower hashrate (in GH/s terms, ~0.5 GH/s for Scrypt)
-  // S9 typically has 3 chains and ~14 TH/s (14000 GH/s for SHA-256)
+  // L3+ (Scrypt): 4 chains, tiny SHA-equivalent number — preserve prior rule.
   if (chainCount === 4 && hashRateGH < 10) {
-    return { model: 'Antminer L3+', algorithm: 'scrypt', chipsPerChain: 72 };
+    return { name: 'Antminer L3+', algorithm: 'scrypt', chipsPerChain: 72, defaultChainVoltageV: 8.5 };
   }
-
-  // S9: 3 chains, high hashrate
-  if (chainCount === 3) {
-    return { model: 'Antminer S9', algorithm: 'sha256', chipsPerChain: 63 };
+  // SHA-256 miners distinguished by hashrate band.
+  if (hashRateTH >= 90) return { name: 'Antminer S19', algorithm: 'sha256', chipsPerChain: 76, defaultChainVoltageV: 14 };
+  if (hashRateTH >= 37) return { name: 'Antminer S17', algorithm: 'sha256', chipsPerChain: 48, defaultChainVoltageV: 15 };
+  if (chainCount === 3 || hashRateTH >= 8) {
+    return { name: 'Antminer S9', algorithm: 'sha256', chipsPerChain: 63, defaultChainVoltageV: 8.5 };
   }
-
-  // Default: assume SHA-256 miner
-  return { model: 'Unknown Antminer', algorithm: 'sha256', chipsPerChain: 63 };
+  return { name: 'Unknown Antminer', algorithm: 'sha256', chipsPerChain: 63, defaultChainVoltageV: 12 };
 }
 
 // Transform Bitmain data to AxeOSSystemInfo format (supports S9, L3+, and other Antminers)
@@ -709,11 +751,11 @@ function transformBitmainToAxeOS(data: BitmainMinerStatus, ipAddress: string, de
   const avgVoltage = chainCount > 0 ? totalVoltage / chainCount : 0;
   const hashRateGH = parseFloat(data.summary.ghs5s) || 0;
 
-  // Detect model - use detected model from system info, or infer from data
-  const inferred = inferBitmainModel(data);
-  const modelName = detectedModel && detectedModel !== 'Unknown Antminer' ? detectedModel : inferred.model;
-  const algorithm = detectedModel?.toLowerCase().includes('l3') ? 'scrypt' as const : inferred.algorithm;
-  const chipsPerChain = inferred.chipsPerChain;
+  // Resolve model (S9, S17, S19, T-series, L3+, …) from reported minertype or heuristics
+  const modelSpec = resolveBitmainModel(detectedModel, data);
+  const modelName = modelSpec.name;
+  const algorithm = modelSpec.algorithm;
+  const chipsPerChain = modelSpec.chipsPerChain;
 
   // Generate hostname prefix from model
   const hostnamePrefix = modelName.replace('Antminer ', '').replace('+', 'p').split(' ')[0];
@@ -725,14 +767,13 @@ function transformBitmainToAxeOS(data: BitmainMinerStatus, ipAddress: string, de
   // Chain voltage handling
   // avgVoltage is the average chain voltage from dev.chain_vol
   // Convert to mV if it looks like it's in V (< 100 means V, otherwise mV)
-  // Use 8.5V fallback if chain_vol not reported (typical operating voltage)
-  const DEFAULT_S9_VOLTAGE = 8.5;
+  // Use the model's per-domain voltage as a fallback if chain_vol not reported
   let chainVoltage: number;
   if (avgVoltage > 0) {
     chainVoltage = avgVoltage < 100 ? avgVoltage * 1000 : avgVoltage; // Normalize to mV
   } else {
-    chainVoltage = DEFAULT_S9_VOLTAGE * 1000; // Use fallback in mV
-    console.log(`[Bitmain] ${ipAddress}: chain_vol not reported, using fallback ${DEFAULT_S9_VOLTAGE}V`);
+    chainVoltage = modelSpec.defaultChainVoltageV * 1000; // Use model fallback in mV
+    console.log(`[Bitmain] ${ipAddress}: chain_vol not reported, using fallback ${modelSpec.defaultChainVoltageV}V for ${modelName}`);
   }
 
   // Calculate DC current at chain voltage
@@ -835,6 +876,32 @@ function cgminerCommand(ipAddress: string, command: string, port: number = 4028,
   return new Promise((resolve, reject) => {
     const socket = new net.Socket();
     let data = '';
+    let settled = false;
+    let idleTimer: NodeJS.Timeout | undefined;
+
+    // Absolute cap: CGMiner sometimes never sends FIN.
+    const hardTimer = setTimeout(() => finish(), timeoutMs - 500);
+
+    const cleanup = () => {
+      clearTimeout(hardTimer);
+      if (idleTimer) clearTimeout(idleTimer);
+      socket.destroy();
+    };
+
+    // Resolve with whatever we've received so far (success path).
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(data);
+    };
+
+    const fail = (err: Error) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(err);
+    };
 
     socket.setTimeout(timeoutMs);
 
@@ -844,34 +911,14 @@ function cgminerCommand(ipAddress: string, command: string, port: number = 4028,
 
     socket.on('data', (chunk) => {
       data += chunk.toString();
+      // Close a short delay after the last chunk (CGMiner may not send FIN).
+      if (idleTimer) clearTimeout(idleTimer);
+      idleTimer = setTimeout(finish, 500);
     });
 
-    socket.on('end', () => {
-      resolve(data);
-    });
-
-    socket.on('timeout', () => {
-      socket.destroy();
-      reject(new Error('CGMiner TCP timeout'));
-    });
-
-    socket.on('error', (err) => {
-      socket.destroy();
-      reject(err);
-    });
-
-    // CGMiner sometimes doesn't send FIN, so close after receiving data + short delay
-    socket.on('data', () => {
-      // Reset a close timer each time data arrives
-      clearTimeout(closeTimer);
-      closeTimer = setTimeout(() => {
-        socket.end();
-      }, 500);
-    });
-
-    let closeTimer = setTimeout(() => {
-      socket.end();
-    }, timeoutMs - 500);
+    socket.on('end', finish);
+    socket.on('timeout', () => fail(new Error('CGMiner TCP timeout')));
+    socket.on('error', fail);
   });
 }
 
@@ -882,7 +929,7 @@ export async function checkCanaanDevice(ipAddress: string): Promise<boolean> {
     // CGMiner responses may have null bytes, clean them
     const cleaned = raw.replace(/\0/g, '');
     const parsed = JSON.parse(cleaned);
-    return parsed && (parsed.VERSION || parsed.version);
+    return !!(parsed && (parsed.VERSION || parsed.version));
   } catch {
     return false;
   }
@@ -1066,6 +1113,175 @@ function transformCanaanToAxeOS(
   };
 }
 
+// ============================================
+// BRAIINS OS SUPPORT (S17/S19 etc. on Braiins OS / BOS+)  [BETA]
+// ============================================
+// Braiins OS exposes the CGMiner API on TCP 4028 (BOSer). Differs from stock
+// Antminer CGI and from Avalon: multi-command responses are keyed by command
+// name, temps/fans are separate commands, and power is NOT reported (estimated).
+
+// Nominal efficiency (J/TH) used ONLY to estimate power, since the Braiins
+// cgminer API does not expose wattage. Approximate, model-dependent.
+const BRAIINS_JTH: Array<{ match: string; jth: number }> = [
+  { match: 'S19 XP', jth: 21.5 },
+  { match: 'S19 PRO', jth: 29.5 },
+  { match: 'S19J', jth: 31 },
+  { match: 'S19', jth: 34.5 },
+  { match: 'S17 PRO', jth: 39.5 },
+  { match: 'S17', jth: 45 },
+  { match: 'T19', jth: 37 },
+  { match: 'T17', jth: 55 },
+];
+function braiinsEfficiency(model: string): number {
+  const m = model.toUpperCase();
+  for (const { match, jth } of BRAIINS_JTH) if (m.includes(match)) return jth;
+  return 40; // generic SHA-256 estimate
+}
+
+// Extract a section from a BOSer response, tolerating both the multi-command
+// keyed shape ({summary:[{SUMMARY:[...]}]}) and the single-command flat shape.
+function boserSection(parsed: Record<string, unknown>, cmd: string, key: string): Array<Record<string, unknown>> {
+  const keyed = parsed?.[cmd] as Array<Record<string, unknown>> | undefined;
+  if (Array.isArray(keyed) && keyed[0] && Array.isArray(keyed[0][key])) {
+    return keyed[0][key] as Array<Record<string, unknown>>;
+  }
+  if (Array.isArray(parsed?.[key])) return parsed[key] as Array<Record<string, unknown>>;
+  return [];
+}
+
+// Detect Braiins OS via the CGMiner version response (contains "BOSer")
+export async function checkBraiinsDevice(ipAddress: string): Promise<boolean> {
+  try {
+    const raw = await cgminerCommand(ipAddress, 'version', 4028, 4000);
+    return /BOSer|Braiins/i.test(raw.replace(/\0/g, ''));
+  } catch {
+    return false;
+  }
+}
+
+// Fetch metrics from a Braiins OS miner (S17/S19/T-series) via CGMiner API 4028
+export async function fetchBraiinsMetrics(ipAddress: string): Promise<AxeOSSystemInfo | null> {
+  try {
+    const raw = await cgminerCommand(ipAddress, 'summary+devdetails+pools+temps+fans+tunerstatus', 4028, 8000);
+    const cleaned = raw.replace(/\0/g, '');
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      console.error(`[Braiins] ${ipAddress}: could not parse response`);
+      return null;
+    }
+    const summary = boserSection(parsed, 'summary', 'SUMMARY')[0];
+    if (!summary) {
+      console.error(`[Braiins] ${ipAddress}: no SUMMARY in response`);
+      return null;
+    }
+    return transformBraiinsToAxeOS(parsed, ipAddress);
+  } catch (error) {
+    console.error(`[Braiins] Error fetching from ${ipAddress}:`, error instanceof Error ? error.message : error);
+    return null;
+  }
+}
+
+function transformBraiinsToAxeOS(parsed: Record<string, unknown>, ipAddress: string): AxeOSSystemInfo {
+  const summary = boserSection(parsed, 'summary', 'SUMMARY')[0] || {};
+  const devdetails = boserSection(parsed, 'devdetails', 'DEVDETAILS');
+  const pools = boserSection(parsed, 'pools', 'POOLS');
+  const temps = boserSection(parsed, 'temps', 'TEMPS');
+  const fans = boserSection(parsed, 'fans', 'FANS');
+
+  const num = (v: unknown): number => Number(v) || 0;
+
+  // Hashrate: BOSer reports MHS in MH/s -> GH/s = /1000
+  const hashRateGH = num(summary['MHS 5s']) / 1000;
+  const hashRateTH = hashRateGH / 1000;
+
+  // Model / chips / frequency / per-domain voltage from devdetails
+  const model = String(devdetails[0]?.['Model'] || 'Braiins OS Miner');
+  const chainCount = devdetails.length;
+  const totalChips = devdetails.reduce((s, d) => s + num(d['Chips']), 0);
+  const avgFreq = chainCount ? devdetails.reduce((s, d) => s + num(d['Frequency']), 0) / chainCount : 0;
+  const avgDomainV = chainCount ? devdetails.reduce((s, d) => s + num(d['Voltage']), 0) / chainCount : 0;
+
+  // Temps come from the separate `temps` section (devs.Temperature is 0)
+  const maxChip = temps.reduce((m, t) => Math.max(m, num(t['Chip'])), 0);
+  const maxBoard = temps.reduce((m, t) => Math.max(m, num(t['Board'])), 0);
+
+  // Fans: separate `fans` section (RPM + Speed%)
+  const maxFanRpm = fans.reduce((m, f) => Math.max(m, num(f['RPM'])), 0);
+  const maxFanSpeed = fans.reduce((m, f) => Math.max(m, num(f['Speed'])), 0);
+
+  // Real power from the `tunerstatus` command (bosminer extension). Fall back
+  // to a hashrate-based estimate only if the tuner didn't report consumption.
+  const tuner = boserSection(parsed, 'tunerstatus', 'TUNERSTATUS')[0] || {};
+  const realPower = num(tuner['ApproximateMinerPowerConsumption']);
+  const powerLimit = num(tuner['PowerLimit']);
+  const jth = braiinsEfficiency(model);
+  const powerIsReal = realPower > 0;
+  const power = powerIsReal ? realPower : hashRateTH * jth;
+  const efficiency = hashRateTH > 0 ? power / hashRateTH : jth;
+
+  // Active pool: prefer the Alive + Stratum-Active one
+  const activePool = pools.find((p) => p['Status'] === 'Alive' && p['Stratum Active'] === true)
+    || pools.find((p) => p['Status'] === 'Alive')
+    || pools[0] || {};
+  const rawUrl = String(activePool['Stratum URL'] || activePool['URL'] || '');
+  const stripped = rawUrl.replace(/^stratum\+tcp:\/\//, '');
+  const portIdx = stripped.lastIndexOf(':');
+  const stratumURL = portIdx > 0 ? stripped.substring(0, portIdx) : stripped;
+  const stratumPort = portIdx > 0 ? parseInt(stripped.substring(portIdx + 1)) || 3333 : 3333;
+
+  const hostnamePrefix = model.replace('Antminer ', '').replace(/\s+/g, '').replace('+', 'p') || 'Braiins';
+
+  return {
+    power: power,
+    voltage: avgDomainV * 1000, // domain volts -> mV
+    current: avgDomainV > 0 ? (power / avgDomainV) * 1000 : 0, // DC mA at domain voltage
+    efficiency: efficiency,
+    temp: maxChip,
+    temp2: maxBoard,
+    vrTemp: maxBoard,
+
+    hashRate: hashRateGH,
+    hashRate_1m: num(summary['MHS 1m']) / 1000 || hashRateGH,
+    hashRate_10m: num(summary['MHS 5m']) / 1000 || hashRateGH,
+    hashRate_1h: num(summary['MHS 15m']) / 1000 || hashRateGH,
+    expectedHashrate: hashRateGH,
+
+    bestDiff: num(summary['Best Share']),
+    bestSessionDiff: num(summary['Best Share']),
+    sharesAccepted: num(summary['Accepted']),
+    sharesRejected: num(summary['Rejected']),
+
+    uptimeSeconds: num(summary['Elapsed']),
+    hostname: `${hostnamePrefix}-${ipAddress.split('.').pop()}`,
+    ipv4: ipAddress,
+    ASICModel: `${model} (Braiins OS)`,
+    version: 'Braiins OS (BETA)',
+
+    fanspeed: maxFanSpeed, // Braiins reports fan speed as a percentage
+    fanrpm: maxFanRpm,
+    frequency: avgFreq,
+    coreVoltage: avgDomainV * 1000,
+
+    poolDifficulty: num(activePool['Stratum Difficulty'] || activePool['Work Difficulty']),
+    stratumURL,
+    stratumPort,
+    stratumUser: String(activePool['User'] || ''),
+
+    wifiStatus: 'Ethernet',
+    freeHeap: 0,
+    smallCoreCount: totalChips,
+
+    algorithm: 'sha256',
+    isBraiins: true,
+    powerEstimated: !powerIsReal, // false when real tuner power is available
+    powerLimit: powerLimit,       // tuner power target (W), 0 if unknown
+    hwErrors: num(summary['Hardware Errors']),
+    chainCount,
+  };
+}
+
 // Check if a Bitmain device requires authentication
 export async function checkBitmainAuth(ipAddress: string): Promise<boolean> {
   try {
@@ -1097,6 +1313,15 @@ export async function detectDeviceType(ipAddress: string, username?: string, pas
   if (bitmainData) {
     console.log(`[Detection] ${ipAddress} is Bitmain: ${bitmainData.ASICModel}`);
     return { type: 'bitmain', data: bitmainData };
+  }
+
+  // Try Braiins OS (CGMiner TCP 4028, BOSer) BEFORE Canaan since both use 4028
+  if (await checkBraiinsDevice(ipAddress)) {
+    const braiinsData = await fetchBraiinsMetrics(ipAddress);
+    if (braiinsData) {
+      console.log(`[Detection] ${ipAddress} is Braiins OS: ${braiinsData.ASICModel}`);
+      return { type: 'braiins', data: braiinsData };
+    }
   }
 
   // Try Canaan/CGMiner TCP (port 4028)
