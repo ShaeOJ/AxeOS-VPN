@@ -26,7 +26,7 @@ interface Props {
 }
 
 export function DiscoveryModal({ isOpen, onClose }: Props) {
-  const { loadDevices } = useDeviceStore();
+  const { fetchDevices } = useDeviceStore();
   const [isScanning, setIsScanning] = useState(false);
   const [progress, setProgress] = useState<DiscoveryProgress | null>(null);
   const [selectedDevices, setSelectedDevices] = useState<Set<string>>(new Set());
@@ -141,7 +141,7 @@ export function DiscoveryModal({ isOpen, onClose }: Props) {
     setAddingDevices(false);
 
     // Refresh the device list
-    await loadDevices();
+    await fetchDevices();
   };
 
   const formatHashrate = (hr: number): string => {

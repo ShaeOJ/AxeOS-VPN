@@ -4,6 +4,7 @@ import { readdirSync } from 'fs';
 import * as devices from './database/devices';
 
 let tray: Tray | null = null;
+let statsInterval: NodeJS.Timeout | null = null;
 
 // Find logo file (handles vite's hashed filenames like logo-Bpla9I2K.png)
 function findLogoFile(): string | null {
@@ -71,8 +72,9 @@ export function createTray(window: BrowserWindow): Tray {
     showWindow();
   });
 
-  // Set up periodic stats refresh
-  setInterval(updateStats, 5000);
+  // Set up periodic stats refresh (clear any previous interval to avoid stacking)
+  if (statsInterval) clearInterval(statsInterval);
+  statsInterval = setInterval(updateStats, 5000);
   updateStats();
 
   return tray;
@@ -194,6 +196,10 @@ export function setMinimizeToTray(enabled: boolean): void {
  * Destroy the tray icon
  */
 export function destroyTray(): void {
+  if (statsInterval) {
+    clearInterval(statsInterval);
+    statsInterval = null;
+  }
   if (tray) {
     tray.destroy();
     tray = null;
@@ -203,7 +209,7 @@ export function destroyTray(): void {
 /**
  * Update device metrics for tray display (called from poller)
  */
-export function updateDeviceMetrics(deviceId: string, hashrate: number, power: number): void {
+export function updateDeviceMetrics(_deviceId: string, _hashrate: number, _power: number): void {
   // This will be called by the poller when metrics come in
   // We could track individual device metrics here if needed
   updateStats();

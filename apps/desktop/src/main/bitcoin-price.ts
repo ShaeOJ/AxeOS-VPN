@@ -156,7 +156,7 @@ export async function fetchCryptoPrice(coinId: string, currency: string = 'usd')
       return cached || getFallbackPrice(coinId, currency);
     }
 
-    const data = await response.json();
+    const data = await response.json() as any;
 
     if (data[coinId]) {
       const price: CryptoPrice = {
@@ -227,7 +227,7 @@ export async function fetchAllPrices(currency: string = 'usd'): Promise<Map<stri
       return priceCache;
     }
 
-    const data = await response.json();
+    const data = await response.json() as any;
 
     for (const coin of SUPPORTED_COINS) {
       if (data[coin.id]) {
@@ -286,7 +286,7 @@ export async function fetchPriceHistory(coinId: string, currency: string = 'usd'
       return cached || [];
     }
 
-    const data = await response.json();
+    const data = await response.json() as any;
 
     if (data.prices && Array.isArray(data.prices)) {
       // Downsample to ~50 points for efficient rendering

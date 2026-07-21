@@ -286,7 +286,7 @@ export function ChartsPage() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            {devices.map((device, index) => {
+            {devices.map((device) => {
               const isSelected = selectedDevices.includes(device.id);
               const color = DEVICE_COLORS[selectedDevices.indexOf(device.id) % DEVICE_COLORS.length];
 
@@ -545,7 +545,7 @@ function formatTime(timestamp: number, timeRange: TimeRange): string {
   }
 }
 
-function formatValue(value: number | null, metricType: MetricType, forAxis = false): string {
+function formatValue(value: number | null, metricType: MetricType, _forAxis = false): string {
   if (value === null || value === undefined) return '--';
 
   switch (metricType) {
@@ -564,12 +564,6 @@ function formatValue(value: number | null, metricType: MetricType, forAxis = fal
     default:
       return value.toFixed(2);
   }
-}
-
-function getHashrateUnit(values: number[]): string {
-  // Check if any value is >= 1000 GH/s (1 TH/s)
-  const maxValue = Math.max(...values.filter(v => v !== null && !isNaN(v)));
-  return maxValue >= 1000 ? 'TH/s' : 'GH/s';
 }
 
 function formatHashrateForDisplay(value: number | null, useTH: boolean): string {

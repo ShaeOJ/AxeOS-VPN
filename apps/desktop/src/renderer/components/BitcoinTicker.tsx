@@ -14,7 +14,6 @@ export function BitcoinTicker() {
     isLoading,
     isRefreshing,
     error,
-    isInitialized,
     initialize,
     setSelectedCoin,
     setSelectedCurrency,

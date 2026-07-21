@@ -1,5 +1,52 @@
 import { create } from 'zustand';
 
+// ClusterAxe status (mirrors ClusterStatus in the preload / poller)
+interface ClusterTransport {
+  type: string;
+  channel: number;
+  encrypted: boolean;
+  discoveryActive: boolean;
+  peerCount: number;
+}
+
+interface ClusterSlave {
+  slot: number;
+  slaveId: number;
+  hostname: string;
+  ipAddr: string;
+  state: number;
+  hashrate: number;
+  temperature: number;
+  fanRpm: number;
+  sharesSubmitted: number;
+  sharesAccepted: number;
+  lastSeen: number;
+  frequency: number;
+  coreVoltage: number;
+  power: number;
+  voltageIn: number;
+}
+
+interface ClusterStatus {
+  enabled: boolean;
+  mode: number;
+  modeString: string;
+  activeSlaves: number;
+  totalHashrate: number;
+  totalShares: number;
+  totalSharesAccepted: number;
+  totalSharesRejected: number;
+  primarySharesAccepted: number;
+  primarySharesRejected: number;
+  secondarySharesAccepted: number;
+  secondarySharesRejected: number;
+  totalPower: number;
+  totalEfficiency: number;
+  transport: ClusterTransport;
+  currentTime: number;
+  slaves: ClusterSlave[];
+}
+
 // AxeOS system info from the device
 interface AxeOSSystemInfo {
   power: number;
@@ -34,6 +81,10 @@ interface AxeOSSystemInfo {
   wifiStatus: string;
   freeHeap: number;
   smallCoreCount: number;
+  algorithm?: 'sha256' | 'scrypt';
+  isCanaan?: boolean;
+  isClusterMaster?: boolean;
+  clusterInfo?: ClusterStatus;
   [key: string]: unknown;
 }
 
@@ -49,7 +100,7 @@ interface Device {
   id: string;
   name: string;
   ipAddress: string;
-  deviceType?: 'bitaxe' | 'bitmain' | 'canaan';
+  deviceType?: 'bitaxe' | 'bitmain' | 'canaan' | 'braiins';
   isOnline: boolean;
   lastSeen: number | null;
   createdAt: number;

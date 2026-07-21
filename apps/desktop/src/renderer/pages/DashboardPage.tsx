@@ -178,7 +178,11 @@ export function DashboardPage() {
       try {
         const stats = await window.electronAPI.getNetworkStats();
         if (stats) {
-          setNetworkStats(stats);
+          setNetworkStats({
+            difficulty: stats.difficulty,
+            blockReward: stats.blockReward,
+            blockHeight: stats.blockHeight ?? 0,
+          });
         }
       } catch (err) {
         console.error('Failed to fetch network stats:', err);
@@ -228,7 +232,6 @@ export function DashboardPage() {
   }, {} as Record<string, typeof devices>);
 
   const onlineDevices = devices.filter((d) => d.isOnline);
-  const offlineDevices = devices.filter((d) => !d.isOnline);
 
   // SHA-256 devices only for hashrate/diff aggregation (exclude Scrypt miners like L3+)
   const sha256OnlineDevices = onlineDevices.filter(

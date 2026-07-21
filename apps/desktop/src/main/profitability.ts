@@ -190,6 +190,7 @@ export async function fetchNetworkStats(coin: MiningCoin = 'btc'): Promise<Netwo
  * Internal async fetch (with timeout)
  */
 async function fetchNetworkStatsAsync(coin: MiningCoin): Promise<NetworkStats | null> {
+  const now = Date.now();
   const config = COIN_CONFIGS[coin];
   const cached = cachedNetworkStats.get(coin);
 
@@ -205,6 +206,9 @@ async function fetchNetworkStatsAsync(coin: MiningCoin): Promise<NetworkStats | 
         return cached || getFallbackStats(coin);
       }
       difficulty = parseFloat(await diffResponse.text());
+      if (!Number.isFinite(difficulty) || difficulty <= 0) {
+        difficulty = FALLBACK_DIFFICULTIES[coin];
+      }
 
       if (config.blockHeightApi) {
         try {
@@ -223,7 +227,7 @@ async function fetchNetworkStatsAsync(coin: MiningCoin): Promise<NetworkStats | 
         console.error(`Failed to fetch ${coin} stats:`, response.status);
         return cached || getFallbackStats(coin);
       }
-      const data = await response.json();
+      const data = await response.json() as any;
       difficulty = data.data?.difficulty || FALLBACK_DIFFICULTIES[coin];
       blockHeight = data.data?.blocks || undefined;
     } else if (coin === 'dgb' || coin === 'bc2' || coin === 'btcs') {
@@ -234,11 +238,15 @@ async function fetchNetworkStatsAsync(coin: MiningCoin): Promise<NetworkStats | 
           console.warn(`${coin.toUpperCase()} WhatToMine API unavailable, using fallback`);
           difficulty = FALLBACK_DIFFICULTIES[coin];
         } else {
-          const data = await response.json();
+          const data = await response.json() as any;
           difficulty = data.difficulty || FALLBACK_DIFFICULTIES[coin];
+          if (!Number.isFinite(difficulty) || difficulty <= 0) {
+            difficulty = FALLBACK_DIFFICULTIES[coin];
+          }
           // WhatToMine provides current block reward
-          if (data.block_reward) {
-            COIN_CONFIGS[coin].blockReward = data.block_reward;
+          const reward = Number(data.block_reward);
+          if (Number.isFinite(reward) && reward > 0) {
+            COIN_CONFIGS[coin].blockReward = reward;
           }
         }
       } catch {
@@ -283,7 +291,7 @@ export async function fetchCoinPrice(coin: MiningCoin, currency: string = 'usd')
       return null;
     }
 
-    const data = await response.json();
+    const data = await response.json() as any;
     return data[config.coingeckoId]?.[currency] || null;
   } catch (error) {
     console.error(`Failed to fetch ${coin} price:`, error);
