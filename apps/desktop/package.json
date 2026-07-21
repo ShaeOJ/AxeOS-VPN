@@ -1,6 +1,6 @@
 {
   "name": "@axeos-vpn/desktop",
-  "version": "1.7.7",
+  "version": "1.7.13",
   "description": "Vault-Tec Mining Operations Division - BitAxe Monitoring System",
   "author": "Vault-Tec Industries <shae@undergroundroots.ca>",
   "repository": {
@@ -13,7 +13,7 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --build",
     "lint": "eslint . --ext .ts,.tsx",
     "clean": "rimraf dist out",
     "pack": "electron-builder --dir",
@@ -80,6 +80,7 @@
       "**/better-sqlite3/**/*"
     ],
     "nodeGypRebuild": false,
+    "npmRebuild": false,
     "win": {
       "target": [
         {
