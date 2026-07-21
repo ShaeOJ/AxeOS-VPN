@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
 import { networkInterfaces } from 'os';
-import { readFileSync, readdirSync, existsSync } from 'fs';
+import { readFileSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { app } from 'electron';
 import * as devices from '../database/devices';
@@ -13,6 +13,17 @@ import * as poller from '../axeos-poller';
 import * as bitcoin from '../bitcoin-price';
 import * as profitability from '../profitability';
 import * as deviceControl from '../device-control';
+import { isValidDeviceHost, HARDWARE_LIMITS, validateInRange, RateLimiter } from '../security';
+
+// Throttle password attempts: 8 tries per 15 minutes per client IP.
+const loginLimiter = new RateLimiter(8, 15 * 60 * 1000);
+
+function clientIp(req: express.Request): string {
+  // Cloudflare Tunnel sets CF-Connecting-IP; fall back to socket address.
+  const cf = req.headers['cf-connecting-ip'];
+  if (typeof cf === 'string' && cf) return cf;
+  return req.socket.remoteAddress || 'unknown';
+}
 
 // Load logo as base64 for embedding in HTML
 let logoBase64 = '';
@@ -69,7 +80,9 @@ let httpServer: ReturnType<typeof createServer> | null = null;
 
 // Auth middleware for web routes
 function requireAuth(req: express.Request, res: express.Response, next: express.NextFunction): void {
-  const token = req.headers.authorization?.replace('Bearer ', '') || (req as any).cookies?.token;
+  // Header-only auth (Bearer). The web client always sends the token in the
+  // Authorization header; not accepting a cookie removes the CSRF vector.
+  const token = req.headers.authorization?.replace('Bearer ', '');
 
   if (!token || !auth.validateSession(token)) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -83,19 +96,11 @@ export function startServer(): { port: number; addresses: string[] } {
   const port = settings.getServerPort();
 
   const app = express();
-  app.use(cors({ origin: true, credentials: true }));
-  app.use(express.json());
-
-  // Parse cookies
-  app.use((req, res, next) => {
-    const cookies: Record<string, string> = {};
-    req.headers.cookie?.split(';').forEach((c) => {
-      const [key, val] = c.trim().split('=');
-      if (key && val) cookies[key] = val;
-    });
-    (req as any).cookies = cookies;
-    next();
-  });
+  // The dashboard is served from and calls this same origin using Bearer
+  // tokens, so no cross-origin access is needed. Do NOT reflect arbitrary
+  // origins with credentials (that enabled CSRF/data theft from any site).
+  app.use(cors({ origin: false }));
+  app.use(express.json({ limit: '256kb' }));
 
   // ============ PUBLIC ROUTES ============
 
@@ -111,6 +116,10 @@ export function startServer(): { port: number; addresses: string[] } {
 
   // Initial setup - set password
   app.post('/api/setup', async (req, res) => {
+    if (!loginLimiter.check(clientIp(req), Date.now())) {
+      res.status(429).json({ error: 'Too many attempts, try again later' });
+      return;
+    }
     if (auth.isPasswordSet()) {
       res.status(400).json({ error: 'Already configured' });
       return;
@@ -134,9 +143,14 @@ export function startServer(): { port: number; addresses: string[] } {
 
   // Login
   app.post('/api/login', async (req, res) => {
+    if (!loginLimiter.check(clientIp(req), Date.now())) {
+      res.status(429).json({ error: 'Too many attempts, try again later' });
+      return;
+    }
+
     const { password } = req.body;
 
-    if (!password) {
+    if (!password || typeof password !== 'string') {
       res.status(400).json({ error: 'Password required' });
       return;
     }
@@ -160,7 +174,7 @@ export function startServer(): { port: number; addresses: string[] } {
 
   // Logout
   app.post('/api/logout', requireAuth, (req, res) => {
-    const token = req.headers.authorization?.replace('Bearer ', '') || (req as any).cookies?.token;
+    const token = req.headers.authorization?.replace('Bearer ', '');
     if (token) {
       auth.deleteSession(token);
     }
@@ -235,8 +249,8 @@ export function startServer(): { port: number; addresses: string[] } {
   // Test device connection
   app.post('/api/devices/test', requireAuth, async (req, res) => {
     const { ipAddress } = req.body;
-    if (!ipAddress) {
-      res.status(400).json({ success: false, error: 'IP address is required' });
+    if (!isValidDeviceHost(ipAddress)) {
+      res.status(400).json({ success: false, error: 'Invalid IP address or hostname' });
       return;
     }
 
@@ -247,8 +261,8 @@ export function startServer(): { port: number; addresses: string[] } {
   // Add new device
   app.post('/api/devices', requireAuth, async (req, res) => {
     const { ipAddress, name } = req.body;
-    if (!ipAddress) {
-      res.status(400).json({ error: 'IP address is required' });
+    if (!isValidDeviceHost(ipAddress)) {
+      res.status(400).json({ error: 'Invalid IP address or hostname' });
       return;
     }
 
@@ -279,7 +293,11 @@ export function startServer(): { port: number; addresses: string[] } {
     if (name) {
       devices.updateDeviceName(deviceId, name);
     }
-    if (ipAddress) {
+    if (ipAddress !== undefined) {
+      if (!isValidDeviceHost(ipAddress)) {
+        res.status(400).json({ success: false, error: 'Invalid IP address or hostname' });
+        return;
+      }
       devices.updateDeviceIp(deviceId, ipAddress);
       const updated = devices.getDeviceById(deviceId);
       if (updated) {
@@ -310,8 +328,8 @@ export function startServer(): { port: number; addresses: string[] } {
       return;
     }
 
-    const { speed } = req.body;
-    if (speed === undefined || speed < 0 || speed > 100) {
+    const speed = validateInRange(req.body?.speed, HARDWARE_LIMITS.fanSpeedPct.min, HARDWARE_LIMITS.fanSpeedPct.max);
+    if (speed === null) {
       res.status(400).json({ success: false, error: 'Invalid fan speed (0-100)' });
       return;
     }
@@ -328,9 +346,9 @@ export function startServer(): { port: number; addresses: string[] } {
       return;
     }
 
-    const { frequency } = req.body;
-    if (frequency === undefined) {
-      res.status(400).json({ success: false, error: 'Frequency is required' });
+    const frequency = validateInRange(req.body?.frequency, HARDWARE_LIMITS.frequencyMHz.min, HARDWARE_LIMITS.frequencyMHz.max);
+    if (frequency === null) {
+      res.status(400).json({ success: false, error: `Frequency out of range (${HARDWARE_LIMITS.frequencyMHz.min}-${HARDWARE_LIMITS.frequencyMHz.max} MHz)` });
       return;
     }
 
@@ -346,9 +364,9 @@ export function startServer(): { port: number; addresses: string[] } {
       return;
     }
 
-    const { voltage } = req.body;
-    if (voltage === undefined) {
-      res.status(400).json({ success: false, error: 'Voltage is required' });
+    const voltage = validateInRange(req.body?.voltage, HARDWARE_LIMITS.coreVoltageMv.min, HARDWARE_LIMITS.coreVoltageMv.max);
+    if (voltage === null) {
+      res.status(400).json({ success: false, error: `Voltage out of range (${HARDWARE_LIMITS.coreVoltageMv.min}-${HARDWARE_LIMITS.coreVoltageMv.max} mV)` });
       return;
     }
 
@@ -360,10 +378,15 @@ export function startServer(): { port: number; addresses: string[] } {
   app.get('/api/devices/:id/metrics', requireAuth, (req, res) => {
     const { startTime, endTime, limit } = req.query;
 
+    const requestedLimit = limit ? parseInt(limit as string, 10) : 100;
+    const safeLimit = Number.isFinite(requestedLimit)
+      ? Math.min(Math.max(requestedLimit, 1), 5000)
+      : 100;
+
     const deviceMetrics = metrics.getMetrics(req.params.id, {
       startTime: startTime ? parseInt(startTime as string, 10) : undefined,
       endTime: endTime ? parseInt(endTime as string, 10) : undefined,
-      limit: limit ? parseInt(limit as string, 10) : 100,
+      limit: safeLimit,
     });
 
     res.json({
@@ -403,25 +426,40 @@ export function startServer(): { port: number; addresses: string[] } {
   });
 
   app.get('/api/crypto/price/:coinId', async (req, res) => {
-    const { coinId } = req.params;
-    const currency = (req.query.currency as string) || 'usd';
-    const price = await bitcoin.fetchCryptoPrice(coinId, currency);
-    res.json({ price });
+    try {
+      const { coinId } = req.params;
+      const currency = (req.query.currency as string) || 'usd';
+      const price = await bitcoin.fetchCryptoPrice(coinId, currency);
+      res.json({ price });
+    } catch (err) {
+      console.error('crypto price error:', err);
+      res.status(502).json({ error: 'Failed to fetch price' });
+    }
   });
 
   app.get('/api/crypto/history/:coinId', async (req, res) => {
-    const { coinId } = req.params;
-    const currency = (req.query.currency as string) || 'usd';
-    const days = parseInt(req.query.days as string) || 7;
-    const history = await bitcoin.fetchPriceHistory(coinId, currency, days);
-    res.json({ history });
+    try {
+      const { coinId } = req.params;
+      const currency = (req.query.currency as string) || 'usd';
+      const days = parseInt(req.query.days as string) || 7;
+      const history = await bitcoin.fetchPriceHistory(coinId, currency, days);
+      res.json({ history });
+    } catch (err) {
+      console.error('crypto history error:', err);
+      res.status(502).json({ error: 'Failed to fetch history' });
+    }
   });
 
   // ============ PROFITABILITY CALCULATOR (PUBLIC) ============
   app.get('/api/profitability/network-stats', async (req, res) => {
-    const coin = (req.query.coin as profitability.MiningCoin) || 'btc';
-    const stats = await profitability.fetchNetworkStats(coin);
-    res.json({ stats });
+    try {
+      const coin = (req.query.coin as profitability.MiningCoin) || 'btc';
+      const stats = await profitability.fetchNetworkStats(coin);
+      res.json({ stats });
+    } catch (err) {
+      console.error('network-stats error:', err);
+      res.status(502).json({ error: 'Failed to fetch network stats' });
+    }
   });
 
   app.get('/api/profitability/coins', (_req, res) => {
@@ -442,16 +480,21 @@ export function startServer(): { port: number; addresses: string[] } {
   });
 
   app.post('/api/profitability/calculate', async (req, res) => {
-    const { coin, hashrateGH, powerWatts, cryptoPrice, electricityCost } = req.body;
-    const miningCoin = (coin as profitability.MiningCoin) || 'btc';
-    const result = await profitability.calculateProfitability(
-      miningCoin,
-      hashrateGH,
-      powerWatts,
-      cryptoPrice,
-      electricityCost
-    );
-    res.json({ result });
+    try {
+      const { coin, hashrateGH, powerWatts, cryptoPrice, electricityCost } = req.body;
+      const miningCoin = (coin as profitability.MiningCoin) || 'btc';
+      const result = await profitability.calculateProfitability(
+        miningCoin,
+        hashrateGH,
+        powerWatts,
+        cryptoPrice,
+        electricityCost
+      );
+      res.json({ result });
+    } catch (err) {
+      console.error('profitability calculate error:', err);
+      res.status(502).json({ error: 'Failed to calculate profitability' });
+    }
   });
 
   // ============ WEB DASHBOARD ============

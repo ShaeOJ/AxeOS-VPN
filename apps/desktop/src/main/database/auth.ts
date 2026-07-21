@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { randomBytes } from 'crypto';
 import { getDatabase, generateId } from './index';
 
 const SALT_ROUNDS = 12;
@@ -87,10 +88,6 @@ export function resetPassword(): void {
 }
 
 function generateToken(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let token = '';
-  for (let i = 0; i < 64; i++) {
-    token += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return token;
+  // Cryptographically secure session token (48 bytes -> 64 base64url chars)
+  return randomBytes(48).toString('base64url');
 }

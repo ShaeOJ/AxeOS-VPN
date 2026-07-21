@@ -148,6 +148,9 @@ async function tryRequest(
  * Set fan speed
  */
 export async function setFanSpeed(ipAddress: string, speed: number): Promise<ApiResponse> {
+  if (!Number.isFinite(speed)) {
+    return { success: false, error: 'Invalid fan speed' };
+  }
   // Clamp speed to valid range
   const clampedSpeed = Math.max(0, Math.min(100, speed));
   return updateDeviceSettings(ipAddress, { fanSpeed: clampedSpeed });
@@ -157,6 +160,9 @@ export async function setFanSpeed(ipAddress: string, speed: number): Promise<Api
  * Set ASIC frequency
  */
 export async function setFrequency(ipAddress: string, frequency: number): Promise<ApiResponse> {
+  if (!Number.isFinite(frequency) || frequency <= 0) {
+    return { success: false, error: 'Invalid frequency' };
+  }
   return updateDeviceSettings(ipAddress, { frequency });
 }
 
@@ -164,6 +170,9 @@ export async function setFrequency(ipAddress: string, frequency: number): Promis
  * Set core voltage
  */
 export async function setCoreVoltage(ipAddress: string, voltage: number): Promise<ApiResponse> {
+  if (!Number.isFinite(voltage) || voltage <= 0) {
+    return { success: false, error: 'Invalid voltage' };
+  }
   return updateDeviceSettings(ipAddress, { coreVoltage: voltage });
 }
 
