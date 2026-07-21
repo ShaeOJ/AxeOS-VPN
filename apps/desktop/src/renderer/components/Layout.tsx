@@ -20,8 +20,8 @@ export function Layout() {
       if (settings.theme) {
         document.documentElement.className = `theme-${settings.theme}`;
       }
-      // Apply scanlines setting (default to enabled)
-      if (settings.scanlinesEnabled === false) {
+      // Apply scanlines setting (default to enabled; stored as a string)
+      if (settings.scanlinesEnabled === 'false') {
         document.body.classList.add('scanline-disabled');
       }
     });
@@ -64,7 +64,7 @@ export function Layout() {
               <img
                 src={logoImage}
                 alt="AxeOS VPN"
-                className="w-full max-w-[120px] h-auto object-contain"
+                className="w-full max-w-[64px] h-auto object-contain mx-auto"
               />
             </div>
           </div>

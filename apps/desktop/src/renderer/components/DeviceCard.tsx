@@ -179,8 +179,8 @@ function ShareMatrixEffect({ triggerCount }: { triggerCount: number }) {
   return (
     <canvas
       ref={canvasRef}
-      className="absolute inset-0 pointer-events-none rounded-lg"
-      style={{ opacity: 0.7, zIndex: 5 }}
+      className="absolute inset-0 w-full h-full pointer-events-none rounded-lg"
+      style={{ opacity: 0.7, zIndex: 5, width: '100%', height: '100%' }}
     />
   );
 }
@@ -245,7 +245,7 @@ interface DeviceGroup {
   createdAt: number;
 }
 
-type DeviceType = 'bitaxe' | 'bitmain' | 'canaan';
+type DeviceType = 'bitaxe' | 'bitmain' | 'canaan' | 'braiins';
 
 interface Device {
   id: string;
@@ -491,6 +491,11 @@ export function DeviceCard({ device, groups, onGroupChange, networkStats, isNewR
               {device.deviceType === 'canaan' && (
                 <span className="px-1.5 py-0.5 text-[10px] bg-success/20 border border-success/40 text-success uppercase font-bold">
                   BETA
+                </span>
+              )}
+              {device.deviceType === 'braiins' && (
+                <span className="px-1.5 py-0.5 text-[10px] bg-accent/20 border border-accent/40 text-accent uppercase font-bold">
+                  BRAIINS
                 </span>
               )}
               {metrics.algorithm === 'scrypt' && (
