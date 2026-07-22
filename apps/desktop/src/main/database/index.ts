@@ -115,12 +115,37 @@ export function initDatabase(): Database.Database {
       value TEXT NOT NULL
     );
 
+    -- Found blocks table (solo mining). device_id is SET NULL on device delete
+    -- so history survives; device_name is snapshotted for that reason. Blocks
+    -- are recorded provisionally (confirmed=0) since local detection cannot
+    -- confirm pool/chain acceptance.
+    CREATE TABLE IF NOT EXISTS blocks (
+      id TEXT PRIMARY KEY,
+      device_id TEXT,
+      device_name TEXT NOT NULL,
+      coin TEXT NOT NULL DEFAULT 'btc',
+      found_at INTEGER NOT NULL,
+      share_diff REAL,
+      network_diff REAL,
+      block_height INTEGER,
+      reward REAL,
+      fiat_value REAL,
+      fiat_currency TEXT,
+      pool_url TEXT,
+      source TEXT NOT NULL DEFAULT 'bestdiff',
+      confirmed INTEGER DEFAULT 0,
+      created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
+      FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE SET NULL
+    );
+
     -- Indexes for performance
     CREATE INDEX IF NOT EXISTS idx_metrics_device_timestamp ON metrics(device_id, timestamp);
     -- Bare timestamp index so retention cleanup (DELETE WHERE timestamp < ?) is fast
     CREATE INDEX IF NOT EXISTS idx_metrics_timestamp ON metrics(timestamp);
     CREATE INDEX IF NOT EXISTS idx_alerts_device ON alerts(device_id);
     CREATE INDEX IF NOT EXISTS idx_devices_ip ON devices(ip_address);
+    CREATE INDEX IF NOT EXISTS idx_blocks_found_at ON blocks(found_at);
+    CREATE INDEX IF NOT EXISTS idx_blocks_device ON blocks(device_id);
   `);
 
   // Migration: Add group_id column to existing devices table if missing

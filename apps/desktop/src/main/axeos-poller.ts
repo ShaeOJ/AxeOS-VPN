@@ -2,7 +2,10 @@ import * as crypto from 'crypto';
 import * as net from 'net';
 import * as devices from './database/devices';
 import * as metrics from './database/metrics';
+import * as blocks from './database/blocks';
+import * as profitability from './profitability';
 import { DeviceType } from './database/devices';
+import type { MiningCoin } from './profitability';
 
 // Digest Authentication Helper
 interface DigestAuthParams {
@@ -228,12 +231,103 @@ let metricsCallback: MetricsCallback | null = null;
 type NewBestDiffCallback = (deviceId: string, deviceName: string, newBestDiff: number, previousBest: number) => void;
 let newBestDiffCallback: NewBestDiffCallback | null = null;
 
+// Callback fired when a solo block is detected (best share crosses network
+// difficulty, or a firmware Found Blocks counter increments).
+type BlockFoundCallback = (block: blocks.Block) => void;
+let blockFoundCallback: BlockFoundCallback | null = null;
+
+// Baseline of each device's firmware "Found Blocks" counter, so we only fire on
+// increments (and never on the first reading after a restart).
+const lastFoundBlocks = new Map<string, number>();
+
 export function setMetricsCallback(callback: MetricsCallback): void {
   metricsCallback = callback;
 }
 
 export function setNewBestDiffCallback(callback: NewBestDiffCallback): void {
   newBestDiffCallback = callback;
+}
+
+export function setBlockFoundCallback(callback: BlockFoundCallback): void {
+  blockFoundCallback = callback;
+}
+
+// Best-effort guess at which coin a device is solo-mining, from its pool URL /
+// worker name. Falls back to BTC. (A per-device coin override can be added
+// later; this keeps Phase 1 self-contained.)
+function inferCoinFromData(data: AxeOSSystemInfo): MiningCoin {
+  const s = (String(data.stratumURL || '') + ' ' + String(data.stratumUser || '')).toLowerCase();
+  if (s.includes('bch') || s.includes('bitcoincash') || s.includes('bitcoin-cash')) return 'bch';
+  if (s.includes('dgb') || s.includes('digibyte')) return 'dgb';
+  if (s.includes('btcs') || s.includes('silver')) return 'btcs';
+  if (s.includes('bc2') || s.includes('bitcoinii') || s.includes('bitcoin-ii')) return 'bc2';
+  return 'btc';
+}
+
+// Block detection. Runs after each successful poll. Two triggers, deduped:
+//  1) firmware "Found Blocks" counter increments (ASIC firmware), and
+//  2) best share newly crosses this coin's network difficulty (all devices).
+// Records a provisional block and fires blockFoundCallback. Never throws into
+// the poll loop.
+async function detectBlock(
+  device: devices.Device,
+  data: AxeOSSystemInfo,
+  parsedBestDiff: number,
+  previousBest: number,
+): Promise<void> {
+  try {
+    const coin = inferCoinFromData(data);
+    const netStats = await profitability.fetchNetworkStats(coin);
+    const networkDiff = netStats?.difficulty || 0;
+
+    let source: 'bestdiff' | 'firmware' | null = null;
+
+    // Trigger 1: firmware Found Blocks counter
+    const fb = Number(data.foundBlocks);
+    if (Number.isFinite(fb)) {
+      const prev = lastFoundBlocks.get(device.id);
+      lastFoundBlocks.set(device.id, fb);
+      if (prev !== undefined && fb > prev) source = 'firmware';
+    }
+
+    // Trigger 2: best share newly crosses network difficulty
+    if (!source && networkDiff > 0 && parsedBestDiff >= networkDiff && previousBest < networkDiff) {
+      source = 'bestdiff';
+    }
+
+    if (!source) return;
+
+    // Snapshot fiat value (reward x price) if we can get a price cheaply.
+    let fiatValue: number | null = null;
+    let fiatCurrency: string | null = null;
+    try {
+      const price = await profitability.fetchCoinPrice(coin, 'usd');
+      if (price && netStats?.blockReward) {
+        fiatValue = netStats.blockReward * price;
+        fiatCurrency = 'usd';
+      }
+    } catch { /* price is best-effort */ }
+
+    const rec = blocks.recordBlock({
+      deviceId: device.id,
+      deviceName: device.name,
+      coin,
+      foundAt: Date.now(),
+      shareDiff: parsedBestDiff || null,
+      networkDiff: networkDiff || null,
+      blockHeight: netStats?.blockHeight ?? null,
+      reward: netStats?.blockReward ?? null,
+      fiatValue,
+      fiatCurrency,
+      poolUrl: String(data.stratumURL || '') || null,
+      source,
+    });
+
+    console.log(`[Poller] 🎉 BLOCK FOUND by ${device.name} (${coin}) via ${source} — share ${parsedBestDiff} vs net ${networkDiff}`);
+    blockFoundCallback?.(rec);
+  } catch (err) {
+    console.error('[Poller] block detection error:', err instanceof Error ? err.message : err);
+  }
 }
 
 // Check if firmware is ClusterAxe
@@ -398,14 +492,19 @@ async function pollDevice(device: devices.Device): Promise<void> {
     // Normalize bestDiff to numeric value so renderer doesn't get strings
     data.bestDiff = parsedBestDiff;
 
+    const previousBest = device.all_time_best_diff || 0;
     if (parsedBestDiff > 0) {
-      const previousBest = device.all_time_best_diff || 0;
       const isNewRecord = devices.updateAllTimeBestDiff(device.id, parsedBestDiff);
       if (isNewRecord) {
         console.log(`[Poller] 🏆 NEW RECORD! ${device.name}: bestDiff=${parsedBestDiff} (previous: ${previousBest})`);
         newBestDiffCallback?.(device.id, device.name, parsedBestDiff, previousBest);
       }
     }
+
+    // Block detection (solo mining) — fire-and-forget so it never blocks or
+    // breaks the poll loop. Uses the pre-update previousBest to detect a fresh
+    // crossing of network difficulty.
+    void detectBlock(device, data, parsedBestDiff, previousBest);
 
     // Also normalize bestSessionDiff if it's a string
     if (data.bestSessionDiff !== undefined) {
@@ -1280,6 +1379,7 @@ function transformBraiinsToAxeOS(parsed: Record<string, unknown>, ipAddress: str
     powerEstimated: !powerIsReal, // false when real tuner power is available
     powerLimit: powerLimit,       // tuner power target (W), 0 if unknown
     hwErrors: num(summary['Hardware Errors']),
+    foundBlocks: num(summary['Found Blocks']), // solo block counter (cgminer)
     chainCount,
   };
 }
@@ -1437,6 +1537,7 @@ function transformLuxOSToAxeOS(parsed: Record<string, unknown>, ipAddress: strin
     powerEstimated: false, // LuxOS reports real wattage
     powerLimit,
     hwErrors: num(summary['Hardware Errors']),
+    foundBlocks: num(summary['Found Blocks']), // solo block counter (cgminer)
     chainCount,
     controlBoard,
     profile: String(config['Profile'] || ''),

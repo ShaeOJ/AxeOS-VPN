@@ -300,6 +300,19 @@ export function clearDeviceState(deviceId: string): void {
  * Test notification (for settings page)
  * Returns result information for user feedback
  */
+/**
+ * Fire a celebratory native notification when a block is found. Ignores the
+ * per-device alert throttling (a found block is always worth surfacing) but
+ * still respects the global notifications-enabled setting via showNotification.
+ */
+export function notifyBlockFound(deviceName: string, coin: string, blockHeight?: number | null): void {
+  const heightPart = blockHeight ? ` (block ${blockHeight})` : '';
+  showNotification(
+    '🎉 BLOCK FOUND!',
+    `${deviceName} found a ${coin.toUpperCase()} block${heightPart}!`
+  );
+}
+
 export function testNotification(): { success: boolean; message: string } {
   const notificationShown = showNotification(
     'Test Notification',

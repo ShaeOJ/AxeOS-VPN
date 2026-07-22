@@ -105,6 +105,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onNewBestDiff: (callback: (data: { deviceId: string; deviceName: string; newBestDiff: number; previousBest: number }) => void) => {
     ipcRenderer.on('new-best-diff', (_, data) => callback(data));
   },
+  onBlockFound: (callback: (block: Record<string, unknown>) => void) => {
+    ipcRenderer.on('block-found', (_, block) => callback(block));
+  },
   onWindowMaximized: (callback: (isMaximized: boolean) => void) => {
     ipcRenderer.on('window-maximized', (_, isMaximized) => callback(isMaximized));
   },
@@ -493,6 +496,7 @@ export interface ElectronAPI {
 
       onDeviceMetrics: (callback: (data: { deviceId: string; data: AxeOSSystemInfo; isOnline: boolean }) => void) => void;
       onNewBestDiff: (callback: (data: { deviceId: string; deviceName: string; newBestDiff: number; previousBest: number }) => void) => void;
+      onBlockFound: (callback: (block: Record<string, unknown>) => void) => void;
       onWindowMaximized: (callback: (isMaximized: boolean) => void) => void;
       onDiscoveryProgress: (callback: (progress: DiscoveryProgress) => void) => void;
       onDeviceAlert: (callback: (alert: DeviceAlert) => void) => void;

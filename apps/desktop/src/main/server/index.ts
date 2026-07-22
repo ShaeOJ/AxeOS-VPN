@@ -7,6 +7,7 @@ import { join, dirname } from 'path';
 import { app } from 'electron';
 import * as devices from '../database/devices';
 import * as metrics from '../database/metrics';
+import * as blocks from '../database/blocks';
 import * as settings from '../database/settings';
 import * as auth from '../database/auth';
 import * as poller from '../axeos-poller';
@@ -497,6 +498,21 @@ export function startServer(): { port: number; addresses: string[] } {
     }
   });
 
+  // ============ BLOCKS (solo found blocks) ============
+  app.get('/api/blocks', requireAuth, (req, res) => {
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? '100'), 10) || 100, 1), 1000);
+    const offset = Math.max(parseInt(String(req.query.offset ?? '0'), 10) || 0, 0);
+    res.json({
+      blocks: blocks.getBlocks(limit, offset),
+      total: blocks.getBlockCount(),
+      byCoin: blocks.getBlockCountsByCoin(),
+    });
+  });
+
+  app.get('/api/blocks/count', requireAuth, (_req, res) => {
+    res.json({ total: blocks.getBlockCount(), byCoin: blocks.getBlockCountsByCoin() });
+  });
+
   // ============ WEB DASHBOARD ============
   app.get('/', (_req, res) => {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -758,6 +774,7 @@ function getWebDashboardHtml(): string {
     .restart-btn svg { flex-shrink: 0; }
     .restart-btn.restarting svg { animation: spin 1s linear infinite; }
     @keyframes spin { 100% { transform: rotate(360deg); } }
+    @keyframes blockPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.04); box-shadow: 0 0 30px rgba(0,255,65,0.8); } }
     /* Touch-friendly styles */
     input[type="range"] { -webkit-appearance: none; appearance: none; height: 8px; background: #1a4a5c; border-radius: 4px; outline: none; }
     input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 24px; height: 24px; background: #FFB000; border-radius: 50%; cursor: pointer; border: 2px solid #0d2137; }
@@ -1607,6 +1624,19 @@ function getWebDashboardHtml(): string {
         </div>
         <div id="best-difficulty" class="stat-value" style="color: #FF8C00; text-shadow: 0 0 4px rgba(255,140,0,0.3);">--</div>
       </div>
+      <!-- Blocks Found Card -->
+      <div class="summary-card" style="cursor: pointer;" onclick="openBlocksPanel()" title="View block history">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+          <div style="padding: 10px; background: rgba(0,255,65,0.15); border: 1px solid rgba(0,255,65,0.3); border-radius: 8px;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00FF41" stroke-width="1.5">
+              <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="stat-label" style="margin: 0;">Blocks Found</div>
+        </div>
+        <div id="blocks-found" class="stat-value success" style="text-shadow: 0 0 4px rgba(0,255,65,0.3);">0</div>
+        <div id="blocks-found-breakdown" style="font-size: 11px; color: #8BA88B; margin-top: 4px;">Solo mining</div>
+      </div>
       <!-- Power Cost Card -->
       <div class="summary-card">
         <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
@@ -1647,6 +1677,22 @@ function getWebDashboardHtml(): string {
     </div>
     <div id="devices-list"></div>
     </div><!-- End dashboard-section -->
+
+    <!-- Block-found toast container -->
+    <div id="block-toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px;"></div>
+
+    <!-- Blocks history panel (overlay) -->
+    <div id="blocks-panel" class="hidden" style="position: fixed; inset: 0; z-index: 9998; background: rgba(0,0,0,0.7); display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto;" onclick="if(event.target===this)closeBlocksPanel()">
+      <div style="background: var(--color-bg, #0a1a1f); border: 1px solid #1a4a5c; border-radius: 10px; max-width: 900px; width: 100%; padding: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <h3 style="color: #00FF41; text-transform: uppercase; letter-spacing: 1px;">🎉 Blocks Found (<span id="blocks-panel-count">0</span>)</h3>
+          <button onclick="closeBlocksPanel()" class="btn" style="padding: 6px 12px;">Close</button>
+        </div>
+        <div id="blocks-panel-body" style="overflow-x: auto;">
+          <p style="color:#8BA88B;">No blocks found yet. When a solo miner's best share crosses the network difficulty, it will appear here.</p>
+        </div>
+      </div>
+    </div>
 
     <!-- Charts Section -->
     <div class="charts-section" id="charts-section">
@@ -1945,12 +1991,102 @@ function getWebDashboardHtml(): string {
       document.getElementById('login-view').classList.add('hidden');
       document.getElementById('dashboard-view').classList.remove('hidden');
       await fetchDevices(); setInterval(fetchDevices, 5000);
+      await fetchBlocks(true); setInterval(function(){ fetchBlocks(false); }, 15000);
     }
 
     async function fetchDevices() {
       const res = await fetch('/api/devices', { headers: { 'Authorization': 'Bearer ' + token } });
       if (res.status === 401) { localStorage.removeItem('token'); location.reload(); return; }
       const data = await res.json(); devices = data.devices; renderDevices();
+    }
+
+    // ---- Found-blocks: counter, toast, history panel ----
+    let blocksList = [];
+    let knownBlockIds = new Set();
+    let blocksFirstLoad = true;
+
+    async function fetchBlocks(initial) {
+      try {
+        const res = await fetch('/api/blocks?limit=200', { headers: { 'Authorization': 'Bearer ' + token } });
+        if (!res.ok) return;
+        const data = await res.json();
+        blocksList = data.blocks || [];
+
+        // Detect blocks we haven't seen (skip on the very first load so we don't
+        // replay the whole history as toasts).
+        if (!blocksFirstLoad) {
+          for (let i = blocksList.length - 1; i >= 0; i--) {
+            if (!knownBlockIds.has(blocksList[i].id)) showBlockToast(blocksList[i]);
+          }
+        }
+        blocksList.forEach(function(b){ knownBlockIds.add(b.id); });
+        blocksFirstLoad = false;
+
+        // Update the counter tile
+        document.getElementById('blocks-found').textContent = data.total || 0;
+        var byCoin = data.byCoin || {};
+        var parts = Object.keys(byCoin).map(function(c){ return c.toUpperCase() + ': ' + byCoin[c]; });
+        document.getElementById('blocks-found-breakdown').textContent = parts.length ? parts.join('  ') : 'Solo mining';
+
+        // Refresh the panel if it's open
+        if (!document.getElementById('blocks-panel').classList.contains('hidden')) renderBlocksPanel();
+      } catch (e) { /* ignore transient errors */ }
+    }
+
+    function showBlockToast(b) {
+      var c = document.getElementById('block-toast-container');
+      var el = document.createElement('div');
+      el.style.cssText = 'background:linear-gradient(135deg,#0a3a1a,#0a1a1f);border:1px solid #00FF41;border-radius:10px;padding:14px 18px;box-shadow:0 0 20px rgba(0,255,65,0.5);min-width:260px;animation:blockPulse 1s ease-in-out 3;';
+      el.innerHTML = '<div style="font-size:20px;font-weight:bold;color:#00FF41;">🎉 BLOCK FOUND!</div>'
+        + '<div style="color:#fff;margin-top:6px;">' + escapeHtml(b.device_name) + ' &mdash; ' + String(b.coin || '').toUpperCase()
+        + (b.block_height ? ' block ' + b.block_height : '') + '</div>'
+        + '<div style="color:#8BA88B;font-size:12px;margin-top:4px;">Share diff ' + formatDifficulty(b.share_diff || 0) + ' &middot; provisional</div>';
+      el.onclick = function(){ el.remove(); openBlocksPanel(); };
+      c.appendChild(el);
+      setTimeout(function(){ el.style.transition = 'opacity 0.5s'; el.style.opacity = '0'; setTimeout(function(){ el.remove(); }, 500); }, 15000);
+    }
+
+    function openBlocksPanel() { document.getElementById('blocks-panel').classList.remove('hidden'); renderBlocksPanel(); }
+    function closeBlocksPanel() { document.getElementById('blocks-panel').classList.add('hidden'); }
+
+    function renderBlocksPanel() {
+      document.getElementById('blocks-panel-count').textContent = blocksList.length;
+      var body = document.getElementById('blocks-panel-body');
+      if (!blocksList.length) {
+        body.innerHTML = '<p style="color:#8BA88B;">No blocks found yet. When a solo miner\\'s best share crosses the network difficulty, it will appear here.</p>';
+        return;
+      }
+      var html = '<table style="width:100%;border-collapse:collapse;font-size:13px;">'
+        + '<thead><tr>'
+        + ['Found','Miner','Coin','Height','Share Diff','Network Diff','Reward','Value','Source','Status'].map(function(h){
+            return '<th style="padding:8px;text-align:left;border-bottom:1px solid #1a4a5c;color:#8BA88B;white-space:nowrap;">' + h + '</th>'; }).join('')
+        + '</tr></thead><tbody>';
+      blocksList.forEach(function(b){
+        var when = new Date(b.found_at).toLocaleString();
+        var value = (b.fiat_value != null) ? ('$' + Number(b.fiat_value).toLocaleString(undefined,{maximumFractionDigits:2})) : '--';
+        var reward = (b.reward != null) ? (b.reward + ' ' + String(b.coin||'').toUpperCase()) : '--';
+        var status = b.confirmed ? '<span style="color:#00FF41;">confirmed</span>' : '<span style="color:#FFB000;">provisional</span>';
+        html += '<tr>'
+          + '<td style="padding:8px;border-bottom:1px solid #12333f;white-space:nowrap;">' + when + '</td>'
+          + '<td style="padding:8px;border-bottom:1px solid #12333f;">' + escapeHtml(b.device_name) + '</td>'
+          + '<td style="padding:8px;border-bottom:1px solid #12333f;">' + String(b.coin||'').toUpperCase() + '</td>'
+          + '<td style="padding:8px;border-bottom:1px solid #12333f;">' + (b.block_height || '--') + '</td>'
+          + '<td style="padding:8px;border-bottom:1px solid #12333f;">' + formatDifficulty(b.share_diff || 0) + '</td>'
+          + '<td style="padding:8px;border-bottom:1px solid #12333f;">' + formatDifficulty(b.network_diff || 0) + '</td>'
+          + '<td style="padding:8px;border-bottom:1px solid #12333f;white-space:nowrap;">' + reward + '</td>'
+          + '<td style="padding:8px;border-bottom:1px solid #12333f;">' + value + '</td>'
+          + '<td style="padding:8px;border-bottom:1px solid #12333f;">' + b.source + '</td>'
+          + '<td style="padding:8px;border-bottom:1px solid #12333f;">' + status + '</td>'
+          + '</tr>';
+      });
+      html += '</tbody></table>';
+      body.innerHTML = html;
+    }
+
+    function escapeHtml(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, function(m){
+        return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m];
+      });
     }
 
     async function showDeviceDetail(deviceId) {

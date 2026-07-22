@@ -142,6 +142,14 @@ function createWindow(): void {
   poller.setNewBestDiffCallback((deviceId, deviceName, newBestDiff, previousBest) => {
     mainWindow?.webContents.send('new-best-diff', { deviceId, deviceName, newBestDiff, previousBest });
   });
+
+  // Set up callback for found blocks: native notification + in-app event. The
+  // block is already persisted by the poller, so the web dashboard picks it up
+  // via /api/blocks even in headless mode.
+  poller.setBlockFoundCallback((block) => {
+    alertSystem.notifyBlockFound(block.device_name, block.coin, block.block_height);
+    mainWindow?.webContents.send('block-found', block);
+  });
 }
 
 // Register app:// as privileged scheme (must be before app ready)
