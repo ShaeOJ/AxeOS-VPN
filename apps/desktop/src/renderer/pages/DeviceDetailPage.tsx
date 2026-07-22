@@ -83,10 +83,12 @@ export function DeviceDetailPage() {
   const [poolWorker, setPoolWorker] = useState<string>('');
   const [poolPassword, setPoolPassword] = useState<string>('');
   const [showPoolEdit, setShowPoolEdit] = useState(false);
+  const [deviceBlockCount, setDeviceBlockCount] = useState(0);
 
   useEffect(() => {
     if (deviceId) {
       loadHistoricalMetrics();
+      window.electronAPI.getDeviceBlockCount(deviceId).then(setDeviceBlockCount).catch(() => {});
     }
   }, [deviceId]);
 
@@ -561,6 +563,16 @@ export function DeviceDetailPage() {
                   return String(diff);
                 })()}
               </div>
+            </div>
+            <div className="vault-card p-4 hover-glitch cursor-pointer" onClick={() => navigate('/blocks')} title="View block history">
+              <div className="flex items-center gap-2 mb-2">
+                <svg className="w-4 h-4 text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/>
+                </svg>
+                <span className="text-xs text-text-secondary uppercase tracking-wide">Blocks Found</span>
+              </div>
+              <div className="text-xl font-bold text-success">{deviceBlockCount}</div>
             </div>
             <div className="vault-card p-4 hover-glitch">
               <div className="flex items-center gap-2 mb-2">

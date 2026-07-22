@@ -4,6 +4,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { DeviceDetailPage } from './pages/DeviceDetailPage';
 import { ChartsPage } from './pages/ChartsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { BlocksPage } from './pages/BlocksPage';
 import { Layout } from './components/Layout';
 
 export function App() {
@@ -16,6 +17,7 @@ export function App() {
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="charts" element={<ChartsPage />} />
+            <Route path="blocks" element={<BlocksPage />} />
             <Route path="devices/:deviceId" element={<DeviceDetailPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>

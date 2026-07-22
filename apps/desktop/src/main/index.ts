@@ -8,6 +8,7 @@ import * as server from './server';
 import * as devices from './database/devices';
 import * as groups from './database/groups';
 import * as metrics from './database/metrics';
+import * as blocks from './database/blocks';
 import * as settings from './database/settings';
 import * as poller from './axeos-poller';
 import * as tunnel from './cloudflare-tunnel';
@@ -668,6 +669,23 @@ ipcMain.handle('get-metrics', async (_, deviceId: string, options?: { startTime?
     power: m.power,
     data: m.data ? JSON.parse(m.data) : null
   }));
+});
+
+// IPC Handlers - Found blocks
+ipcMain.handle('get-blocks', async (_, limit?: number, offset?: number) => {
+  return {
+    blocks: blocks.getBlocks(limit ?? 100, offset ?? 0),
+    total: blocks.getBlockCount(),
+    byCoin: blocks.getBlockCountsByCoin(),
+  };
+});
+
+ipcMain.handle('get-blocks-count', async () => {
+  return { total: blocks.getBlockCount(), byCoin: blocks.getBlockCountsByCoin() };
+});
+
+ipcMain.handle('get-device-block-count', async (_, deviceId: string) => {
+  return blocks.getBlockCountByDevice(deviceId);
 });
 
 ipcMain.handle('get-all-metrics', async (_, hours?: number) => {

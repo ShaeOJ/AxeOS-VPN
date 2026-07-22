@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useDeviceStore } from '../stores/deviceStore';
 import { useServerStore } from '../stores/serverStore';
 import { DeviceCard } from '../components/DeviceCard';
@@ -87,6 +87,8 @@ export function DashboardPage() {
   const [showGroupManager, setShowGroupManager] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [networkStats, setNetworkStats] = useState<{ difficulty: number; blockReward: number; blockHeight: number } | null>(null);
+  const [blocksCount, setBlocksCount] = useState(0);
+  const navigate = useNavigate();
   const [newRecordDevices, setNewRecordDevices] = useState<Set<string>>(new Set());
   const [electricityCost, setElectricityCost] = useState(0.10);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
@@ -192,6 +194,21 @@ export function DashboardPage() {
     // Refresh network stats every 5 minutes
     const interval = setInterval(fetchNetworkStats, 300000);
 
+    // Blocks-found counter: initial load + refresh, bumped live on block-found
+    const fetchBlocksCount = async () => {
+      try {
+        const res = await window.electronAPI.getBlocksCount();
+        setBlocksCount(res.total || 0);
+      } catch (err) {
+        console.error('Failed to fetch blocks count:', err);
+      }
+    };
+    fetchBlocksCount();
+    // Poll the count (don't add a block-found listener here — BlockFoundModal in
+    // Layout owns that channel, and removeAllListeners on unmount would clobber
+    // it). A short poll keeps the tile fresh enough.
+    const blocksInterval = setInterval(fetchBlocksCount, 20000);
+
     // Listen for new best diff records
     window.electronAPI.onNewBestDiff(({ deviceId, deviceName, newBestDiff }) => {
       console.log(`New record for ${deviceName}: ${newBestDiff}`);
@@ -208,7 +225,10 @@ export function DashboardPage() {
       }, 30000);
     });
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      clearInterval(blocksInterval);
+    };
   }, []);
 
   const toggleGroupCollapse = (groupId: string) => {
@@ -560,6 +580,23 @@ export function DashboardPage() {
           <div className="text-xs text-text-secondary mt-1">
             @ ${electricityCost.toFixed(2)}/kWh
           </div>
+        </div>
+
+        {/* Blocks Found Card */}
+        <div className="vault-card p-4 hover-glitch cursor-pointer" onClick={() => navigate('/blocks')} title="View block history">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2 rounded-lg bg-success/15 border border-success/30">
+              <svg className="w-5 h-5 text-success" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12" />
+              </svg>
+            </div>
+            <div className="text-xs text-text-secondary uppercase tracking-wider">Blocks Found</div>
+          </div>
+          <div className="text-2xl font-bold text-success" style={{ textShadow: '0 0 8px var(--color-success)' }}>
+            {blocksCount}
+          </div>
+          <div className="text-xs text-text-secondary mt-1">Solo mining</div>
         </div>
 
         {/* Block Chance Card */}

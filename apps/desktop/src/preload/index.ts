@@ -42,6 +42,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('get-metrics', deviceId, options),
   getLatestMetrics: (deviceId: string) => ipcRenderer.invoke('get-latest-metrics', deviceId),
 
+  // Found blocks
+  getBlocks: (limit?: number, offset?: number) => ipcRenderer.invoke('get-blocks', limit, offset),
+  getBlocksCount: () => ipcRenderer.invoke('get-blocks-count'),
+  getDeviceBlockCount: (deviceId: string) => ipcRenderer.invoke('get-device-block-count', deviceId),
+
   // Settings
   getSettings: () => ipcRenderer.invoke('get-settings'),
   setSetting: (key: string, value: string) => ipcRenderer.invoke('set-setting', key, value),
@@ -252,6 +257,30 @@ export interface MetricData {
   data: AxeOSSystemInfo | null;
 }
 
+export interface BlockRecord {
+  id: string;
+  device_id: string | null;
+  device_name: string;
+  coin: string;
+  found_at: number;
+  share_diff: number | null;
+  network_diff: number | null;
+  block_height: number | null;
+  reward: number | null;
+  fiat_value: number | null;
+  fiat_currency: string | null;
+  pool_url: string | null;
+  source: 'bestdiff' | 'firmware';
+  confirmed: number;
+  created_at: number;
+}
+
+export interface BlocksResult {
+  blocks: BlockRecord[];
+  total: number;
+  byCoin: Record<string, number>;
+}
+
 export interface AddDeviceResult {
   success: boolean;
   device?: Device;
@@ -450,6 +479,10 @@ export interface ElectronAPI {
 
       getMetrics: (deviceId: string, options?: { startTime?: number; endTime?: number; limit?: number }) => Promise<MetricData[]>;
       getLatestMetrics: (deviceId: string) => Promise<{ timestamp: number; data: AxeOSSystemInfo } | null>;
+
+      getBlocks: (limit?: number, offset?: number) => Promise<BlocksResult>;
+      getBlocksCount: () => Promise<{ total: number; byCoin: Record<string, number> }>;
+      getDeviceBlockCount: (deviceId: string) => Promise<number>;
 
       getSettings: () => Promise<Record<string, string>>;
       setSetting: (key: string, value: string) => Promise<{ success: boolean }>;
