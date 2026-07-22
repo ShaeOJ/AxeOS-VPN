@@ -1,7 +1,7 @@
 import { networkInterfaces } from 'os';
 import * as net from 'net';
 
-export type DeviceType = 'bitaxe' | 'bitmain' | 'canaan' | 'braiins';
+export type DeviceType = 'bitaxe' | 'bitmain' | 'canaan' | 'braiins' | 'luxos';
 
 export interface DiscoveredDevice {
   ip: string;
@@ -183,6 +183,28 @@ async function probeCanaanDevice(ip: string, timeout: number = 3000): Promise<Di
                 version: 'Braiins OS (BETA)',
                 alreadyAdded: false,
                 deviceType: 'braiins' as DeviceType,
+              });
+              return;
+            }
+
+            // LuxOS (LUXminer) also answers on 4028 — detect before the Canaan
+            // fallback. Keyed multi-command shape like BOSer; hashrate is already
+            // GH/s ("GHS 5s"). Real model resolves once the device is added.
+            if (/LUXminer|LuxOS/i.test(cleaned)) {
+              const keyedSum = (parsed as Record<string, unknown>)['summary'];
+              const sumArr = Array.isArray(keyedSum)
+                ? (keyedSum[0] as Record<string, unknown>)?.['SUMMARY']
+                : parsed['SUMMARY'];
+              const sum = Array.isArray(sumArr) ? sumArr[0] as Record<string, unknown> : undefined;
+              const lGhs = sum ? Number(sum['GHS 5s'] || 0) : 0;
+              done({
+                ip,
+                hostname: `LuxOS-${ip.split('.').pop()}`,
+                model: 'Antminer (LuxOS)',
+                hashRate: lGhs,
+                version: 'LuxOS (BETA)',
+                alreadyAdded: false,
+                deviceType: 'luxos' as DeviceType,
               });
               return;
             }

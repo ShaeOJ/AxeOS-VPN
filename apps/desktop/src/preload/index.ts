@@ -225,7 +225,7 @@ export interface DeviceGroup {
   createdAt: number;
 }
 
-export type DeviceType = 'bitaxe' | 'bitmain' | 'canaan' | 'braiins';
+export type DeviceType = 'bitaxe' | 'bitmain' | 'canaan' | 'braiins' | 'luxos';
 
 export interface Device {
   id: string;

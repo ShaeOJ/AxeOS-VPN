@@ -341,6 +341,8 @@ async function pollDevice(device: devices.Device): Promise<void> {
     ? await fetchBitmainMetrics(device.ip_address, device.auth_user || undefined, device.auth_pass || undefined)
     : device.device_type === 'braiins'
     ? await fetchBraiinsMetrics(device.ip_address)
+    : device.device_type === 'luxos'
+    ? await fetchLuxOSMetrics(device.ip_address)
     : device.device_type === 'canaan'
     ? await fetchCanaanMetrics(device.ip_address)
     : await fetchDeviceMetrics(device.ip_address);
@@ -1282,6 +1284,166 @@ function transformBraiinsToAxeOS(parsed: Record<string, unknown>, ipAddress: str
   };
 }
 
+// ============================================
+// LUXOS SUPPORT (Antminer S19/S21 on LuxOS / LUXminer)  [BETA]
+// ============================================
+// LuxOS (Luxor, closed-source Rust firmware) exposes the cgminer/luxminer API
+// on TCP 4028. Like BOSer it returns multi-command responses keyed by command
+// name, so we reuse boserSection() to dig fields out. Two nice differences from
+// Braiins: real wattage is reported directly (`power` -> Watts, no estimate),
+// and `summary` reports hashrate already in GH/s ("GHS 5s"), not MH/s.
+//
+// API surface mapped live 2026-07-21 against LUXminer 2026.7.3 (see the AxeOS
+// VPN memory note). Detection: `version` returns a VERSION[0].LUXminer key and
+// `config` returns "OS":"LuxOS" -- either separates it from BOSer/Canaan.
+//
+// Privileged control (freq/voltage/profile/pause) uses a logon -> session_id ->
+// command -> logoff handshake; not wired here (monitoring-only for now), see
+// device-control.ts when we add write support.
+//
+// TODO(hashboards): this transform was specced with NO hashboards attached, so
+// LuxOS reported Model/ControlBoardType="Unknown", `temps` failed with 426
+// "no hardware", and devs/GHS were empty. Per-board temps, chip frequency/
+// voltage, per-ASC hashrate and the real model string must be confirmed against
+// a unit WITH boards on 10.0.0.142 before those fields can be trusted.
+
+// Detect LuxOS via the cgminer version response (contains "LUXminer"/"LuxOS")
+export async function checkLuxOSDevice(ipAddress: string): Promise<boolean> {
+  try {
+    const raw = await cgminerCommand(ipAddress, 'version', 4028, 4000);
+    return /LUXminer|LuxOS/i.test(raw.replace(/\0/g, ''));
+  } catch {
+    return false;
+  }
+}
+
+// Fetch metrics from a LuxOS miner via the cgminer API on 4028
+export async function fetchLuxOSMetrics(ipAddress: string): Promise<AxeOSSystemInfo | null> {
+  try {
+    const raw = await cgminerCommand(ipAddress, 'summary+config+power+fans+temps+devs+pools', 4028, 8000);
+    const cleaned = raw.replace(/\0/g, '');
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      console.error(`[LuxOS] ${ipAddress}: could not parse response`);
+      return null;
+    }
+    const summary = boserSection(parsed, 'summary', 'SUMMARY')[0];
+    if (!summary) {
+      console.error(`[LuxOS] ${ipAddress}: no SUMMARY in response`);
+      return null;
+    }
+    return transformLuxOSToAxeOS(parsed, ipAddress);
+  } catch (error) {
+    console.error(`[LuxOS] Error fetching from ${ipAddress}:`, error instanceof Error ? error.message : error);
+    return null;
+  }
+}
+
+function transformLuxOSToAxeOS(parsed: Record<string, unknown>, ipAddress: string): AxeOSSystemInfo {
+  const summary = boserSection(parsed, 'summary', 'SUMMARY')[0] || {};
+  const config = boserSection(parsed, 'config', 'CONFIG')[0] || {};
+  const power = boserSection(parsed, 'power', 'POWER')[0] || {};
+  const fans = boserSection(parsed, 'fans', 'FANCTRL')[0] || {};
+  const temps = boserSection(parsed, 'temps', 'TEMPS');
+  const devs = boserSection(parsed, 'devs', 'DEVS');
+  const pools = boserSection(parsed, 'pools', 'POOLS');
+
+  const num = (v: unknown): number => Number(v) || 0;
+
+  // LuxOS summary reports hashrate in GH/s already ("GHS 5s"), unlike BOSer.
+  const hashRateGH = num(summary['GHS 5s']);
+  const hashRateTH = hashRateGH / 1000;
+
+  // Model / control board come from `config`. With no hashboards attached LuxOS
+  // reports "Unknown" -- fall back to a generic label in that case.
+  const rawModel = String(config['Model'] || '');
+  const model = rawModel && rawModel !== 'Unknown' ? rawModel : 'Antminer (LuxOS)';
+  const controlBoard = String(config['ControlBoardType'] || 'Unknown');
+
+  // Real power straight from the `power` command (Watts). No estimate needed.
+  const realPower = num(power['Watts']);
+  const powerLimit = num(config['PowerLimit']);
+  const efficiency = hashRateTH > 0 ? realPower / hashRateTH : 0;
+
+  // TODO(hashboards): per-board temps + per-ASC chip freq/voltage. Shapes below
+  // are best-effort against the standard cgminer keys and were NOT verifiable
+  // without boards (temps -> 426, devs empty). Confirm on live hardware.
+  const chainCount = devs.length;
+  const maxChip = temps.reduce((m, t) => Math.max(m, num(t['Chip']), num(t['Temp'])), 0);
+  const maxBoard = temps.reduce((m, t) => Math.max(m, num(t['Board'])), 0);
+  const avgFreq = chainCount ? devs.reduce((s, d) => s + num(d['Frequency']), 0) / chainCount : 0;
+  const avgDomainV = chainCount ? devs.reduce((s, d) => s + num(d['Voltage']), 0) / chainCount : 0;
+
+  // Fan data is live per-board; the top-level `fans`/FANCTRL is config only
+  // (max/min %, MinFans) so without boards there is no RPM to report yet.
+  const fanMaxPct = num(fans['FanMaxSpeed']);
+
+  // Active pool (standard cgminer pool shape)
+  const activePool = pools.find((p) => p['Status'] === 'Alive' && p['Stratum Active'] === true)
+    || pools.find((p) => p['Status'] === 'Alive')
+    || pools[0] || {};
+  const rawUrl = String(activePool['Stratum URL'] || activePool['URL'] || '');
+  const stripped = rawUrl.replace(/^stratum\+tcp:\/\//, '');
+  const portIdx = stripped.lastIndexOf(':');
+  const stratumURL = portIdx > 0 ? stripped.substring(0, portIdx) : stripped;
+  const stratumPort = portIdx > 0 ? parseInt(stripped.substring(portIdx + 1)) || 3333 : 3333;
+
+  const hostname = String(config['Hostname'] || `LuxOS-${ipAddress.split('.').pop()}`);
+
+  return {
+    power: realPower,
+    voltage: avgDomainV * 1000, // domain volts -> mV (TODO: confirm units on hw)
+    current: avgDomainV > 0 ? (realPower / avgDomainV) * 1000 : 0,
+    efficiency,
+    temp: maxChip,
+    temp2: maxBoard,
+    vrTemp: maxBoard,
+
+    hashRate: hashRateGH,
+    hashRate_1m: num(summary['GHS 1m']) || hashRateGH,
+    hashRate_10m: num(summary['GHS 5m']) || hashRateGH,
+    hashRate_1h: num(summary['GHS 15m']) || hashRateGH,
+    expectedHashrate: num(config['NameplateTHS']) * 1000 || hashRateGH, // TH -> GH
+
+    bestDiff: num(summary['Best Share']),
+    bestSessionDiff: num(summary['Best Session Share'] || summary['Best Share']),
+    sharesAccepted: num(summary['Accepted']),
+    sharesRejected: num(summary['Rejected']),
+
+    uptimeSeconds: num(summary['Elapsed']),
+    hostname,
+    ipv4: ipAddress,
+    ASICModel: `${model} (LuxOS)`,
+    version: 'LuxOS (BETA)',
+
+    fanspeed: fanMaxPct, // TODO(hashboards): replace with live fan % once available
+    fanrpm: 0,           // TODO(hashboards): live RPM from per-board fan data
+    frequency: avgFreq,
+    coreVoltage: avgDomainV * 1000,
+
+    poolDifficulty: num(activePool['Stratum Difficulty'] || activePool['Work Difficulty']),
+    stratumURL,
+    stratumPort,
+    stratumUser: String(activePool['User'] || ''),
+
+    wifiStatus: 'Ethernet',
+    freeHeap: 0,
+    smallCoreCount: 0, // TODO(hashboards): total chips once devs populate
+
+    algorithm: 'sha256',
+    isLuxos: true,
+    powerEstimated: false, // LuxOS reports real wattage
+    powerLimit,
+    hwErrors: num(summary['Hardware Errors']),
+    chainCount,
+    controlBoard,
+    profile: String(config['Profile'] || ''),
+    psuLabel: String(config['PSULabel'] || ''),
+  };
+}
+
 // Check if a Bitmain device requires authentication
 export async function checkBitmainAuth(ipAddress: string): Promise<boolean> {
   try {
@@ -1321,6 +1483,15 @@ export async function detectDeviceType(ipAddress: string, username?: string, pas
     if (braiinsData) {
       console.log(`[Detection] ${ipAddress} is Braiins OS: ${braiinsData.ASICModel}`);
       return { type: 'braiins', data: braiinsData };
+    }
+  }
+
+  // Try LuxOS (CGMiner TCP 4028, LUXminer) BEFORE Canaan since both use 4028
+  if (await checkLuxOSDevice(ipAddress)) {
+    const luxData = await fetchLuxOSMetrics(ipAddress);
+    if (luxData) {
+      console.log(`[Detection] ${ipAddress} is LuxOS: ${luxData.ASICModel}`);
+      return { type: 'luxos', data: luxData };
     }
   }
 

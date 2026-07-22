@@ -318,6 +318,9 @@ export function DeviceDetailPage() {
                   {device.deviceType === 'braiins' && (
                     <span className="px-1.5 py-0.5 text-[10px] bg-accent/20 border border-accent/40 text-accent uppercase font-bold">BRAIINS</span>
                   )}
+                  {device.deviceType === 'luxos' && (
+                    <span className="px-1.5 py-0.5 text-[10px] bg-accent/20 border border-accent/40 text-accent uppercase font-bold">LUXOS</span>
+                  )}
                 </div>
               </div>
               <div>
@@ -603,7 +606,7 @@ export function DeviceDetailPage() {
                 </svg>
                 <h3 className="text-sm font-bold text-accent uppercase tracking-wider">Pool Connection</h3>
               </div>
-              {device.deviceType !== 'bitmain' && device.deviceType !== 'canaan' && (
+              {device.deviceType !== 'bitmain' && device.deviceType !== 'canaan' && device.deviceType !== 'luxos' && (
                 <button
                   onClick={() => setShowPoolEdit(!showPoolEdit)}
                   className="text-xs px-3 py-1 rounded bg-accent/20 text-accent border border-accent/30 hover:bg-accent/30 transition-colors"
@@ -746,8 +749,8 @@ export function DeviceDetailPage() {
             )}
           </div>
 
-          {/* Device Control Panel - Hidden for Bitmain and Canaan (monitoring only) */}
-          {device.deviceType !== 'canaan' && device.deviceType !== 'bitmain' && (
+          {/* Device Control Panel - Hidden for Bitmain, Canaan and LuxOS (monitoring only) */}
+          {device.deviceType !== 'canaan' && device.deviceType !== 'bitmain' && device.deviceType !== 'luxos' && (
           <div className="vault-card p-4">
             <div className="flex items-center justify-between mb-4 pb-2 border-b border-border">
               <div className="flex items-center gap-2">
