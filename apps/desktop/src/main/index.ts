@@ -20,6 +20,16 @@ import * as deviceControl from './device-control';
 
 let mainWindow: BrowserWindow | null = null;
 
+// Headless mode: run only the web server + poller, no desktop window or tray.
+// Intended for always-on SBCs (Raspberry Pi / Orange Pi) where the app is
+// accessed purely through its web dashboard (LAN or Cloudflare tunnel).
+// Enable with HEADLESS=1 or the --headless flag. Still launch under a virtual
+// display (xvfb-run) since Electron's Chromium core initializes even with no
+// window.
+const HEADLESS = process.env.HEADLESS === '1'
+  || process.env.HEADLESS === 'true'
+  || process.argv.includes('--headless');
+
 // Prune metrics older than the configured retention, and VACUUM to reclaim disk
 // when a large amount was deleted (VACUUM is heavy, so only when it's worth it).
 function runMetricsCleanup(vacuumIfLarge: boolean): void {
@@ -178,7 +188,7 @@ if (!gotTheLock) {
     await initDatabase();
 
     // Start the web server
-    server.startServer();
+    const serverInfo = server.startServer();
 
     // Start polling saved devices
     const savedDevices = devices.getAllDevices();
@@ -191,15 +201,27 @@ if (!gotTheLock) {
     setTimeout(() => runMetricsCleanup(true), 15000);
     setInterval(() => runMetricsCleanup(false), 12 * 60 * 60 * 1000);
 
-    // Create main window
-    createWindow();
+    // Create main window (skipped in headless mode — web dashboard only)
+    if (HEADLESS) {
+      const { port, addresses } = serverInfo;
+      console.log('[Headless] Running without a desktop window. Access the web dashboard at:');
+      if (addresses.length && port) {
+        addresses.forEach((a) => console.log(`[Headless]   http://${a}:${port}`));
+      } else {
+        console.log('[Headless]   http://<this-host-ip>:<server-port> (see settings)');
+      }
+    } else {
+      createWindow();
 
-    app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) createWindow();
-    });
+      app.on('activate', () => {
+        if (BrowserWindow.getAllWindows().length === 0) createWindow();
+      });
+    }
   });
 
   app.on('window-all-closed', () => {
+    // In headless mode no window is ever created, so this never fires — the
+    // process is kept alive by the server/poller until stopped by the service.
     if (process.platform !== 'darwin') {
       // Stop all polling
       poller.stopAllPolling();

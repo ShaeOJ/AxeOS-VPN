@@ -1,0 +1,36 @@
+[Unit]
+Description=AxeOS VPN Monitor (headless web dashboard)
+Documentation=https://github.com/ShaeOJ/AxeOS-VPN
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+
+# Run as an unprivileged user, NOT root. Change to whoever owns the box
+# (e.g. "orangepi", "pi", "ubuntu"). The SQLite DB + settings live under this
+# user's home (~/.config/AxeOS VPN Monitor/).
+User=orangepi
+Group=orangepi
+
+# Headless: no desktop window or tray, web dashboard only.
+Environment=HEADLESS=1
+Environment=NODE_ENV=production
+
+# Electron's Chromium core initializes even with no window, so it needs a
+# display. xvfb-run gives it a throwaway virtual one. -a auto-picks a free
+# display number so restarts don't collide.
+#   --no-sandbox : required when there is no suid chrome-sandbox helper (fine
+#                  for a LAN/self-hosted tool run as a normal user)
+#   --disable-gpu: no GPU accel needed for a headless server
+ExecStart=/usr/bin/xvfb-run -a "/opt/AxeOS VPN Monitor/axeos-vpn-monitor" --headless --no-sandbox --disable-gpu
+
+Restart=on-failure
+RestartSec=5
+
+# Light hardening
+NoNewPrivileges=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target
