@@ -6,6 +6,8 @@ import { DeviceCard } from '../components/DeviceCard';
 import { PairingModal } from '../components/PairingModal';
 import { DiscoveryModal } from '../components/DiscoveryModal';
 import { GroupManager } from '../components/GroupManager';
+import { Sparkline } from '../components/Sparkline';
+import { useFleetHistory } from '../utils/fleetHistory';
 
 function formatHashrate(hashrate: number | null | undefined): string {
   if (!hashrate) return '--';
@@ -31,8 +33,11 @@ function formatEfficiency(efficiency: number | null | undefined): string {
 
 function formatDifficulty(diff: number | null | undefined): string {
   if (!diff) return '--';
+  // Mining difficulty uses SI prefixes (G/T/P), matching AxeOS — not "B" for billion.
+  if (diff >= 1e18) return `${(diff / 1e18).toFixed(2)}E`;
+  if (diff >= 1e15) return `${(diff / 1e15).toFixed(2)}P`;
   if (diff >= 1e12) return `${(diff / 1e12).toFixed(2)}T`;
-  if (diff >= 1e9) return `${(diff / 1e9).toFixed(2)}B`;
+  if (diff >= 1e9) return `${(diff / 1e9).toFixed(2)}G`;
   if (diff >= 1e6) return `${(diff / 1e6).toFixed(2)}M`;
   if (diff >= 1e3) return `${(diff / 1e3).toFixed(2)}K`;
   return diff.toLocaleString();
@@ -338,6 +343,17 @@ export function DashboardPage() {
   };
   const blockChance = calculateBlockChance();
 
+  // Fleet-wide rolling history for the hero sparkline + 1h/6h/12h averages,
+  // and the mini sparklines on the Temp / Efficiency tiles.
+  const fleetHistory = useFleetHistory(devices);
+
+  // Percent delta of instant hashrate vs the 1h trailing average (drives the
+  // little up/down arrow on the hero).
+  const hashDelta =
+    fleetHistory.avg1h && fleetHistory.avg1h > 0
+      ? ((totalHashrate - fleetHistory.avg1h) / fleetHistory.avg1h) * 100
+      : null;
+
   // Format odds as percentage - always show decimal
   const formatOdds = (prob: number): string => {
     if (!prob || !isFinite(prob)) return '--';
@@ -472,26 +488,62 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* Summary Cards - Vault-Tec Style */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {/* Hashrate Card */}
-        <div className="vault-card p-4 hover-glitch">
-          <div className="flex items-center gap-3 mb-3">
+      {/* Summary — Hero + Cluster (Vault-Tec Style) */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        {/* Hero Hashrate Panel */}
+        <div className="vault-card p-5 hover-glitch lg:col-span-2 flex flex-col text-center">
+          <div className="flex items-center justify-center gap-2 mb-2">
             <div className="p-2 rounded-lg bg-accent/15 border border-accent/30">
               <svg className="w-5 h-5 text-accent" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
             </div>
-            <div className="text-xs text-text-secondary uppercase tracking-wider">Hashrate</div>
+            <div className="text-xs text-text-secondary uppercase tracking-wider">Total Hashrate</div>
+            {hashDelta !== null && (
+              <span className={`inline-flex items-center gap-1 text-xs font-mono ${hashDelta >= 0 ? 'text-success' : 'text-danger'}`}>
+                <svg className={`w-3 h-3 ${hashDelta >= 0 ? '' : 'rotate-180'}`} fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                </svg>
+                {Math.abs(hashDelta).toFixed(1)}%
+              </span>
+            )}
           </div>
-          <div className="text-2xl font-bold text-accent" style={{ textShadow: '0 0 8px var(--color-accent)' }}>
-            {formatHashrate(totalHashrate)}
+          {/* Number overlaid on a faint sparkline backdrop */}
+          <div className="relative flex-1 min-h-[110px] flex items-center justify-center my-2">
+            <div className="absolute inset-0 flex items-center text-accent opacity-25 pointer-events-none">
+              <Sparkline data={fleetHistory.hashSeries} height={110} filled strokeWidth={1.75} className="w-full" />
+            </div>
+            <div className="relative z-10 text-4xl lg:text-5xl font-bold text-accent" style={{ textShadow: '0 0 12px var(--color-accent)' }}>
+              {formatHashrate(totalHashrate)}
+            </div>
+          </div>
+          {/* Rolling averages — each value over its own window's sparkline */}
+          <div className="grid grid-cols-3 gap-2 mt-2 pt-3 border-t border-border">
+            {([
+              ['1h', fleetHistory.avg1h, fleetHistory.hashSeries.slice(-12)],
+              ['6h', fleetHistory.avg6h, fleetHistory.hashSeries.slice(-72)],
+              ['12h', fleetHistory.avg12h, fleetHistory.hashSeries],
+            ] as const).map(([label, val, series]) => (
+              <div key={label} className="text-center">
+                <div className="text-[10px] text-text-secondary uppercase tracking-wider">{label} avg</div>
+                <div className="relative flex items-center justify-center min-h-[22px]">
+                  <div className="absolute inset-0 flex items-center text-accent opacity-20 pointer-events-none">
+                    <Sparkline data={series} height={22} filled strokeWidth={1.5} className="w-full" />
+                  </div>
+                  <div className="relative z-10 text-sm font-mono text-text-primary">
+                    {val != null ? formatHashrate(val) : '--'}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
+        {/* Cluster: Temp / Power / Efficiency / Shares */}
+        <div className="lg:col-span-2 grid grid-cols-2 gap-4">
         {/* Temperature Card */}
-        <div className="vault-card p-4 hover-glitch">
-          <div className="flex items-center gap-3 mb-3">
+        <div className="vault-card p-4 hover-glitch text-center">
+          <div className="flex items-center justify-center gap-3 mb-3">
             <div className={`p-2 rounded-lg ${avgTemperature > 80 ? 'bg-danger/15 border-danger/30' : avgTemperature > 70 ? 'bg-warning/15 border-warning/30' : 'bg-success/15 border-success/30'} border`}>
               <svg className={`w-5 h-5 ${avgTemperature > 80 ? 'text-danger' : avgTemperature > 70 ? 'text-warning' : 'text-success'}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z" />
@@ -502,11 +554,14 @@ export function DashboardPage() {
           <div className={`text-2xl font-bold ${avgTemperature > 80 ? 'text-danger' : avgTemperature > 70 ? 'text-warning' : 'text-success'}`}>
             {avgTemperature > 0 ? formatTemperature(avgTemperature) : '--'}
           </div>
+          <div className={`mt-2 ${avgTemperature > 80 ? 'text-danger' : avgTemperature > 70 ? 'text-warning' : 'text-success'}`}>
+            <Sparkline data={fleetHistory.tempSeries} height={24} className="w-full" />
+          </div>
         </div>
 
         {/* Power Card */}
-        <div className="vault-card p-4 hover-glitch">
-          <div className="flex items-center gap-3 mb-3">
+        <div className="vault-card p-4 hover-glitch text-center">
+          <div className="flex items-center justify-center gap-3 mb-3">
             <div className="p-2 rounded-lg bg-border-highlight/15 border border-border-highlight/30">
               <svg className="w-5 h-5 text-border-highlight" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
@@ -520,8 +575,8 @@ export function DashboardPage() {
         </div>
 
         {/* Efficiency Card */}
-        <div className="vault-card p-4 hover-glitch">
-          <div className="flex items-center gap-3 mb-3">
+        <div className="vault-card p-4 hover-glitch text-center">
+          <div className="flex items-center justify-center gap-3 mb-3">
             <div className="p-2 rounded-lg bg-success/15 border border-success/30">
               <svg className="w-5 h-5 text-success" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6" />
@@ -532,11 +587,14 @@ export function DashboardPage() {
           <div className="text-2xl font-bold text-success" style={{ textShadow: '0 0 8px var(--color-success)' }}>
             {formatEfficiency(avgEfficiency)}
           </div>
+          <div className="mt-2 text-success">
+            <Sparkline data={fleetHistory.effSeries} height={24} className="w-full" />
+          </div>
         </div>
 
         {/* Shares Card */}
-        <div className="vault-card p-4 hover-glitch">
-          <div className="flex items-center gap-3 mb-3">
+        <div className="vault-card p-4 hover-glitch text-center">
+          <div className="flex items-center justify-center gap-3 mb-3">
             <div className="p-2 rounded-lg bg-success/15 border border-success/30">
               <svg className="w-5 h-5 text-success" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -547,11 +605,23 @@ export function DashboardPage() {
           <div className="text-2xl font-bold text-success" style={{ textShadow: '0 0 8px var(--color-success)' }}>
             {totalShares.toLocaleString()}
           </div>
+          {fleetHistory.sharesPerMin != null && (
+            <div className="text-xs text-text-secondary mt-1">
+              {fleetHistory.sharesPerMin < 10
+                ? fleetHistory.sharesPerMin.toFixed(1)
+                : Math.round(fleetHistory.sharesPerMin).toLocaleString()}
+              /min
+            </div>
+          )}
         </div>
+        </div>
+      </div>
 
+      {/* Summary — Secondary Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {/* Best Difficulty Card */}
-        <div className="vault-card p-4 hover-glitch">
-          <div className="flex items-center gap-3 mb-3">
+        <div className="vault-card p-4 hover-glitch text-center">
+          <div className="flex items-center justify-center gap-3 mb-3">
             <div className="p-2 rounded-lg bg-warning/15 border border-warning/30">
               <svg className="w-5 h-5 text-warning" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
@@ -562,11 +632,17 @@ export function DashboardPage() {
           <div className="text-2xl font-bold text-warning" style={{ textShadow: '0 0 8px var(--color-warning)' }}>
             {formatDifficulty(bestDifficulty)}
           </div>
+          {networkStats && bestDifficulty > 0 && networkStats.difficulty > bestDifficulty && (
+            <div className="text-xs text-text-secondary mt-1" title="Best share vs network difficulty — how close the luckiest share came to solving a block">
+              1 in {Math.round(networkStats.difficulty / bestDifficulty).toLocaleString()}
+              <span className="text-warning ml-1">{formatOdds(bestDifficulty / networkStats.difficulty)}</span>
+            </div>
+          )}
         </div>
 
         {/* Power Cost Card */}
-        <div className="vault-card p-4 hover-glitch">
-          <div className="flex items-center gap-3 mb-3">
+        <div className="vault-card p-4 hover-glitch text-center">
+          <div className="flex items-center justify-center gap-3 mb-3">
             <div className="p-2 rounded-lg bg-danger/15 border border-danger/30">
               <svg className="w-5 h-5 text-danger" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -583,8 +659,8 @@ export function DashboardPage() {
         </div>
 
         {/* Blocks Found Card */}
-        <div className="vault-card p-4 hover-glitch cursor-pointer" onClick={() => navigate('/blocks')} title="View block history">
-          <div className="flex items-center gap-3 mb-3">
+        <div className="vault-card p-4 hover-glitch text-center cursor-pointer" onClick={() => navigate('/blocks')} title="View block history">
+          <div className="flex items-center justify-center gap-3 mb-3">
             <div className="p-2 rounded-lg bg-success/15 border border-success/30">
               <svg className="w-5 h-5 text-success" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
@@ -600,8 +676,8 @@ export function DashboardPage() {
         </div>
 
         {/* Block Chance Card */}
-        <div className="vault-card p-4 hover-glitch">
-          <div className="flex items-center gap-3 mb-3">
+        <div className="vault-card p-4 hover-glitch text-center">
+          <div className="flex items-center justify-center gap-3 mb-3">
             <div className="p-2 rounded-lg bg-accent/15 border border-accent/30">
               <svg className="w-5 h-5 text-accent" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />

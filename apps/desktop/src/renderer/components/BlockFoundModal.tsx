@@ -5,7 +5,7 @@ import type { BlockRecord } from '../types/blocks';
 function formatDifficulty(diff: number | null | undefined): string {
   if (!diff) return '--';
   if (diff >= 1e12) return `${(diff / 1e12).toFixed(2)}T`;
-  if (diff >= 1e9) return `${(diff / 1e9).toFixed(2)}B`;
+  if (diff >= 1e9) return `${(diff / 1e9).toFixed(2)}G`;
   if (diff >= 1e6) return `${(diff / 1e6).toFixed(2)}M`;
   if (diff >= 1e3) return `${(diff / 1e3).toFixed(2)}K`;
   return diff.toLocaleString();

@@ -417,10 +417,12 @@ body.scanline-disabled .scanline-animate::after {
 /* Vault-Tec Card Style */
 @layer components {
   .vault-card {
-    @apply bg-bg-secondary border-2 border-border relative overflow-hidden;
+    @apply bg-bg-secondary border-2 border-border relative overflow-hidden rounded-md;
     box-shadow:
       0 0 10px color-mix(in srgb, var(--color-accent) 10%, transparent),
-      inset 0 0 30px rgba(0, 0, 0, 0.3);
+      inset 0 1px 0 rgba(255, 255, 255, 0.09),
+      inset 0 0 30px rgba(0, 0, 0, 0.3),
+      inset 0 -14px 26px rgba(0, 0, 0, 0.28);
   }
 
   .vault-card::before {
@@ -432,6 +434,41 @@ body.scanline-disabled .scanline-animate::after {
     height: 3px;
     background: linear-gradient(90deg, transparent, var(--color-accent), transparent);
     opacity: 0.5;
+    z-index: 3;
+  }
+
+  /* Old-monitor / CRT glass: diagonal gloss + corner glare (top layers), faint
+     horizontal scanlines, and an edge vignette that darkens toward the corners
+     for a domed screen look. Layers composite normally so the dark scanline /
+     vignette layers actually register. */
+  .vault-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: 2;
+    background:
+      linear-gradient(
+        158deg,
+        rgba(255, 255, 255, 0.12) 0%,
+        rgba(255, 255, 255, 0.05) 16%,
+        transparent 42%
+      ),
+      radial-gradient(140% 90% at 12% -10%, rgba(255, 255, 255, 0.1), transparent 55%),
+      repeating-linear-gradient(
+        to bottom,
+        rgba(0, 0, 0, 0.11) 0px,
+        rgba(0, 0, 0, 0.11) 1px,
+        transparent 1px,
+        transparent 3px
+      ),
+      radial-gradient(
+        100% 90% at 50% 45%,
+        color-mix(in srgb, var(--color-accent) 7%, transparent),
+        transparent 62%
+      ),
+      radial-gradient(125% 120% at 50% 42%, transparent 50%, rgba(0, 0, 0, 0.4) 100%);
   }
 
   /* Vault-Tec Header Style */

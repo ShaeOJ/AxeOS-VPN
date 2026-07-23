@@ -267,7 +267,7 @@ export function ChartsPage() {
       {/* Controls */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Device Selector */}
-        <div className="lg:col-span-2 rounded-xl bg-bg-secondary border border-border p-4">
+        <div className="lg:col-span-2 vault-card p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-medium text-text-primary">Select Devices to Compare</h3>
             <div className="flex gap-2">
@@ -316,7 +316,7 @@ export function ChartsPage() {
         </div>
 
         {/* Metric & Time Range */}
-        <div className="rounded-xl bg-bg-secondary border border-border p-4 space-y-4">
+        <div className="vault-card p-4 space-y-4">
           <div>
             <label className="block text-sm text-text-secondary mb-2">Metric</label>
             <div className="grid grid-cols-2 gap-2">
@@ -358,7 +358,7 @@ export function ChartsPage() {
       </div>
 
       {/* Chart */}
-      <div className="rounded-xl bg-bg-secondary border border-border p-4">
+      <div className="vault-card p-4">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-medium text-text-primary">
             {currentMetricInfo.label} Over Time
@@ -485,7 +485,7 @@ export function ChartsPage() {
 
       {/* Stats Comparison Table */}
       {deviceStats.length > 0 && deviceStats.some(s => s.avg > 0) && (
-        <div className="rounded-xl bg-bg-secondary border border-border overflow-hidden">
+        <div className="vault-card overflow-hidden">
           <div className="p-4 border-b border-border">
             <h3 className="text-lg font-medium text-text-primary">
               {currentMetricInfo.label} Statistics ({TIME_RANGES.find(t => t.value === timeRange)?.label})

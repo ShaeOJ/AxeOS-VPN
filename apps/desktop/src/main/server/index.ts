@@ -648,12 +648,68 @@ function getWebDashboardHtml(): string {
     .nav-tab { padding: 8px 16px; background: transparent; border: 2px solid #1a4a5c; color: #8BA88B; cursor: pointer; font-family: 'Share Tech Mono', monospace; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; transition: all 0.2s; }
     .nav-tab:hover { border-color: #FFB000; color: #FFB000; }
     .nav-tab.active { background: rgba(255,176,0,0.15); border-color: #FFB000; color: #FFB000; }
+    /* ===== Touch / tablet enhancements ===== */
+    /* Remove the 300ms tap delay and double-tap-to-zoom on interactive controls,
+       while leaving page pinch-zoom intact for accessibility. */
+    button, a, select, input, .nav-tab, [onclick] {
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    /* Keep the dashboard feeling app-like on a tablet: no pull-to-refresh bounce. */
+    html, body { overscroll-behavior: none; }
+    body { -webkit-overflow-scrolling: touch; }
+    /* Coarse pointer = finger. Enlarge hit areas and add a press state (there is
+       no hover on touch) without affecting the mouse/desktop layout. */
+    @media (pointer: coarse) {
+      .nav-tabs { gap: 8px; flex-wrap: wrap; margin-left: 16px; }
+      .nav-tab { min-height: 44px; padding: 12px 18px; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; }
+      button, select { min-height: 44px; }
+      .theme-dropdown button, .ticker-dropdown button { min-height: 48px; }
+      .nav-tab:active, button:active { filter: brightness(1.3); }
+    }
     /* Charts section */
     .charts-section { display: none; }
     .charts-section.active { display: block; }
     .dashboard-section { display: block; }
     .dashboard-section.hidden { display: none; }
-    .chart-container { background: var(--color-bg-secondary); border: 2px solid var(--color-border); padding: 20px; margin-bottom: 16px; }
+    .chart-container {
+      background: var(--color-bg-secondary);
+      border: 2px solid var(--color-border);
+      padding: 20px;
+      margin-bottom: 16px;
+      position: relative;
+      border-radius: 6px;
+      box-shadow:
+        0 0 12px color-mix(in srgb, var(--color-accent, #FFB000) 12%, transparent),
+        inset 0 1px 0 rgba(255, 255, 255, 0.09),
+        inset 0 0 30px rgba(0, 0, 0, 0.3),
+        inset 0 -14px 26px rgba(0, 0, 0, 0.28);
+    }
+    .chart-container::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, var(--color-accent, #FFB000), transparent);
+      opacity: 0.5;
+      border-radius: 6px 6px 0 0;
+      z-index: 3;
+    }
+    /* Same old-monitor glass as .card. The chart canvas sits above this overlay
+       via its own stacking, so plotted lines stay crisp. */
+    .chart-container::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      z-index: 2;
+      background:
+        linear-gradient(158deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.05) 16%, transparent 42%),
+        radial-gradient(140% 90% at 12% -10%, rgba(255, 255, 255, 0.1), transparent 55%),
+        radial-gradient(100% 90% at 50% 45%, color-mix(in srgb, var(--color-accent, #FFB000) 6%, transparent), transparent 62%),
+        radial-gradient(125% 120% at 50% 42%, transparent 50%, rgba(0, 0, 0, 0.4) 100%);
+    }
     .chart-controls { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
     .chart-control-group { display: flex; flex-direction: column; gap: 6px; }
     .chart-control-label { font-size: 11px; color: var(--color-text-secondary); text-transform: uppercase; }
@@ -699,6 +755,12 @@ function getWebDashboardHtml(): string {
       padding: 20px;
       margin-bottom: 16px;
       position: relative;
+      border-radius: 6px;
+      box-shadow:
+        0 0 12px color-mix(in srgb, var(--color-accent, #FFB000) 12%, transparent),
+        inset 0 1px 0 rgba(255, 255, 255, 0.09),
+        inset 0 0 30px rgba(0, 0, 0, 0.3),
+        inset 0 -14px 26px rgba(0, 0, 0, 0.28);
     }
     .card::before {
       content: '';
@@ -707,9 +769,38 @@ function getWebDashboardHtml(): string {
       height: 3px;
       background: linear-gradient(90deg, transparent, #FFB000, transparent);
       opacity: 0.5;
+      border-radius: 6px 6px 0 0;
+      z-index: 3;
     }
+    /* Old-monitor glass: diagonal gloss, corner glare, accent phosphor glow and
+       an edge vignette. Scanlines already come from the global body overlay, so
+       they're intentionally omitted here. Rounded via border-radius: inherit
+       (not overflow: hidden) so in-card dropdowns aren't clipped. */
+    .card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      z-index: 2;
+      background:
+        linear-gradient(158deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.05) 16%, transparent 42%),
+        radial-gradient(140% 90% at 12% -10%, rgba(255, 255, 255, 0.1), transparent 55%),
+        radial-gradient(100% 90% at 50% 45%, color-mix(in srgb, var(--color-accent, #FFB000) 6%, transparent), transparent 62%),
+        radial-gradient(125% 120% at 50% 42%, transparent 50%, rgba(0, 0, 0, 0.4) 100%);
+    }
+    /* Lift the chart canvas above the glass overlay so plotted lines stay crisp;
+       the gloss/vignette then only frames the panel around the chart. */
+    .chart-container canvas { position: relative; z-index: 4; }
     .card.clickable { cursor: pointer; transition: all 0.2s; }
-    .card.clickable:hover { border-color: #FFB000; box-shadow: 0 0 15px rgba(255,176,0,0.2); }
+    .card.clickable:hover {
+      border-color: #FFB000;
+      box-shadow:
+        0 0 18px color-mix(in srgb, var(--color-accent, #FFB000) 28%, transparent),
+        inset 0 1px 0 rgba(255, 255, 255, 0.09),
+        inset 0 0 30px rgba(0, 0, 0, 0.3),
+        inset 0 -14px 26px rgba(0, 0, 0, 0.28);
+    }
     .summary-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 24px; }
     .summary-card {
       background: #0d2137;
@@ -717,7 +808,12 @@ function getWebDashboardHtml(): string {
       border-radius: 12px;
       padding: 20px;
       position: relative;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3), inset 0 0 30px rgba(0,0,0,0.2);
+      box-shadow:
+        0 4px 12px rgba(0, 0, 0, 0.3),
+        0 0 12px color-mix(in srgb, var(--color-accent, #FFB000) 12%, transparent),
+        inset 0 1px 0 rgba(255, 255, 255, 0.09),
+        inset 0 0 30px rgba(0, 0, 0, 0.25),
+        inset 0 -14px 26px rgba(0, 0, 0, 0.28);
     }
     .summary-card::before {
       content: '';
@@ -727,6 +823,22 @@ function getWebDashboardHtml(): string {
       border-radius: 12px 12px 0 0;
       background: linear-gradient(90deg, transparent, #FFB000, transparent);
       opacity: 0.6;
+      z-index: 3;
+    }
+    /* Old-monitor glass: gloss, corner glare, accent phosphor glow and vignette.
+       Rounded via border-radius: inherit so nothing needs clipping. */
+    .summary-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      z-index: 2;
+      background:
+        linear-gradient(158deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.05) 16%, transparent 42%),
+        radial-gradient(140% 90% at 12% -10%, rgba(255, 255, 255, 0.1), transparent 55%),
+        radial-gradient(100% 90% at 50% 45%, color-mix(in srgb, var(--color-accent, #FFB000) 6%, transparent), transparent 62%),
+        radial-gradient(125% 120% at 50% 42%, transparent 50%, rgba(0, 0, 0, 0.4) 100%);
     }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
     .stat-label { font-size: 12px; color: #8BA88B; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; }
@@ -1611,6 +1723,7 @@ function getWebDashboardHtml(): string {
           <div class="stat-label" style="margin: 0;">Shares Accepted</div>
         </div>
         <div id="total-shares" class="stat-value success" style="text-shadow: 0 0 4px rgba(0,255,65,0.3);">--</div>
+        <div id="shares-per-min" style="font-size: 12px; color: #8BA88B; margin-top: 4px;"></div>
       </div>
       <!-- Best Difficulty Card -->
       <div class="summary-card">
@@ -2369,6 +2482,31 @@ function getWebDashboardHtml(): string {
       document.getElementById('total-hashrate').textContent = formatHashrate(totalHashrate);
       document.getElementById('total-power').textContent = formatPower(totalPower);
       document.getElementById('total-shares').textContent = totalShares.toLocaleString();
+
+      // Shares/min: keep a rolling 15-min window of fleet total-share samples and
+      // divide the summed positive deltas by the span. Positive-only deltas
+      // ignore drops from a device going offline or restarting its counter.
+      (function() {
+        var now = Date.now();
+        var buf = (window.__sharesSamples = window.__sharesSamples || []);
+        buf.push({ t: now, s: totalShares });
+        var cutoff = now - 15 * 60 * 1000;
+        while (buf.length && buf[0].t < cutoff) buf.shift();
+        var el = document.getElementById('shares-per-min');
+        if (!el) return;
+        var delta = 0;
+        for (var i = 1; i < buf.length; i++) {
+          var d = buf[i].s - buf[i - 1].s;
+          if (d > 0) delta += d;
+        }
+        var spanMin = buf.length > 1 ? (buf[buf.length - 1].t - buf[0].t) / 60000 : 0;
+        if (spanMin >= 1) {
+          var rate = delta / spanMin;
+          el.textContent = (rate < 10 ? rate.toFixed(1) : Math.round(rate).toLocaleString()) + '/min';
+        } else {
+          el.textContent = '';
+        }
+      })();
 
       // Calculate and display efficiency
       const efficiency = totalHashrate > 0 ? (totalPower / (totalHashrate / 1000)) : 0;

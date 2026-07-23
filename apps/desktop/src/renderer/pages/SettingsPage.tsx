@@ -354,7 +354,7 @@ export function SettingsPage() {
       <h1 className="text-2xl font-bold text-text-primary">Settings</h1>
 
       {/* Server Status Section */}
-      <section className="rounded-xl bg-bg-secondary border border-border overflow-hidden">
+      <section className="vault-card overflow-hidden">
         <div className="p-4 border-b border-border flex items-center justify-between">
           <h2 className="text-lg font-medium text-text-primary">Local Network Access</h2>
           <div className="flex items-center gap-2">
@@ -432,7 +432,7 @@ export function SettingsPage() {
       </section>
 
       {/* Remote Access (Cloudflare Tunnel) */}
-      <section className="rounded-xl bg-bg-secondary border border-border overflow-hidden">
+      <section className="vault-card overflow-hidden">
         <div className="p-4 border-b border-border">
           <h2 className="text-lg font-medium text-text-primary">Remote Access (Internet)</h2>
         </div>
@@ -521,7 +521,7 @@ export function SettingsPage() {
       </section>
 
       {/* Password Management */}
-      <section className="rounded-xl bg-bg-secondary border border-border overflow-hidden">
+      <section className="vault-card overflow-hidden">
         <div className="p-4 border-b border-border">
           <h2 className="text-lg font-medium text-text-primary">Security</h2>
         </div>
@@ -652,7 +652,7 @@ export function SettingsPage() {
       </section>
 
       {/* Appearance / Theme Selector */}
-      <section className="rounded-xl bg-bg-secondary border border-border overflow-hidden">
+      <section className="vault-card overflow-hidden">
         <div className="p-4 border-b border-border">
           <h2 className="text-lg font-medium text-text-primary">Appearance</h2>
         </div>
@@ -727,7 +727,7 @@ export function SettingsPage() {
       </section>
 
       {/* Keyboard Shortcuts */}
-      <section className="rounded-xl bg-bg-secondary border border-border overflow-hidden">
+      <section className="vault-card overflow-hidden">
         <div className="p-4 border-b border-border">
           <h2 className="text-lg font-medium text-text-primary">Keyboard Shortcuts</h2>
         </div>
@@ -750,7 +750,7 @@ export function SettingsPage() {
       </section>
 
       {/* Application Settings */}
-      <section className="rounded-xl bg-bg-secondary border border-border overflow-hidden">
+      <section className="vault-card overflow-hidden">
         <div className="p-4 border-b border-border">
           <h2 className="text-lg font-medium text-text-primary">Application</h2>
         </div>
@@ -777,7 +777,7 @@ export function SettingsPage() {
       </section>
 
       {/* Alert Settings */}
-      <section className="rounded-xl bg-bg-secondary border border-border overflow-hidden">
+      <section className="vault-card overflow-hidden">
         <div className="p-4 border-b border-border flex items-center justify-between">
           <h2 className="text-lg font-medium text-text-primary">Alerts & Notifications</h2>
           <button
@@ -904,7 +904,7 @@ export function SettingsPage() {
       </section>
 
       {/* Data & Storage */}
-      <section className="rounded-xl bg-bg-secondary border border-border overflow-hidden">
+      <section className="vault-card overflow-hidden">
         <div className="p-4 border-b border-border">
           <h2 className="text-lg font-medium text-text-primary">Data &amp; Storage</h2>
         </div>
@@ -952,7 +952,7 @@ export function SettingsPage() {
       </section>
 
       {/* About Section */}
-      <section className="rounded-xl bg-bg-secondary border border-border overflow-hidden">
+      <section className="vault-card overflow-hidden">
         <div className="p-4 border-b border-border">
           <h2 className="text-lg font-medium text-text-primary">About</h2>
         </div>
