@@ -52,7 +52,7 @@ export function Layout() {
 
   return (
     <div className="flex flex-1 overflow-hidden">
-      {/* Vault-Tec Sidebar */}
+      {/* Re-Tek Sidebar */}
       <aside className="w-64 min-w-[200px] bg-bg-secondary border-r-2 border-border flex flex-col relative">
         {/* Decorative top accent */}
         <div className="h-1 flex-shrink-0 bg-gradient-to-r from-transparent via-accent to-transparent" />

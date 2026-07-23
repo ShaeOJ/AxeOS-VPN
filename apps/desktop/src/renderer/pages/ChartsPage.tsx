@@ -32,7 +32,7 @@ type MetricType = 'hashrate' | 'temperature' | 'power' | 'efficiency';
 type TimeRange = '1h' | '6h' | '24h' | '7d' | '30d';
 
 const DEVICE_COLORS = [
-  '#FFB000', // Vault-Tec Yellow
+  '#FFB000', // Re-Tek Yellow
   '#00FF41', // Pip-Boy Green
   '#FF3131', // Nuka-Cola Red
   '#4A90D9', // Brotherhood Blue

@@ -1,8 +1,8 @@
 {
   "name": "@axeos-vpn/desktop",
-  "version": "1.7.15",
-  "description": "Vault-Tec Mining Operations Division - BitAxe Monitoring System",
-  "author": "Vault-Tec Industries <shae@undergroundroots.ca>",
+  "version": "1.7.16",
+  "description": "Re-Tek Inc Mining Operations Division - BitAxe Monitoring System",
+  "author": "Re-Tek Inc <shae@undergroundroots.ca>",
   "repository": {
     "type": "git",
     "url": "https://github.com/ShaeOJ/AxeOS-VPN.git"

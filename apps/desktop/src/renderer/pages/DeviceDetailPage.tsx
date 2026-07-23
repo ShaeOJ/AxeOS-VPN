@@ -380,7 +380,7 @@ export function DeviceDetailPage() {
             </div>
           )}
 
-          {/* Main Metrics Cards - Vault-Tec Style */}
+          {/* Main Metrics Cards - Re-Tek Style */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {/* Hashrate Card */}
             <div className="vault-card p-5 hover-glitch group">
@@ -512,7 +512,7 @@ export function DeviceDetailPage() {
             </div>
           </div>
 
-          {/* Secondary Stats - Vault-Tec Terminal Style */}
+          {/* Secondary Stats - Re-Tek Terminal Style */}
           <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
             <div className="vault-card p-4 hover-glitch">
               <div className="flex items-center gap-2 mb-2">
@@ -609,7 +609,7 @@ export function DeviceDetailPage() {
             </div>
           </div>
 
-          {/* Pool Info - Vault-Tec Terminal Style */}
+          {/* Pool Info - Re-Tek Terminal Style */}
           <div className="vault-card p-4">
             <div className="flex items-center justify-between mb-4 pb-2 border-b border-border">
               <div className="flex items-center gap-2">

@@ -583,7 +583,7 @@ function getLocalAddresses(): string[] {
   return addresses;
 }
 
-// Web dashboard HTML - Vault-Tec themed
+// Web dashboard HTML - Re-Tek themed
 function getWebDashboardHtml(): string {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -626,7 +626,7 @@ function getWebDashboardHtml(): string {
       background: repeating-linear-gradient(0deg, transparent 0px, transparent 2px, rgba(0, 255, 65, 0.02) 2px, rgba(0, 255, 65, 0.02) 4px);
       opacity: 0.8;
     }
-    /* Custom scrollbar - Vault-Tec theme */
+    /* Custom scrollbar - Re-Tek theme */
     ::-webkit-scrollbar { width: 10px; height: 10px; }
     ::-webkit-scrollbar-track { background: #0d2137; border-left: 1px solid #1a4a5c; }
     ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #FFB000, #CC8C00); border: 1px solid #FFB000; border-radius: 0; }
@@ -1524,7 +1524,7 @@ function getWebDashboardHtml(): string {
             <div class="theme-options-list">
               <button class="theme-option" onclick="setTheme('vault-tec')">
                 <div class="theme-swatch" style="background:#0a1929;"><div class="theme-swatch-inner" style="background:#FFB000;"></div></div>
-                <span>Vault-Tec</span>
+                <span>Re-Tek Inc</span>
               </button>
               <button class="theme-option" onclick="setTheme('nuka-cola')">
                 <div class="theme-swatch" style="background:#1a0a0a;"><div class="theme-swatch-inner" style="background:#FF3131;"></div></div>
@@ -1942,7 +1942,7 @@ function getWebDashboardHtml(): string {
     let token = localStorage.getItem('token');
     let devices = [];
 
-    // Vault-Tec themed icons for device detail popup
+    // Re-Tek themed icons for device detail popup
     const ICONS = {
       status: '<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><circle cx="10" cy="10" r="6"/></svg>',
       ip: '<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zM1 10a9 9 0 1118 0 9 9 0 01-18 0zm9-4a.75.75 0 01.75.75v3.5h2.5a.75.75 0 010 1.5H10a.75.75 0 01-.75-.75v-4.25A.75.75 0 0110 6z"/></svg>',

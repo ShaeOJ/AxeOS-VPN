@@ -6,7 +6,7 @@
 
 :root,
 .theme-vault-tec {
-  /* Vault-Tec Theme Colors (Default) */
+  /* Re-Tek Theme Colors (Default) */
   --color-bg-primary: #0a1929;
   --color-bg-secondary: #0d2137;
   --color-bg-tertiary: #112a45;
@@ -235,7 +235,7 @@ body {
 }
 
 /* ========================================
-   VAULT-TEC SCANLINE OVERLAY
+   RE-TEK SCANLINE OVERLAY
    ======================================== */
 
 /* Main scanlines overlay */
@@ -372,7 +372,7 @@ body.scanline-disabled .scanline-animate::after {
 }
 
 /* ========================================
-   VAULT-TEC CUSTOM SCROLLBAR
+   RE-TEK CUSTOM SCROLLBAR
    ======================================== */
 ::-webkit-scrollbar {
   width: 10px;
@@ -411,10 +411,10 @@ body.scanline-disabled .scanline-animate::after {
 }
 
 /* ========================================
-   VAULT-TEC COMPONENT STYLES
+   RE-TEK COMPONENT STYLES
    ======================================== */
 
-/* Vault-Tec Card Style */
+/* Re-Tek Card Style */
 @layer components {
   .vault-card {
     @apply bg-bg-secondary border-2 border-border relative overflow-hidden rounded-md;
@@ -471,7 +471,7 @@ body.scanline-disabled .scanline-animate::after {
       radial-gradient(125% 120% at 50% 42%, transparent 50%, rgba(0, 0, 0, 0.4) 100%);
   }
 
-  /* Vault-Tec Header Style */
+  /* Re-Tek Header Style */
   .vault-header {
     @apply bg-bg-tertiary border-b-2 border-accent/30 px-4 py-3;
     background: linear-gradient(180deg, var(--color-bg-tertiary) 0%, var(--color-bg-secondary) 100%);
@@ -484,7 +484,7 @@ body.scanline-disabled .scanline-animate::after {
     text-shadow: 0 0 3px var(--color-pip-green);
   }
 
-  /* Vault-Tec Button */
+  /* Re-Tek Button */
   .vault-btn {
     @apply px-4 py-2 font-bold uppercase tracking-wider transition-all duration-200;
     background: linear-gradient(180deg, var(--color-accent) 0%, var(--color-accent-dim) 100%);
@@ -511,7 +511,7 @@ body.scanline-disabled .scanline-animate::after {
     transform: none;
   }
 
-  /* Vault-Tec Input */
+  /* Re-Tek Input */
   .vault-input {
     @apply w-full px-3 py-2 bg-bg-primary border-2 border-border text-text-primary;
     @apply focus:outline-none focus:border-accent focus:shadow-vault;
@@ -565,7 +565,7 @@ body.scanline-disabled .scanline-animate::after {
    ======================================== */
 
 /* ========================================
-   VAULT-TEC GLITCH ANIMATIONS
+   RE-TEK GLITCH ANIMATIONS
    ======================================== */
 
 /* Glitch-in animation for pages/modals */
@@ -833,7 +833,7 @@ body.scanline-disabled .scanline-animate::after {
 }
 
 /* ========================================
-   VAULT-TEC DECORATIVE ELEMENTS
+   RE-TEK DECORATIVE ELEMENTS
    ======================================== */
 
 /* Corner brackets decoration */

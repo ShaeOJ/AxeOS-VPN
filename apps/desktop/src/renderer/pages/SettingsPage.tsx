@@ -12,7 +12,7 @@ interface TunnelStatus {
 const THEMES = [
   {
     id: 'vault-tec',
-    name: 'Vault-Tec',
+    name: 'Re-Tek Inc',
     description: 'Classic yellow/green',
     colors: {
       bg: '#0a1929',

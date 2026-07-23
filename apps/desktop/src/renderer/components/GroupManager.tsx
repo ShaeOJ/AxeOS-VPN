@@ -7,7 +7,7 @@ interface GroupManagerProps {
 }
 
 const PRESET_COLORS = [
-  '#FFB000', // Vault-Tec Yellow
+  '#FFB000', // Re-Tek Yellow
   '#FF3131', // Nuka-Cola Red
   '#4A90D9', // Brotherhood Blue
   '#00A0A0', // Institute Teal

@@ -488,7 +488,7 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* Summary — Hero + Cluster (Vault-Tec Style) */}
+      {/* Summary — Hero + Cluster (Re-Tek Style) */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         {/* Hero Hashrate Panel */}
         <div className="vault-card p-5 hover-glitch lg:col-span-2 flex flex-col text-center">
