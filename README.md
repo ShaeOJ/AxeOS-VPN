@@ -8,7 +8,7 @@
 ║    ██║  ██║██╔╝ ██╗███████╗╚██████╔╝███████║     ╚████╔╝ ██║     ██║ ╚████║  ║
 ║    ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚══════╝      ╚═══╝  ╚═╝     ╚═╝  ╚═══╝  ║
 ║                                                                              ║
-║                    VAULT-TEC MINING OPERATIONS DIVISION                      ║
+║                    RE-TEK INC MINING OPERATIONS DIVISION                     ║
 ║                      "Preparing for the Future, Today!"                      ║
 ║                                                                              ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
@@ -16,16 +16,16 @@
 
 # 🏭 AxeOS VPN Monitor
 
-> **VAULT-TEC APPROVED** | Mining Rig Monitoring System | Est. 2077
+> **RE-TEK INC APPROVED** | Mining Rig Monitoring System | Est. 2077
 
-Welcome, Vault Dweller! You've discovered the **AxeOS VPN Monitor** - Vault-Tec's premier solution for monitoring your Bitcoin mining operations from the safety of your underground bunker (or anywhere else in the wasteland).
+Welcome, Operator! You've discovered the **AxeOS VPN Monitor** - Re-Tek Inc's premier solution for monitoring your Bitcoin mining operations from the safety of your underground bunker (or anywhere else in the wasteland).
 
 ---
 
 ## 📟 TERMINAL STATUS: ONLINE
 
 ```
-[VAULT-TEC SYSTEMS DIAGNOSTIC]
+[RE-TEK INC SYSTEMS DIAGNOSTIC]
 ├── Desktop App ............ OPERATIONAL ✓
 ├── Mobile App ............. OPERATIONAL ✓
 ├── Web Dashboard .......... OPERATIONAL ✓
@@ -97,7 +97,7 @@ The desktop app will open automatically. Add your mining devices by IP address a
 ## 📸 Screenshots
 
 ### Desktop Dashboard
-*Vault-Tec approved interface with real-time metrics*
+*Re-Tek Inc approved interface with real-time metrics*
 
 ### Web Remote Access
 *Access your miners from any terminal in the wasteland*
@@ -119,7 +119,7 @@ axeos-vpn/
 ├── packages/
 │   ├── shared-types/     # TypeScript interfaces
 │   └── shared-utils/     # Utility functions
-└── README.md             # You are here, Vault Dweller
+└── README.md             # You are here, Operator
 ```
 
 ---
@@ -147,7 +147,7 @@ AxeOS VPN calculates **J/TH** (Joules per Terahash) for all your devices:
 Toggle the beautiful particle network background:
 - Click the **FX** button in the web dashboard header
 - Nodes pulse and connect in real-time
-- Looks cool, makes you feel like a Vault-Tec engineer
+- Looks cool, makes you feel like a Re-Tek Inc engineer
 
 ---
 
@@ -166,16 +166,16 @@ pnpm typecheck
 
 ---
 
-## 📜 Vault-Tec Legal Notice
+## 📜 Re-Tek Inc Legal Notice
 
 ```
 ╔══════════════════════════════════════════════════════════════════╗
-║                    VAULT-TEC CORPORATION                         ║
+║                    RE-TEK INC CORPORATION                        ║
 ║              "Building a Better Tomorrow, Underground"           ║
 ╠══════════════════════════════════════════════════════════════════╣
 ║                                                                  ║
 ║  This software is provided "AS IS" without warranty of any      ║
-║  kind. Vault-Tec is not responsible for:                        ║
+║  kind. Re-Tek Inc is not responsible for:                        ║
 ║                                                                  ║
 ║  • Overheated mining rigs                                        ║
 ║  • Insufficient hashrate                                         ║
@@ -193,7 +193,7 @@ pnpm typecheck
 
 ## 🤝 Contributing
 
-Pull requests welcome! Whether you're from Vault 101 or the Capital Wasteland, we appreciate all contributions.
+Pull requests welcome! Whether you're running a single Axe in the home lab or a whole rack out in the wasteland, we appreciate all contributions.
 
 ---
 
@@ -204,6 +204,6 @@ MIT License - Free as in Freedom (and bottle caps)
 ---
 
 <p align="center">
-  <strong>Built with ☢️ by Vault-Tec Mining Operations Division</strong><br>
+  <strong>Built with ☢️ by Re-Tek Inc Mining Operations Division</strong><br>
   <em>"When the bombs fall, keep hashing!"</em>
 </p>

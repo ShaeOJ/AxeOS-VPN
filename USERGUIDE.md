@@ -1,7 +1,7 @@
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                                                                              ║
-║                    VAULT-TEC INDUSTRIES PRESENTS                             ║
+║                    RE-TEK INC INDUSTRIES PRESENTS                            ║
 ║                                                                              ║
 ║              ░█████╗░██╗░░██╗███████╗░█████╗░░██████╗                        ║
 ║              ██╔══██╗╚██╗██╔╝██╔════╝██╔══██╗██╔════╝                        ║
@@ -11,18 +11,18 @@
 ║              ╚═╝░░╚═╝╚═╝░░╚═╝╚══════╝░╚════╝░╚═════╝░                        ║
 ║                                                                              ║
 ║                        VPN MONITOR USER MANUAL                               ║
-║                           Document V-TEC-2077-M                              ║
+║                           Document R-TEK-2077-M                              ║
 ║                                                                              ║
-║                    CLASSIFICATION: VAULT DWELLER EYES ONLY                   ║
+║                    CLASSIFICATION: OPERATOR EYES ONLY                        ║
 ║                                                                              ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
-# 📖 VAULT-TEC OPERATOR'S MANUAL
+# 📖 RE-TEK INC OPERATOR'S MANUAL
 
 > **Security Clearance Required: LEVEL 3 - MAINTENANCE TECHNICIAN**
 
-Congratulations on your assignment to the **Vault-Tec Mining Operations Division**! This manual will guide you through the operation of the AxeOS VPN Monitor system. Please read carefully - your performance metrics are being tracked.
+Congratulations on your assignment to the **Re-Tek Inc Mining Operations Division**! This manual will guide you through the operation of the AxeOS VPN Monitor system. Please read carefully - your performance metrics are being tracked.
 
 ---
 
@@ -218,7 +218,7 @@ Once enabled, you'll see:
 ║                   REMOTE ACCESS ACTIVE                     ║
 ╠═══════════════════════════════════════════════════════════╣
 ║                                                            ║
-║   URL: https://vault-tec-monitor.trycloudflare.com        ║
+║   URL: https://re-tek-monitor.trycloudflare.com            ║
 ║                                                            ║
 ║   ▄▄▄▄▄▄▄ ▄▄▄▄▄ ▄▄▄▄▄▄▄    Scan this QR code with        ║
 ║   █ ▄▄▄ █ ▀█ ▄ █ ▄▄▄ █    your Pip-Boy (phone) to        ║
@@ -230,7 +230,7 @@ Once enabled, you'll see:
 
 ### 5.3 Security Note
 
-⚠️ **VAULT-TEC SECURITY ADVISORY**
+⚠️ **RE-TEK INC SECURITY ADVISORY**
 
 The remote dashboard is protected by password. On first access from a new device, you'll need to set up or enter your password. Keep this password secure - it's like the key to your vault!
 
@@ -350,7 +350,7 @@ If issues persist:
 
 ```
 ╔══════════════════════════════════════════════════════════════╗
-║                    VAULT-TEC ERROR CODES                      ║
+║                    RE-TEK INC ERROR CODES                     ║
 ╠══════════════════════════════════════════════════════════════╣
 ║                                                               ║
 ║  E-001    Connection refused       Device not responding     ║
@@ -367,7 +367,7 @@ If issues persist:
 
 ---
 
-## 📞 VAULT-TEC SUPPORT HOTLINE
+## 📞 RE-TEK INC SUPPORT HOTLINE
 
 ```
 ╔══════════════════════════════════════════════════════════════╗
@@ -378,7 +378,7 @@ If issues persist:
 ║   📖 Check the README for updates                             ║
 ║   🤖 Ask the community for help                               ║
 ║                                                               ║
-║   "Vault-Tec: We'll be there... eventually!"                 ║
+║   "Re-Tek Inc: We'll be there... eventually!"                 ║
 ║                                                               ║
 ╚══════════════════════════════════════════════════════════════╝
 ```
@@ -386,7 +386,7 @@ If issues persist:
 ---
 
 <p align="center">
-<strong>VAULT-TEC INDUSTRIES</strong><br>
+<strong>RE-TEK INC INDUSTRIES</strong><br>
 <em>Document Classification: PUBLIC RELEASE</em><br>
 <em>Revision: 1.0.0 | Date: 2077</em><br><br>
 "Preparing for the Future, Today!"

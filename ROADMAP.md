@@ -1,4 +1,4 @@
-# ☢️ VAULT-TEC DEVELOPMENT ROADMAP ☢️
+# ☢️ RE-TEK INC DEVELOPMENT ROADMAP ☢️
 ### AxeOS VPN Monitor - Future Enhancement Proposals
 
 ---
@@ -45,7 +45,7 @@
 ## 🎨 THEMES & CUSTOMIZATION
 
 - [ ] **Theme Selector** - Switch between visual themes
-  - [ ] Classic Vault-Tec (current green/gold)
+  - [ ] Classic Re-Tek Inc (current green/gold)
   - [ ] Nuka-Cola Red
   - [ ] Brotherhood of Steel (blue/silver)
   - [ ] Institute (clean white/blue)
@@ -215,6 +215,6 @@
 
 ---
 
-*"The future is in your hands, Vault Dweller!"*
+*"The future is in your hands, Operator!"*
 
 **Last Updated:** 2026-01-20

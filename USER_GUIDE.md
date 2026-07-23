@@ -1,6 +1,6 @@
 # AxeOS VPN Monitor - User Guide
 
-A Vault-Tec Mining Operations Division application for managing and monitoring your BitAxe ASIC miners.
+A Re-Tek Inc Mining Operations Division application for managing and monitoring your BitAxe ASIC miners.
 
 ---
 
@@ -454,7 +454,7 @@ Choose from 6 Fallout-inspired themes:
 
 | Theme | Colors | Description |
 |-------|--------|-------------|
-| **Vault-Tec** | Yellow/Green on dark blue | Classic Pip-Boy style |
+| **Re-Tek Inc** | Yellow/Green on dark blue | Classic Pip-Boy style |
 | **Nuka-Cola** | Red/Pink on dark red | Vintage soda aesthetic |
 | **Brotherhood** | Blue/Silver on dark blue | Military tech feel |
 | **Institute** | Teal/White on light gray | Clean futuristic look |
@@ -533,4 +533,4 @@ Choose from 6 Fallout-inspired themes:
 
 ---
 
-*Vault-Tec Mining Operations Division - Building a Better Tomorrow, Underground*
+*Re-Tek Inc Mining Operations Division - Building a Better Tomorrow, Underground*
