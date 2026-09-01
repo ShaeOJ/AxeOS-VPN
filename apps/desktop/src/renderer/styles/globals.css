@@ -1,222 +1,224 @@
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=Share+Tech+Mono&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   THEME SYSTEM  —  aligned with asicpool + GOStratum
+   Default (:root / .theme-vault-tec) uses the asicpool
+   "Trading Post" vault-gold-on-green-black palette. The other
+   five themes are ported from the GOStratum standalone app so
+   the whole Re-Tek fleet shares one look and feel.
+
+   NOTE: every theme MUST define the full --color-* set the app
+   already consumes, plus --color-accent-rgb / --color-accent-glow
+   used by the GOStratum-style utility classes further down.
+   ============================================================ */
+
+/* ── Vault-Tec (DEFAULT — asicpool palette) ───────────────── */
 :root,
 .theme-vault-tec {
-  /* Re-Tek Theme Colors (Default) */
-  --color-bg-primary: #0a1929;
-  --color-bg-secondary: #0d2137;
-  --color-bg-tertiary: #112a45;
-  --color-bg-terminal: #001a0d;
+  --color-bg-primary: #0a0d0a;
+  --color-bg-secondary: #12160f;
+  --color-bg-tertiary: #171c12;
+  --color-bg-terminal: #0a0f08;
 
-  --color-accent: #FFB000;
-  --color-accent-hover: #FFC940;
-  --color-accent-dim: #CC8C00;
+  --color-accent: #ffd200;
+  --color-accent-hover: #ffe14d;
+  --color-accent-dim: #cca800;
+  --color-accent-rgb: 255, 210, 0;
+  --color-accent-glow: rgba(255, 210, 0, 0.3);
 
-  --color-success: #00FF41;
-  --color-success-dim: #00CC33;
-  --color-warning: #FF8C00;
-  --color-danger: #FF3131;
+  --color-success: #7bb661;
+  --color-success-dim: #5f9349;
+  --color-warning: #f5a623;
+  --color-danger: #e2603a;
 
-  --color-text-primary: #E8F4E8;
-  --color-text-secondary: #8BA88B;
-  --color-text-terminal: #00FF41;
+  --color-text-primary: #d7e4c9;
+  --color-text-secondary: #8aa07a;
+  --color-text-terminal: #7bb661;
 
-  --color-border: #1a4a5c;
-  --color-border-highlight: #00CED1;
-  --color-border-glow: #20B2AA;
+  --color-border: rgba(123, 182, 97, 0.18);
+  --color-border-highlight: #ffd200;
+  --color-border-glow: #7bb661;
 
-  --color-vault-yellow: #FFB000;
-  --color-vault-blue: #0055AA;
-  --color-pip-green: #00FF41;
+  --color-vault-yellow: #ffd200;
+  --color-vault-blue: #4a90d9;
+  --color-pip-green: #7bb661;
 
-  --color-scanline: rgba(0, 255, 65, 0.03);
-  --color-scanline-glow: rgba(0, 255, 65, 0.15);
+  --color-scanline: rgba(123, 182, 97, 0.03);
+  --color-scanline-glow: rgba(255, 210, 0, 0.15);
 }
 
-/* ========================================
-   NUKA-COLA RED THEME
-   ======================================== */
-.theme-nuka-cola {
-  --color-bg-primary: #1a0a0a;
-  --color-bg-secondary: #2a1515;
-  --color-bg-tertiary: #3a2020;
-  --color-bg-terminal: #1a0505;
+/* ── Nuclear (GOStratum default green) ────────────────────── */
+.theme-nuclear {
+  --color-bg-primary: #0a0e0a;
+  --color-bg-secondary: #0f1a0f;
+  --color-bg-tertiary: #121f12;
+  --color-bg-terminal: #071007;
 
-  --color-accent: #FF3131;
-  --color-accent-hover: #FF5555;
-  --color-accent-dim: #CC2020;
+  --color-accent: #39ff14;
+  --color-accent-hover: #6bff52;
+  --color-accent-dim: #2bcc0f;
+  --color-accent-rgb: 57, 255, 20;
+  --color-accent-glow: rgba(57, 255, 20, 0.3);
 
-  --color-success: #FF6B6B;
-  --color-success-dim: #FF4444;
-  --color-warning: #FFA500;
-  --color-danger: #FF0000;
+  --color-success: #39ff14;
+  --color-success-dim: #2bcc0f;
+  --color-warning: #ffe600;
+  --color-danger: #ff3333;
 
-  --color-text-primary: #FFE8E8;
-  --color-text-secondary: #CC9999;
-  --color-text-terminal: #FF6B6B;
+  --color-text-primary: #e0ffe0;
+  --color-text-secondary: #7a9f7a;
+  --color-text-terminal: #39ff14;
 
-  --color-border: #5c1a1a;
-  --color-border-highlight: #FF4444;
-  --color-border-glow: #FF3131;
+  --color-border: rgba(57, 255, 20, 0.14);
+  --color-border-highlight: #39ff14;
+  --color-border-glow: #39ff14;
 
-  --color-vault-yellow: #FF3131;
-  --color-vault-blue: #AA0000;
-  --color-pip-green: #FF6B6B;
+  --color-vault-yellow: #ffe600;
+  --color-vault-blue: #00d4ff;
+  --color-pip-green: #39ff14;
 
-  --color-scanline: rgba(255, 49, 49, 0.03);
-  --color-scanline-glow: rgba(255, 49, 49, 0.15);
+  --color-scanline: rgba(57, 255, 20, 0.03);
+  --color-scanline-glow: rgba(57, 255, 20, 0.15);
 }
 
-/* ========================================
-   BROTHERHOOD OF STEEL THEME
-   ======================================== */
-.theme-brotherhood {
-  --color-bg-primary: #0a0a1a;
-  --color-bg-secondary: #12122a;
-  --color-bg-tertiary: #1a1a3a;
-  --color-bg-terminal: #050510;
+/* ── TRON (electric cyan) ─────────────────────────────────── */
+.theme-tron {
+  --color-bg-primary: #0a0a0f;
+  --color-bg-secondary: #0f0f1a;
+  --color-bg-tertiary: #12121f;
+  --color-bg-terminal: #07070d;
 
-  --color-accent: #4A90D9;
-  --color-accent-hover: #6AAAF9;
-  --color-accent-dim: #3070B9;
+  --color-accent: #00d4ff;
+  --color-accent-hover: #5ce4ff;
+  --color-accent-dim: #00a6cc;
+  --color-accent-rgb: 0, 212, 255;
+  --color-accent-glow: rgba(0, 212, 255, 0.3);
 
-  --color-success: #87CEEB;
-  --color-success-dim: #6BB8D5;
-  --color-warning: #FFD700;
-  --color-danger: #FF4444;
+  --color-success: #00d4ff;
+  --color-success-dim: #00a6cc;
+  --color-warning: #ff6600;
+  --color-danger: #ff3355;
 
-  --color-text-primary: #E8E8FF;
-  --color-text-secondary: #9999CC;
-  --color-text-terminal: #87CEEB;
+  --color-text-primary: #e0f0ff;
+  --color-text-secondary: #7a8faf;
+  --color-text-terminal: #00d4ff;
 
-  --color-border: #2a2a5c;
-  --color-border-highlight: #4A90D9;
-  --color-border-glow: #6AAAF9;
+  --color-border: rgba(0, 212, 255, 0.14);
+  --color-border-highlight: #00d4ff;
+  --color-border-glow: #00d4ff;
 
-  --color-vault-yellow: #4A90D9;
-  --color-vault-blue: #3070B9;
-  --color-pip-green: #87CEEB;
+  --color-vault-yellow: #ff6600;
+  --color-vault-blue: #00d4ff;
+  --color-pip-green: #00d4ff;
 
-  --color-scanline: rgba(74, 144, 217, 0.03);
-  --color-scanline-glow: rgba(74, 144, 217, 0.15);
+  --color-scanline: rgba(0, 212, 255, 0.03);
+  --color-scanline-glow: rgba(0, 212, 255, 0.15);
 }
 
-/* ========================================
-   INSTITUTE THEME (Light)
-   ======================================== */
-.theme-institute {
-  --color-bg-primary: #f0f0f0;
-  --color-bg-secondary: #e0e0e0;
-  --color-bg-tertiary: #d0d0d0;
-  --color-bg-terminal: #ffffff;
+/* ── Bitcoin (orange/gold) ────────────────────────────────── */
+.theme-bitcoin {
+  --color-bg-primary: #0f0c08;
+  --color-bg-secondary: #1a1408;
+  --color-bg-tertiary: #1f1a0f;
+  --color-bg-terminal: #0c0906;
 
-  --color-accent: #00A0A0;
-  --color-accent-hover: #00C0C0;
-  --color-accent-dim: #008080;
+  --color-accent: #f7931a;
+  --color-accent-hover: #ffb04d;
+  --color-accent-dim: #c46f0f;
+  --color-accent-rgb: 247, 147, 26;
+  --color-accent-glow: rgba(247, 147, 26, 0.3);
 
-  --color-success: #00CED1;
-  --color-success-dim: #00B0B3;
-  --color-warning: #FF8C00;
-  --color-danger: #DC143C;
+  --color-success: #22cc55;
+  --color-success-dim: #1a9940;
+  --color-warning: #ffd700;
+  --color-danger: #ff4444;
 
-  --color-text-primary: #1a1a1a;
-  --color-text-secondary: #555555;
-  --color-text-terminal: #00A0A0;
+  --color-text-primary: #fff0d0;
+  --color-text-secondary: #9f8a60;
+  --color-text-terminal: #ffd700;
 
-  --color-border: #b0b0b0;
-  --color-border-highlight: #00A0A0;
-  --color-border-glow: #00CED1;
+  --color-border: rgba(247, 147, 26, 0.14);
+  --color-border-highlight: #f7931a;
+  --color-border-glow: #f7931a;
 
-  --color-vault-yellow: #00A0A0;
-  --color-vault-blue: #008080;
-  --color-pip-green: #00CED1;
+  --color-vault-yellow: #ffd700;
+  --color-vault-blue: #f7931a;
+  --color-pip-green: #22cc55;
 
-  --color-scanline: rgba(0, 160, 160, 0.02);
-  --color-scanline-glow: rgba(0, 160, 160, 0.1);
+  --color-scanline: rgba(247, 147, 26, 0.03);
+  --color-scanline-glow: rgba(247, 147, 26, 0.15);
 }
 
-/* Institute theme specific overrides for better contrast */
-.theme-institute body::before {
-  background:
-    repeating-linear-gradient(
-      0deg,
-      transparent 0px,
-      transparent 2px,
-      var(--color-scanline) 2px,
-      var(--color-scanline) 4px
-    );
+/* ── Monochrome (terminal grey) ───────────────────────────── */
+.theme-monochrome {
+  --color-bg-primary: #080808;
+  --color-bg-secondary: #111111;
+  --color-bg-tertiary: #161616;
+  --color-bg-terminal: #050505;
+
+  --color-accent: #cccccc;
+  --color-accent-hover: #eeeeee;
+  --color-accent-dim: #999999;
+  --color-accent-rgb: 204, 204, 204;
+  --color-accent-glow: rgba(204, 204, 204, 0.3);
+
+  --color-success: #44cc66;
+  --color-success-dim: #33a050;
+  --color-warning: #ddaa00;
+  --color-danger: #ee4444;
+
+  --color-text-primary: #e0e0e0;
+  --color-text-secondary: #707070;
+  --color-text-terminal: #cccccc;
+
+  --color-border: rgba(204, 204, 204, 0.14);
+  --color-border-highlight: #cccccc;
+  --color-border-glow: #cccccc;
+
+  --color-vault-yellow: #ddaa00;
+  --color-vault-blue: #888888;
+  --color-pip-green: #44cc66;
+
+  --color-scanline: rgba(204, 204, 204, 0.03);
+  --color-scanline-glow: rgba(204, 204, 204, 0.15);
 }
 
-/* ========================================
-   NCR THEME (Desert)
-   ======================================== */
-.theme-ncr {
-  --color-bg-primary: #1a1408;
-  --color-bg-secondary: #2a2010;
-  --color-bg-tertiary: #3a2c18;
-  --color-bg-terminal: #0d0a04;
+/* ── Steampunk (brass/copper) ─────────────────────────────── */
+.theme-steampunk {
+  --color-bg-primary: #0c0a08;
+  --color-bg-secondary: #141210;
+  --color-bg-tertiary: #1a1714;
+  --color-bg-terminal: #080706;
 
-  --color-accent: #C4A35A;
-  --color-accent-hover: #D4B36A;
-  --color-accent-dim: #A4834A;
+  --color-accent: #cd7f32;
+  --color-accent-hover: #e0a05a;
+  --color-accent-dim: #9e6226;
+  --color-accent-rgb: 205, 127, 50;
+  --color-accent-glow: rgba(205, 127, 50, 0.3);
 
-  --color-success: #8B7355;
-  --color-success-dim: #6B5345;
-  --color-warning: #DAA520;
-  --color-danger: #CD5C5C;
+  --color-success: #5a9a6a;
+  --color-success-dim: #477a53;
+  --color-warning: #cd7f32;
+  --color-danger: #a04030;
 
-  --color-text-primary: #F5DEB3;
-  --color-text-secondary: #C4A060;
-  --color-text-terminal: #C4A35A;
+  --color-text-primary: #e8dcc8;
+  --color-text-secondary: #8a7e6a;
+  --color-text-terminal: #cd7f32;
 
-  --color-border: #5c4a2a;
-  --color-border-highlight: #C4A35A;
-  --color-border-glow: #D4B36A;
+  --color-border: rgba(205, 127, 50, 0.14);
+  --color-border-highlight: #cd7f32;
+  --color-border-glow: #cd7f32;
 
-  --color-vault-yellow: #C4A35A;
-  --color-vault-blue: #8B7355;
-  --color-pip-green: #DAA520;
+  --color-vault-yellow: #cd7f32;
+  --color-vault-blue: #708090;
+  --color-pip-green: #5a9a6a;
 
-  --color-scanline: rgba(196, 163, 90, 0.03);
-  --color-scanline-glow: rgba(196, 163, 90, 0.15);
-}
-
-/* ========================================
-   ENCLAVE THEME (Dark Patriotic)
-   ======================================== */
-.theme-enclave {
-  --color-bg-primary: #0a0a14;
-  --color-bg-secondary: #141420;
-  --color-bg-tertiary: #1e1e2c;
-  --color-bg-terminal: #05050a;
-
-  --color-accent: #B22222;
-  --color-accent-hover: #D22222;
-  --color-accent-dim: #921212;
-
-  --color-success: #FFD700;
-  --color-success-dim: #CCAC00;
-  --color-warning: #FF6347;
-  --color-danger: #FF0000;
-
-  --color-text-primary: #F0F0F5;
-  --color-text-secondary: #9090A0;
-  --color-text-terminal: #FFD700;
-
-  --color-border: #3a3a5c;
-  --color-border-highlight: #B22222;
-  --color-border-glow: #FFD700;
-
-  --color-vault-yellow: #B22222;
-  --color-vault-blue: #191970;
-  --color-pip-green: #FFD700;
-
-  --color-scanline: rgba(178, 34, 34, 0.03);
-  --color-scanline-glow: rgba(255, 215, 0, 0.15);
+  --color-scanline: rgba(205, 127, 50, 0.03);
+  --color-scanline-glow: rgba(205, 127, 50, 0.15);
 }
 
 * {
@@ -1382,3 +1384,152 @@ body.scanline-disabled .scanline-animate::after {
   position: relative;
   z-index: 1;
 }
+
+/* ============================================================
+   GOSTRATUM-ALIGNED UTILITIES
+   Ported from the standalone GOStratum app so the fleet shares
+   one visual language: glow text, data readouts, card-glow with
+   per-theme hover overlays, grid + scanline surfaces, and the
+   themed status pulse. All driven by --color-accent-rgb / -glow.
+   ============================================================ */
+
+/* ── Fonts ───────────────────────────────────────────────── */
+.font-tech { font-family: 'Share Tech Mono', monospace; }
+.font-data { font-family: 'JetBrains Mono', 'Share Tech Mono', monospace; letter-spacing: 0.02em; }
+
+/* ── Glow helpers ────────────────────────────────────────── */
+.glow-text {
+  text-shadow: 0 0 6px var(--color-accent-glow);
+}
+.glow-border {
+  box-shadow: 0 0 8px var(--color-accent-glow), inset 0 0 1px var(--color-accent-glow);
+}
+.glow-ring {
+  box-shadow: 0 0 6px rgba(var(--color-accent-rgb), 0.5);
+}
+
+/* ── Data readout (mono, accent, faint glow) ─────────────── */
+.data-readout {
+  font-family: 'JetBrains Mono', 'Share Tech Mono', monospace;
+  letter-spacing: 0.05em;
+  color: var(--color-accent);
+  text-shadow: 0 0 4px var(--color-accent-glow);
+}
+
+/* ── Card glow (parameterized, per-theme hover overlay) ──── */
+.card-glow {
+  position: relative;
+  border: 1px solid var(--color-border);
+  transition: border-color 220ms ease, box-shadow 220ms ease, transform 220ms ease;
+}
+.card-glow:hover {
+  border-color: rgba(var(--color-accent-rgb), 0.28);
+  box-shadow: 0 0 14px rgba(var(--color-accent-rgb), 0.1);
+}
+.card-glow::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 220ms ease;
+  z-index: 1;
+}
+
+/* Vault-Tec (default): CRT scan-line flicker overlay */
+:root .card-glow::after,
+.theme-vault-tec .card-glow::after {
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 2px,
+    rgba(var(--color-accent-rgb), 0.04) 2px, rgba(var(--color-accent-rgb), 0.04) 4px);
+}
+@keyframes vaultFlicker { 0% { opacity: 0.06; } 50% { opacity: 0.02; } 100% { opacity: 0.06; } }
+:root .card-glow:hover::after,
+.theme-vault-tec .card-glow:hover::after { opacity: 1; animation: vaultFlicker 150ms steps(2) 3; }
+
+/* Nuclear: Geiger-counter flicker */
+@keyframes nuclearFlicker {
+  0% { box-shadow: inset 0 0 8px rgba(57,255,20,0.15); }
+  25% { box-shadow: inset 0 0 6px rgba(57,255,20,0.1); }
+  50% { box-shadow: inset 0 0 25px rgba(57,255,20,0.4); }
+  80% { box-shadow: inset 0 0 18px rgba(57,255,20,0.3); }
+  100% { box-shadow: inset 0 0 8px rgba(57,255,20,0.15); }
+}
+.theme-nuclear .card-glow:hover::after { opacity: 1; animation: nuclearFlicker 300ms ease 1; }
+
+/* Tron: rotating light-trace border sweep */
+@keyframes tronTrace {
+  0% { background: conic-gradient(from 0deg, transparent 0%, rgba(0,212,255,0.15) 10%, transparent 20%); }
+  100% { background: conic-gradient(from 360deg, transparent 0%, rgba(0,212,255,0.15) 10%, transparent 20%); }
+}
+.theme-tron .card-glow::after {
+  inset: -1px; padding: 1px;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+}
+.theme-tron .card-glow:hover::after { opacity: 1; animation: tronTrace 1.5s linear infinite; }
+
+/* Bitcoin: warm ember glow from bottom */
+.theme-bitcoin .card-glow::after {
+  background: linear-gradient(to top, rgba(247,147,26,0.08) 0%, rgba(255,215,0,0.03) 30%, transparent 60%);
+}
+.theme-bitcoin .card-glow:hover::after { opacity: 1; }
+
+/* Monochrome: scanline flicker */
+@keyframes monoFlicker { 0% { opacity: 0.04; } 50% { opacity: 0.08; } 100% { opacity: 0.04; } }
+.theme-monochrome .card-glow::after {
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px,
+    rgba(204,204,204,0.03) 2px, rgba(204,204,204,0.03) 4px);
+}
+.theme-monochrome .card-glow:hover::after { opacity: 1; animation: monoFlicker 150ms steps(2) 3; }
+
+/* Steampunk: brass glow pulse */
+@keyframes steamGlow {
+  0% { box-shadow: inset 0 0 8px rgba(205,127,50,0.1); }
+  50% { box-shadow: inset 0 0 20px rgba(205,127,50,0.2); }
+  100% { box-shadow: inset 0 0 8px rgba(205,127,50,0.1); }
+}
+.theme-steampunk .card-glow:hover::after { opacity: 1; animation: steamGlow 400ms ease 1; }
+
+/* ── Grid overlay surface ────────────────────────────────── */
+.grid-overlay { position: relative; }
+.grid-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(90deg, rgba(var(--color-accent-rgb), 0.03) 0px, transparent 1px, transparent 40px),
+    repeating-linear-gradient(0deg, rgba(var(--color-accent-rgb), 0.03) 0px, transparent 1px, transparent 40px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Scan-lines surface (local, not the global CRT overlay) ─ */
+.scan-lines { position: relative; }
+.scan-lines::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.05) 2px, rgba(0,0,0,0.05) 4px);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ── Themed status pulse (status dots) ───────────────────── */
+@keyframes statusPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.status-pulse { animation: statusPulse 1.8s ease-in-out infinite; }
+
+@keyframes nuclearPulse { 0%, 100% { opacity: 1; } 20% { opacity: 0.3; } 30% { opacity: 1; } 50% { opacity: 0.3; } 60% { opacity: 1; } }
+.theme-nuclear .status-pulse { animation: nuclearPulse 1.6s ease-in-out infinite; }
+
+@keyframes tronBlink { 0%, 49% { opacity: 1; } 50%, 65% { opacity: 0.1; } 66%, 100% { opacity: 1; } }
+.theme-tron .status-pulse { animation: tronBlink 1.2s step-end infinite; }
+
+@keyframes bitcoinEmberPulse { 0%, 100% { opacity: 1; } 25% { opacity: 0.4; } 35% { opacity: 0.9; } 50% { opacity: 0.2; } 65% { opacity: 1; } }
+.theme-bitcoin .status-pulse { animation: bitcoinEmberPulse 1.4s ease-in-out infinite; }
+
+@keyframes monoBlink { 0%, 49% { opacity: 1; } 50%, 65% { opacity: 0.1; } 66%, 100% { opacity: 1; } }
+.theme-monochrome .status-pulse { animation: monoBlink 1.2s step-end infinite; }

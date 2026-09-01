@@ -43,7 +43,10 @@ export default {
       fontFamily: {
         sans: ['Share Tech Mono', 'JetBrains Mono', 'Consolas', 'monospace'],
         mono: ['Share Tech Mono', 'JetBrains Mono', 'Fira Code', 'monospace'],
-        display: ['Orbitron', 'Share Tech Mono', 'monospace'],
+        // Data readouts use JetBrains Mono (matches GOStratum/asicpool)
+        data: ['JetBrains Mono', 'Share Tech Mono', 'monospace'],
+        // Display headings share the terminal face (Orbitron retired for fleet parity)
+        display: ['Share Tech Mono', 'JetBrains Mono', 'monospace'],
       },
       boxShadow: {
         'vault': '0 0 10px color-mix(in srgb, var(--color-accent) 30%, transparent), inset 0 0 20px rgba(0, 0, 0, 0.5)',

@@ -1235,84 +1235,84 @@ function getWebDashboardHtml(): string {
       .profit-value { font-size: 13px; }
     }
 
-    /* ======== THEME SYSTEM ======== */
+    /* ======== THEME SYSTEM (aligned with asicpool + GOStratum) ======== */
     :root, body.theme-vault-tec {
-      --color-bg-primary: #0a1929;
-      --color-bg-secondary: #0d2137;
-      --color-accent: #FFB000;
-      --color-accent-hover: #FFC940;
-      --color-success: #00FF41;
-      --color-warning: #FF8C00;
-      --color-danger: #FF3131;
-      --color-text-primary: #E8F4E8;
-      --color-text-secondary: #8BA88B;
-      --color-border: #1a4a5c;
-      --color-scanline: rgba(0, 255, 65, 0.02);
+      --color-bg-primary: #0a0d0a;
+      --color-bg-secondary: #12160f;
+      --color-accent: #ffd200;
+      --color-accent-hover: #ffe14d;
+      --color-success: #7bb661;
+      --color-warning: #f5a623;
+      --color-danger: #e2603a;
+      --color-text-primary: #d7e4c9;
+      --color-text-secondary: #8aa07a;
+      --color-border: rgba(123, 182, 97, 0.18);
+      --color-scanline: rgba(123, 182, 97, 0.02);
     }
-    body.theme-nuka-cola {
-      --color-bg-primary: #1a0a0a;
-      --color-bg-secondary: #2a1515;
-      --color-accent: #FF3131;
-      --color-accent-hover: #FF5555;
-      --color-success: #FF6B6B;
-      --color-warning: #FFA500;
-      --color-danger: #FF0000;
-      --color-text-primary: #FFE8E8;
-      --color-text-secondary: #CC9999;
-      --color-border: #5c1a1a;
-      --color-scanline: rgba(255, 49, 49, 0.02);
+    body.theme-nuclear {
+      --color-bg-primary: #0a0e0a;
+      --color-bg-secondary: #0f1a0f;
+      --color-accent: #39ff14;
+      --color-accent-hover: #6bff52;
+      --color-success: #39ff14;
+      --color-warning: #ffe600;
+      --color-danger: #ff3333;
+      --color-text-primary: #e0ffe0;
+      --color-text-secondary: #7a9f7a;
+      --color-border: rgba(57, 255, 20, 0.14);
+      --color-scanline: rgba(57, 255, 20, 0.02);
     }
-    body.theme-brotherhood {
-      --color-bg-primary: #0a0a1a;
-      --color-bg-secondary: #12122a;
-      --color-accent: #4A90D9;
-      --color-accent-hover: #6AAAF9;
-      --color-success: #87CEEB;
-      --color-warning: #FFD700;
-      --color-danger: #FF4444;
-      --color-text-primary: #E8E8FF;
-      --color-text-secondary: #9999CC;
-      --color-border: #2a2a5c;
-      --color-scanline: rgba(74, 144, 217, 0.02);
+    body.theme-tron {
+      --color-bg-primary: #0a0a0f;
+      --color-bg-secondary: #0f0f1a;
+      --color-accent: #00d4ff;
+      --color-accent-hover: #5ce4ff;
+      --color-success: #00d4ff;
+      --color-warning: #ff6600;
+      --color-danger: #ff3355;
+      --color-text-primary: #e0f0ff;
+      --color-text-secondary: #7a8faf;
+      --color-border: rgba(0, 212, 255, 0.14);
+      --color-scanline: rgba(0, 212, 255, 0.02);
     }
-    body.theme-institute {
-      --color-bg-primary: #f0f0f0;
-      --color-bg-secondary: #e0e0e0;
-      --color-accent: #00A0A0;
-      --color-accent-hover: #00C0C0;
-      --color-success: #00CED1;
-      --color-warning: #FF8C00;
-      --color-danger: #DC143C;
-      --color-text-primary: #1a1a1a;
-      --color-text-secondary: #555555;
-      --color-border: #b0b0b0;
-      --color-scanline: rgba(0, 160, 160, 0.02);
+    body.theme-bitcoin {
+      --color-bg-primary: #0f0c08;
+      --color-bg-secondary: #1a1408;
+      --color-accent: #f7931a;
+      --color-accent-hover: #ffb04d;
+      --color-success: #22cc55;
+      --color-warning: #ffd700;
+      --color-danger: #ff4444;
+      --color-text-primary: #fff0d0;
+      --color-text-secondary: #9f8a60;
+      --color-border: rgba(247, 147, 26, 0.14);
+      --color-scanline: rgba(247, 147, 26, 0.02);
     }
-    body.theme-ncr {
-      --color-bg-primary: #1a1408;
-      --color-bg-secondary: #2a2010;
-      --color-accent: #C4A35A;
-      --color-accent-hover: #D4B36A;
-      --color-success: #8B7355;
-      --color-warning: #DAA520;
-      --color-danger: #CD5C5C;
-      --color-text-primary: #F5DEB3;
-      --color-text-secondary: #C4A060;
-      --color-border: #5c4a2a;
-      --color-scanline: rgba(196, 163, 90, 0.02);
+    body.theme-monochrome {
+      --color-bg-primary: #080808;
+      --color-bg-secondary: #111111;
+      --color-accent: #cccccc;
+      --color-accent-hover: #eeeeee;
+      --color-success: #44cc66;
+      --color-warning: #ddaa00;
+      --color-danger: #ee4444;
+      --color-text-primary: #e0e0e0;
+      --color-text-secondary: #707070;
+      --color-border: rgba(204, 204, 204, 0.14);
+      --color-scanline: rgba(204, 204, 204, 0.02);
     }
-    body.theme-enclave {
-      --color-bg-primary: #0a0a14;
-      --color-bg-secondary: #141420;
-      --color-accent: #B22222;
-      --color-accent-hover: #D22222;
-      --color-success: #FFD700;
-      --color-warning: #FF6347;
-      --color-danger: #FF0000;
-      --color-text-primary: #F0F0F5;
-      --color-text-secondary: #9090A0;
-      --color-border: #3a3a5c;
-      --color-scanline: rgba(178, 34, 34, 0.02);
+    body.theme-steampunk {
+      --color-bg-primary: #0c0a08;
+      --color-bg-secondary: #141210;
+      --color-accent: #cd7f32;
+      --color-accent-hover: #e0a05a;
+      --color-success: #5a9a6a;
+      --color-warning: #cd7f32;
+      --color-danger: #a04030;
+      --color-text-primary: #e8dcc8;
+      --color-text-secondary: #8a7e6a;
+      --color-border: rgba(205, 127, 50, 0.14);
+      --color-scanline: rgba(205, 127, 50, 0.02);
     }
 
     /* Apply CSS variables to elements */
@@ -1523,28 +1523,28 @@ function getWebDashboardHtml(): string {
             </div>
             <div class="theme-options-list">
               <button class="theme-option" onclick="setTheme('vault-tec')">
-                <div class="theme-swatch" style="background:#0a1929;"><div class="theme-swatch-inner" style="background:#FFB000;"></div></div>
-                <span>Re-Tek Inc</span>
+                <div class="theme-swatch" style="background:#0a0d0a;"><div class="theme-swatch-inner" style="background:#ffd200;"></div></div>
+                <span>Vault-Tec</span>
               </button>
-              <button class="theme-option" onclick="setTheme('nuka-cola')">
-                <div class="theme-swatch" style="background:#1a0a0a;"><div class="theme-swatch-inner" style="background:#FF3131;"></div></div>
-                <span>Nuka-Cola</span>
+              <button class="theme-option" onclick="setTheme('nuclear')">
+                <div class="theme-swatch" style="background:#0a0e0a;"><div class="theme-swatch-inner" style="background:#39ff14;"></div></div>
+                <span>Nuclear</span>
               </button>
-              <button class="theme-option" onclick="setTheme('brotherhood')">
-                <div class="theme-swatch" style="background:#0a0a1a;"><div class="theme-swatch-inner" style="background:#4A90D9;"></div></div>
-                <span>Brotherhood</span>
+              <button class="theme-option" onclick="setTheme('tron')">
+                <div class="theme-swatch" style="background:#0a0a0f;"><div class="theme-swatch-inner" style="background:#00d4ff;"></div></div>
+                <span>TRON</span>
               </button>
-              <button class="theme-option" onclick="setTheme('institute')">
-                <div class="theme-swatch" style="background:#f0f0f0;"><div class="theme-swatch-inner" style="background:#00A0A0;"></div></div>
-                <span>Institute</span>
+              <button class="theme-option" onclick="setTheme('bitcoin')">
+                <div class="theme-swatch" style="background:#0f0c08;"><div class="theme-swatch-inner" style="background:#f7931a;"></div></div>
+                <span>Bitcoin</span>
               </button>
-              <button class="theme-option" onclick="setTheme('ncr')">
-                <div class="theme-swatch" style="background:#1a1408;"><div class="theme-swatch-inner" style="background:#C4A35A;"></div></div>
-                <span>NCR</span>
+              <button class="theme-option" onclick="setTheme('monochrome')">
+                <div class="theme-swatch" style="background:#080808;"><div class="theme-swatch-inner" style="background:#cccccc;"></div></div>
+                <span>Monochrome</span>
               </button>
-              <button class="theme-option" onclick="setTheme('enclave')">
-                <div class="theme-swatch" style="background:#0a0a14;"><div class="theme-swatch-inner" style="background:#B22222;"></div></div>
-                <span>Enclave</span>
+              <button class="theme-option" onclick="setTheme('steampunk')">
+                <div class="theme-swatch" style="background:#0c0a08;"><div class="theme-swatch-inner" style="background:#cd7f32;"></div></div>
+                <span>Steampunk</span>
               </button>
             </div>
           </div>
@@ -1971,7 +1971,7 @@ function getWebDashboardHtml(): string {
     }
 
     // Theme system
-    const themes = ['vault-tec', 'nuka-cola', 'brotherhood', 'institute', 'ncr', 'enclave'];
+    const themes = ['vault-tec', 'nuclear', 'tron', 'bitcoin', 'monochrome', 'steampunk'];
     let currentTheme = localStorage.getItem('theme') || 'vault-tec';
 
     function initTheme() {

@@ -513,7 +513,7 @@ export function DashboardPage() {
             <div className="absolute inset-0 flex items-center text-accent opacity-25 pointer-events-none">
               <Sparkline data={fleetHistory.hashSeries} height={110} filled strokeWidth={1.75} className="w-full" />
             </div>
-            <div className="relative z-10 text-4xl lg:text-5xl font-bold text-accent" style={{ textShadow: '0 0 12px var(--color-accent)' }}>
+            <div className="relative z-10 text-4xl lg:text-5xl font-bold font-data text-accent" style={{ textShadow: '0 0 12px var(--color-accent)' }}>
               {formatHashrate(totalHashrate)}
             </div>
           </div>
@@ -551,7 +551,7 @@ export function DashboardPage() {
             </div>
             <div className="text-xs text-text-secondary uppercase tracking-wider">Temperature</div>
           </div>
-          <div className={`text-2xl font-bold ${avgTemperature > 80 ? 'text-danger' : avgTemperature > 70 ? 'text-warning' : 'text-success'}`}>
+          <div className={`text-2xl font-bold font-data ${avgTemperature > 80 ? 'text-danger' : avgTemperature > 70 ? 'text-warning' : 'text-success'}`}>
             {avgTemperature > 0 ? formatTemperature(avgTemperature) : '--'}
           </div>
           <div className={`mt-2 ${avgTemperature > 80 ? 'text-danger' : avgTemperature > 70 ? 'text-warning' : 'text-success'}`}>
@@ -569,7 +569,7 @@ export function DashboardPage() {
             </div>
             <div className="text-xs text-text-secondary uppercase tracking-wider">Power</div>
           </div>
-          <div className="text-2xl font-bold text-border-highlight" style={{ textShadow: '0 0 8px var(--color-border-highlight)' }}>
+          <div className="text-2xl font-bold font-data text-border-highlight" style={{ textShadow: '0 0 8px var(--color-border-highlight)' }}>
             {formatPower(totalPower)}
           </div>
         </div>
@@ -584,7 +584,7 @@ export function DashboardPage() {
             </div>
             <div className="text-xs text-text-secondary uppercase tracking-wider">Efficiency</div>
           </div>
-          <div className="text-2xl font-bold text-success" style={{ textShadow: '0 0 8px var(--color-success)' }}>
+          <div className="text-2xl font-bold font-data text-success" style={{ textShadow: '0 0 8px var(--color-success)' }}>
             {formatEfficiency(avgEfficiency)}
           </div>
           <div className="mt-2 text-success">
@@ -602,7 +602,7 @@ export function DashboardPage() {
             </div>
             <div className="text-xs text-text-secondary uppercase tracking-wider">Shares</div>
           </div>
-          <div className="text-2xl font-bold text-success" style={{ textShadow: '0 0 8px var(--color-success)' }}>
+          <div className="text-2xl font-bold font-data text-success" style={{ textShadow: '0 0 8px var(--color-success)' }}>
             {totalShares.toLocaleString()}
           </div>
           {fleetHistory.sharesPerMin != null && (
@@ -629,7 +629,7 @@ export function DashboardPage() {
             </div>
             <div className="text-xs text-text-secondary uppercase tracking-wider">Best Diff</div>
           </div>
-          <div className="text-2xl font-bold text-warning" style={{ textShadow: '0 0 8px var(--color-warning)' }}>
+          <div className="text-2xl font-bold font-data text-warning" style={{ textShadow: '0 0 8px var(--color-warning)' }}>
             {formatDifficulty(bestDifficulty)}
           </div>
           {networkStats && bestDifficulty > 0 && networkStats.difficulty > bestDifficulty && (
@@ -650,7 +650,7 @@ export function DashboardPage() {
             </div>
             <div className="text-xs text-text-secondary uppercase tracking-wider">Power Cost</div>
           </div>
-          <div className="text-2xl font-bold text-danger" style={{ textShadow: '0 0 8px var(--color-danger)' }}>
+          <div className="text-2xl font-bold font-data text-danger" style={{ textShadow: '0 0 8px var(--color-danger)' }}>
             {formatCost(dailyPowerCost)}
           </div>
           <div className="text-xs text-text-secondary mt-1">
@@ -669,7 +669,7 @@ export function DashboardPage() {
             </div>
             <div className="text-xs text-text-secondary uppercase tracking-wider">Blocks Found</div>
           </div>
-          <div className="text-2xl font-bold text-success" style={{ textShadow: '0 0 8px var(--color-success)' }}>
+          <div className="text-2xl font-bold font-data text-success" style={{ textShadow: '0 0 8px var(--color-success)' }}>
             {blocksCount}
           </div>
           <div className="text-xs text-text-secondary mt-1">Solo mining</div>
@@ -685,7 +685,7 @@ export function DashboardPage() {
             </div>
             <div className="text-xs text-text-secondary uppercase tracking-wider">Block Time</div>
           </div>
-          <div className="text-2xl font-bold text-accent" style={{ textShadow: '0 0 8px var(--color-accent)' }}>
+          <div className="text-2xl font-bold font-data text-accent" style={{ textShadow: '0 0 8px var(--color-accent)' }}>
             {blockChance ? formatTimeToBlock(blockChance.daysToBlock) : '--'}
           </div>
           <div className="text-xs text-text-secondary mt-1">
