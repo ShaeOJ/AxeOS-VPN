@@ -757,6 +757,51 @@ export function DeviceDetailPage() {
                     </div>
                   );
                 })()}
+
+                {/* Session Best Share — AxeOS doesn't expose the literal "last share
+                    diff", so bestSessionDiff (best since restart) is the closest
+                    live per-session share metric. */}
+                {(() => {
+                  const m = metrics as Record<string, unknown>;
+                  const sd = metrics.bestSessionDiff ?? m.best_session_diff ?? m.bestSessionDifficulty;
+                  if (sd === undefined || sd === null || sd === 0) return null;
+                  return (
+                    <div className="p-3 bg-bg-primary border border-border">
+                      <div className="flex items-center gap-2 mb-1">
+                        <svg className="w-3 h-3 text-text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                        </svg>
+                        <span className="text-text-secondary uppercase text-xs tracking-wide">Session Best Share</span>
+                      </div>
+                      <div className="text-warning font-bold">
+                        {typeof sd === 'number' ? formatDifficulty(sd) : String(sd)}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Reject rate across the session */}
+                {(() => {
+                  const acc = Number(metrics.sharesAccepted) || 0;
+                  const rej = Number(metrics.sharesRejected) || 0;
+                  const total = acc + rej;
+                  if (total <= 0) return null;
+                  const pct = (rej / total) * 100;
+                  return (
+                    <div className="p-3 bg-bg-primary border border-border">
+                      <div className="flex items-center gap-2 mb-1">
+                        <svg className="w-3 h-3 text-text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M3 3v18h18"/><path d="M18 9l-5 5-3-3-4 4"/>
+                        </svg>
+                        <span className="text-text-secondary uppercase text-xs tracking-wide">Reject Rate</span>
+                      </div>
+                      <div className={`font-bold ${pct > 5 ? 'text-danger' : pct > 1 ? 'text-warning' : 'text-success'}`}>
+                        {pct < 0.01 && rej > 0 ? '<0.01' : pct.toFixed(2)}%
+                        <span className="text-text-secondary text-xs font-normal ml-1">({rej.toLocaleString()}/{total.toLocaleString()})</span>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>

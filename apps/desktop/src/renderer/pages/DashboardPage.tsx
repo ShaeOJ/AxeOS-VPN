@@ -346,9 +346,12 @@ export function DashboardPage() {
     const blocksPerDay = 144;
     // Expected time to find a block (in days)
     const daysToBlock = 1 / (probPerBlock * blocksPerDay);
-    // Daily probability (using 1 - (1-p)^n formula)
-    const dailyChance = 1 - Math.pow(1 - probPerBlock, blocksPerDay);
-    return { daysToBlock, dailyChance };
+    // Cumulative probability of finding at least one block over N blocks: 1-(1-p)^N
+    const chanceOver = (blocks: number) => 1 - Math.pow(1 - probPerBlock, blocks);
+    const dailyChance = chanceOver(blocksPerDay);
+    const weeklyChance = chanceOver(blocksPerDay * 7);
+    const yearlyChance = chanceOver(blocksPerDay * 365);
+    return { daysToBlock, dailyChance, weeklyChance, yearlyChance };
   };
   const blockChance = calculateBlockChance();
 
@@ -648,9 +651,13 @@ export function DashboardPage() {
               {formatDifficulty(bestDifficulty)}
             </div>
             {networkStats && bestDifficulty > 0 && networkStats.difficulty > bestDifficulty && (
-              <div className="text-xs text-text-secondary mt-1" title="Best share vs network difficulty — how close the luckiest share came to solving a block">
-                1 in {Math.round(networkStats.difficulty / bestDifficulty).toLocaleString()}
-                <span className="text-warning ml-1">{formatOdds(bestDifficulty / networkStats.difficulty)}</span>
+              <div className="mt-1.5" title="Best share vs network difficulty — how close your luckiest share came to solving a block">
+                <div className="text-[9px] text-text-secondary uppercase tracking-wider">Best share vs network</div>
+                <div className="flex items-center justify-center gap-1.5 text-xs">
+                  <span className="font-mono text-text-primary">1 in {Math.round(networkStats.difficulty / bestDifficulty).toLocaleString()}</span>
+                  <span className="text-text-secondary">·</span>
+                  <span className="font-mono text-warning">{formatOdds(bestDifficulty / networkStats.difficulty)}</span>
+                </div>
               </div>
             )}
           </div>
@@ -709,14 +716,24 @@ export function DashboardPage() {
             <div className="text-2xl font-bold font-data text-accent" style={{ textShadow: '0 0 8px var(--color-accent)' }}>
               {blockChance ? formatTimeToBlock(blockChance.daysToBlock) : '--'}
             </div>
-            <div className="text-xs text-text-secondary mt-1">
-              {blockChance ? (
-                <span className="text-warning">{formatOdds(blockChance.dailyChance)}/day</span>
-              ) : null}
-            </div>
-            <div className="text-xs text-text-secondary">
-              {networkStats ? `Diff: ${formatDifficulty(networkStats.difficulty)}` : 'Loading...'}
-            </div>
+            {blockChance ? (
+              <div className="mt-2 grid grid-cols-3 gap-1" title="Probability of solo-mining at least one block within this period">
+                {([
+                  ['DAY', blockChance.dailyChance],
+                  ['WEEK', blockChance.weeklyChance],
+                  ['YEAR', blockChance.yearlyChance],
+                ] as const).map(([label, chance]) => (
+                  <div key={label}>
+                    <div className="text-[9px] text-text-secondary uppercase tracking-wider">{label}</div>
+                    <div className="text-[10px] font-mono text-warning leading-tight break-all">{formatOdds(chance)}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-xs text-text-secondary mt-1">
+                {networkStats ? `Diff: ${formatDifficulty(networkStats.difficulty)}` : 'Loading...'}
+              </div>
+            )}
           </div>
         </div>
       </div>
