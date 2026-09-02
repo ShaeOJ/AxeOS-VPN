@@ -1533,3 +1533,7 @@ body.scanline-disabled .scanline-animate::after {
 
 @keyframes monoBlink { 0%, 49% { opacity: 1; } 50%, 65% { opacity: 0.1; } 66%, 100% { opacity: 1; } }
 .theme-monochrome .status-pulse { animation: monoBlink 1.2s step-end infinite; }
+
+/* Live end-point marker on the dashboard metric graphs — a fine steady blink. */
+@keyframes metric-blink { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.25; transform: scale(0.7); } }
+.animate-metric-blink { animation: metric-blink 1.3s ease-in-out infinite; }

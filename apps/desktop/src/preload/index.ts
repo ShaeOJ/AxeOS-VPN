@@ -40,6 +40,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Metrics
   getMetrics: (deviceId: string, options?: { startTime?: number; endTime?: number; limit?: number }) =>
     ipcRenderer.invoke('get-metrics', deviceId, options),
+  getBucketedMetrics: (deviceId: string, options?: { startTime?: number; endTime?: number; bucketMs?: number }) =>
+    ipcRenderer.invoke('get-metrics-bucketed', deviceId, options),
   getLatestMetrics: (deviceId: string) => ipcRenderer.invoke('get-latest-metrics', deviceId),
 
   // Found blocks
@@ -255,6 +257,16 @@ export interface MetricData {
   temperature: number | null;
   power: number | null;
   data: AxeOSSystemInfo | null;
+}
+
+export interface BucketedMetric {
+  timestamp: number;
+  hashrate: number | null;
+  temperature: number | null;
+  maxTemperature: number | null;
+  power: number | null;
+  sharesAccepted: number | null;
+  samples: number;
 }
 
 export interface BlockRecord {
@@ -478,6 +490,7 @@ export interface ElectronAPI {
       addDiscoveredDevice: (ip: string, hostname: string, deviceType?: string) => Promise<AddDeviceResult>;
 
       getMetrics: (deviceId: string, options?: { startTime?: number; endTime?: number; limit?: number }) => Promise<MetricData[]>;
+      getBucketedMetrics: (deviceId: string, options?: { startTime?: number; endTime?: number; bucketMs?: number }) => Promise<BucketedMetric[]>;
       getLatestMetrics: (deviceId: string) => Promise<{ timestamp: number; data: AxeOSSystemInfo } | null>;
 
       getBlocks: (limit?: number, offset?: number) => Promise<BlocksResult>;

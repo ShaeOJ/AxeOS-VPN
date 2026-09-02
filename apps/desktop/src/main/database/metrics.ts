@@ -63,6 +63,62 @@ export function getMetrics(
   return db.prepare(query).all(...params) as MetricRecord[];
 }
 
+export interface BucketedMetric {
+  timestamp: number; // bucket start (earliest sample in the bucket), ms
+  hashrate: number | null; // avg H/s over the bucket
+  temperature: number | null; // avg °C
+  maxTemperature: number | null; // peak °C in the bucket
+  power: number | null; // avg W
+  sharesAccepted: number | null; // max cumulative share counter seen in the bucket
+  samples: number; // raw rows folded into this bucket
+}
+
+// Downsampled time-series for charts/sparklines. The heavy lifting (averaging,
+// bucketing, and pulling just sharesAccepted out of the JSON blob) happens in
+// SQLite, so we ship ~1 row per bucket of plain numbers instead of thousands of
+// ~3KB `data` blobs that then have to be JSON.parsed in the renderer. This is
+// the single biggest win for chart load time + memory. Buckets are aligned to
+// the epoch (timestamp / bucketMs) so repeated calls return stable buckets.
+export function getBucketedMetrics(
+  deviceId: string,
+  options: { startTime?: number; endTime?: number; bucketMs?: number } = {}
+): BucketedMetric[] {
+  const db = getDatabase();
+  const { startTime, endTime, bucketMs = 5 * 60 * 1000 } = options;
+  const bucket = Math.max(1, Math.floor(bucketMs));
+
+  let query = `
+    SELECT
+      MIN(timestamp) AS timestamp,
+      AVG(hashrate) AS hashrate,
+      AVG(temperature) AS temperature,
+      MAX(temperature) AS maxTemperature,
+      AVG(power) AS power,
+      MAX(CAST(json_extract(data, '$.sharesAccepted') AS REAL)) AS sharesAccepted,
+      COUNT(*) AS samples
+    FROM metrics
+    WHERE device_id = ?`;
+  const params: (string | number)[] = [deviceId];
+
+  if (startTime) {
+    query += ' AND timestamp >= ?';
+    params.push(startTime);
+  }
+  if (endTime) {
+    query += ' AND timestamp <= ?';
+    params.push(endTime);
+  }
+
+  // CAST the divisor to INTEGER: better-sqlite3 binds JS numbers as REAL, and
+  // `timestamp / 300000.0` is a floating divide that never groups (every ms
+  // becomes a distinct bucket), which would collapse the aggregation and let the
+  // caller sum many raw rows into one cell. Integer division buckets correctly.
+  query += ` GROUP BY timestamp / CAST(? AS INTEGER) ORDER BY timestamp ASC`;
+  params.push(bucket);
+
+  return db.prepare(query).all(...params) as BucketedMetric[];
+}
+
 export function getLatestMetrics(deviceId: string): MetricRecord | undefined {
   const db = getDatabase();
   return db.prepare(`

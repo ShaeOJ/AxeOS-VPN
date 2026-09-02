@@ -671,6 +671,39 @@ ipcMain.handle('get-metrics', async (_, deviceId: string, options?: { startTime?
   }));
 });
 
+// Downsampled/bucketed metrics for charts + dashboard graphs. Aggregated in
+// SQLite (no `data` blob shipped) and memoised for a few seconds so that
+// toggling metric type / time window or several graph cards mounting at once
+// don't each re-hit the DB. Keyed by device + rounded window + bucket size.
+const bucketCache = new Map<string, { at: number; data: unknown }>();
+const BUCKET_CACHE_TTL = 15 * 1000;
+
+ipcMain.handle(
+  'get-metrics-bucketed',
+  async (_, deviceId: string, options?: { startTime?: number; endTime?: number; bucketMs?: number }) => {
+    const opts = options || {};
+    // Round startTime to the bucket so a live-advancing "now - window" start
+    // still hits the cache within the TTL.
+    const bucketMs = opts.bucketMs ?? 5 * 60 * 1000;
+    const roundedStart = opts.startTime ? Math.floor(opts.startTime / bucketMs) * bucketMs : 0;
+    const key = `${deviceId}|${roundedStart}|${opts.endTime ?? 0}|${bucketMs}`;
+
+    const cached = bucketCache.get(key);
+    if (cached && Date.now() - cached.at < BUCKET_CACHE_TTL) {
+      return cached.data;
+    }
+
+    const data = metrics.getBucketedMetrics(deviceId, opts);
+    bucketCache.set(key, { at: Date.now(), data });
+    // Keep the cache from growing unbounded across many devices/windows.
+    if (bucketCache.size > 200) {
+      const cutoff = Date.now() - BUCKET_CACHE_TTL;
+      for (const [k, v] of bucketCache) if (v.at < cutoff) bucketCache.delete(k);
+    }
+    return data;
+  }
+);
+
 // IPC Handlers - Found blocks
 ipcMain.handle('get-blocks', async (_, limit?: number, offset?: number) => {
   return {

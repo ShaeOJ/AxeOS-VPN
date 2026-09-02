@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useDeviceStore } from '../stores/deviceStore';
 import {
   LineChart,
@@ -13,23 +13,35 @@ import {
   AreaChart
 } from 'recharts';
 
-interface MetricData {
+interface BucketedMetric {
   timestamp: number;
   hashrate: number | null;
   temperature: number | null;
+  maxTemperature: number | null;
   power: number | null;
-  data: Record<string, unknown> | null;
+  sharesAccepted: number | null;
+  samples: number;
 }
 
 interface DeviceMetrics {
   deviceId: string;
   deviceName: string;
   color: string;
-  metrics: MetricData[];
+  metrics: BucketedMetric[];
 }
 
 type MetricType = 'hashrate' | 'temperature' | 'power' | 'efficiency';
 type TimeRange = '1h' | '6h' | '24h' | '7d' | '30d';
+
+// Bucket size per range, chosen so a full window returns ~60-200 points — the
+// downsampling happens in SQLite so the renderer never handles the raw firehose.
+const BUCKET_MS_BY_RANGE: Record<TimeRange, number> = {
+  '1h': 60 * 1000, // 1 min  -> ~60 pts
+  '6h': 2 * 60 * 1000, // 2 min  -> ~180 pts
+  '24h': 10 * 60 * 1000, // 10 min -> ~144 pts
+  '7d': 60 * 60 * 1000, // 1 hour -> ~168 pts
+  '30d': 4 * 60 * 60 * 1000, // 4 hour -> ~180 pts
+};
 
 const DEVICE_COLORS = [
   '#FFB000', // Re-Tek Yellow
@@ -68,117 +80,118 @@ export function ChartsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showAreaChart, setShowAreaChart] = useState(false);
 
-  // Auto-select first 3 online devices on mount
+  // Keep a live ref to devices for names/colors without making the fetch effect
+  // depend on `devices` — that array changes on every metrics poll and used to
+  // trigger a full re-fetch of all chart data several times a minute.
+  const devicesRef = useRef(devices);
+  devicesRef.current = devices;
+
+  // Short-lived client cache so re-selecting a device / toggling ranges back and
+  // forth doesn't re-hit IPC. Keyed by deviceId+range; the main process also
+  // caches the bucketed query, so this mostly avoids the round-trip entirely.
+  const cacheRef = useRef<Map<string, { at: number; rows: BucketedMetric[] }>>(new Map());
+  const CACHE_TTL = 30 * 1000;
+
+  // Auto-select first 3 online devices on mount (once we actually have devices).
+  const didAutoSelect = useRef(false);
   useEffect(() => {
+    if (didAutoSelect.current) return;
     const onlineDevices = devices.filter(d => d.isOnline).slice(0, 3);
-    if (onlineDevices.length > 0 && selectedDevices.length === 0) {
+    if (onlineDevices.length > 0) {
+      didAutoSelect.current = true;
       setSelectedDevices(onlineDevices.map(d => d.id));
     }
   }, [devices]);
 
-  // Fetch metrics when selection or time range changes
+  // Fetch metrics when selection or time range changes (NOT on every poll).
   useEffect(() => {
     if (selectedDevices.length === 0) {
       setDeviceMetrics([]);
       return;
     }
 
+    let cancelled = false;
     const fetchMetrics = async () => {
       setIsLoading(true);
       try {
         const hours = TIME_RANGES.find(t => t.value === timeRange)?.hours || 24;
         const startTime = Date.now() - hours * 60 * 60 * 1000;
+        const bucketMs = BUCKET_MS_BY_RANGE[timeRange];
 
         const metricsPromises = selectedDevices.map(async (deviceId, index) => {
-          const device = devices.find(d => d.id === deviceId);
-          const metrics = await window.electronAPI.getMetrics(deviceId, {
-            startTime,
-            limit: timeRange === '30d' ? 2000 : timeRange === '7d' ? 1000 : 500
-          });
+          const device = devicesRef.current.find(d => d.id === deviceId);
+          const cacheKey = `${deviceId}|${timeRange}`;
+          const cached = cacheRef.current.get(cacheKey);
+          let rows: BucketedMetric[];
+          if (cached && Date.now() - cached.at < CACHE_TTL) {
+            rows = cached.rows;
+          } else {
+            rows = await window.electronAPI.getBucketedMetrics(deviceId, { startTime, bucketMs });
+            cacheRef.current.set(cacheKey, { at: Date.now(), rows });
+          }
 
           return {
             deviceId,
             deviceName: device?.name || 'Unknown',
             color: DEVICE_COLORS[index % DEVICE_COLORS.length],
-            metrics
+            metrics: rows,
           };
         });
 
         const results = await Promise.all(metricsPromises);
-        setDeviceMetrics(results);
+        if (!cancelled) setDeviceMetrics(results);
       } catch (err) {
         console.error('Failed to fetch metrics:', err);
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     };
 
     fetchMetrics();
-  }, [selectedDevices, timeRange, devices]);
+    return () => { cancelled = true; };
+  }, [selectedDevices, timeRange]);
 
-  // Transform data for chart
+  // Transform data for chart. Rows are already bucketed + epoch-aligned in SQL,
+  // so we merge devices by their shared bucket boundary (no resampling / nearest-
+  // neighbour search needed).
   const chartData = useMemo(() => {
     if (deviceMetrics.length === 0) return [];
+    const bucketMs = BUCKET_MS_BY_RANGE[timeRange];
 
-    // Collect all unique timestamps
-    const allTimestamps = new Set<number>();
-    deviceMetrics.forEach(dm => {
-      dm.metrics.forEach(m => allTimestamps.add(m.timestamp));
-    });
-
-    // Sort timestamps
-    const sortedTimestamps = Array.from(allTimestamps).sort((a, b) => a - b);
-
-    // Sample data if too many points (for performance)
-    const maxPoints = 200;
-    const step = sortedTimestamps.length > maxPoints
-      ? Math.ceil(sortedTimestamps.length / maxPoints)
-      : 1;
-
-    const sampledTimestamps = sortedTimestamps.filter((_, i) => i % step === 0);
-
-    // Build chart data
-    return sampledTimestamps.map(timestamp => {
-      const dataPoint: Record<string, number | string | null> = {
-        timestamp,
-        time: formatTime(timestamp, timeRange)
-      };
-
-      deviceMetrics.forEach(dm => {
-        // Find closest metric to this timestamp (within 5 minutes)
-        const metric = dm.metrics.find(m => Math.abs(m.timestamp - timestamp) < 5 * 60 * 1000);
-
-        if (metric) {
-          let value: number | null = null;
-
-          switch (metricType) {
-            case 'hashrate':
-              // Hashrate stored in H/s, convert to GH/s for display
-              value = metric.hashrate ? metric.hashrate / 1e9 : null;
-              break;
-            case 'temperature':
-              value = metric.temperature;
-              break;
-            case 'power':
-              value = metric.power;
-              break;
-            case 'efficiency':
-              if (metric.power && metric.hashrate && metric.hashrate > 0) {
-                // Hashrate in H/s, convert to TH/s for efficiency calc
-                const hashrateTH = metric.hashrate / 1e12;
-                value = hashrateTH > 0 ? metric.power / hashrateTH : null; // J/TH
-              }
-              break;
+    const valueOf = (m: BucketedMetric): number | null => {
+      switch (metricType) {
+        case 'hashrate':
+          return m.hashrate ? m.hashrate / 1e9 : null; // H/s -> GH/s
+        case 'temperature':
+          return m.temperature;
+        case 'power':
+          return m.power;
+        case 'efficiency':
+          if (m.power && m.hashrate && m.hashrate > 0) {
+            const hashrateTH = m.hashrate / 1e12;
+            return hashrateTH > 0 ? m.power / hashrateTH : null; // J/TH
           }
+          return null;
+      }
+    };
 
-          dataPoint[dm.deviceId] = value;
-        } else {
-          dataPoint[dm.deviceId] = null;
+    // bucketKey -> data point
+    const byBucket = new Map<number, Record<string, number | string | null>>();
+    for (const dm of deviceMetrics) {
+      for (const m of dm.metrics) {
+        const key = Math.floor(m.timestamp / bucketMs);
+        let point = byBucket.get(key);
+        if (!point) {
+          point = { timestamp: m.timestamp, time: formatTime(m.timestamp, timeRange) };
+          byBucket.set(key, point);
         }
-      });
+        point[dm.deviceId] = valueOf(m);
+      }
+    }
 
-      return dataPoint;
-    });
+    return Array.from(byBucket.values()).sort(
+      (a, b) => (a.timestamp as number) - (b.timestamp as number)
+    );
   }, [deviceMetrics, metricType, timeRange]);
 
   // Calculate stats for each device
