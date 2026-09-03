@@ -72,7 +72,12 @@ export function MetricGraph({
   const coords = points.map((p) => ({ x: x(p.i), y: y(p.v) }));
 
   // Smooth line via a Catmull-Rom spline converted to cubic beziers — soft
-  // curves instead of sharp corners. Tension 6 is the standard Catmull-Rom.
+  // curves instead of sharp corners. The control-point Y is clamped to each
+  // segment's own [min,max] so the curve can't bulge past its endpoints: without
+  // this the spline overshoots on sharp transitions (a miner starting/stopping
+  // sends hashrate 0→high→0) and loops into "squiggles". Clamping keeps the
+  // horizontal smoothing while making the line monotone between samples.
+  const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
   const smoothPath = (pts: { x: number; y: number }[]): string => {
     if (pts.length < 2) return '';
     let d = `M ${pts[0].x.toFixed(2)} ${pts[0].y.toFixed(2)}`;
@@ -81,10 +86,12 @@ export function MetricGraph({
       const p1 = pts[i];
       const p2 = pts[i + 1];
       const p3 = pts[i + 2] ?? p2;
+      const loY = Math.min(p1.y, p2.y);
+      const hiY = Math.max(p1.y, p2.y);
       const cp1x = p1.x + (p2.x - p0.x) / 6;
-      const cp1y = p1.y + (p2.y - p0.y) / 6;
+      const cp1y = clamp(p1.y + (p2.y - p0.y) / 6, loY, hiY);
       const cp2x = p2.x - (p3.x - p1.x) / 6;
-      const cp2y = p2.y - (p3.y - p1.y) / 6;
+      const cp2y = clamp(p2.y - (p3.y - p1.y) / 6, loY, hiY);
       d += ` C ${cp1x.toFixed(2)} ${cp1y.toFixed(2)}, ${cp2x.toFixed(2)} ${cp2y.toFixed(2)}, ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`;
     }
     return d;
