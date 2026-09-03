@@ -93,8 +93,17 @@ export function MiniGlobe({ devices }: { devices: DeviceLike[] }) {
       CX = 0,
       CY = 0;
 
-    const accent =
+    // Read the active theme's accent. Kept in a mutable closure var + refreshed
+    // by a MutationObserver on the root element's class/data-theme so the globe
+    // recolors live when the user switches themes (Layout swaps the theme-* class
+    // on <html>), instead of staying stuck on whatever was set at mount.
+    const readAccent = () =>
       getComputedStyle(document.documentElement).getPropertyValue('--color-accent-rgb').trim() || '0,200,255';
+    let accent = readAccent();
+    const themeObs = new MutationObserver(() => {
+      accent = readAccent();
+    });
+    themeObs.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-theme'] });
     const danger = '255,68,85';
     const gold = '255,215,0';
     const beam = '90,255,130'; // green share-comet (front)
@@ -449,6 +458,7 @@ export function MiniGlobe({ devices }: { devices: DeviceLike[] }) {
       window.removeEventListener('mouseup', onUp);
       window.removeEventListener('mousemove', onMove);
       ro.disconnect();
+      themeObs.disconnect();
     };
   }, []);
 
