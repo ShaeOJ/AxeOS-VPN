@@ -331,8 +331,8 @@ Vault-Tec Mining Operations Division - BitAxe Monitoring System for managing mul
 ## Previous Changes (v1.5.5)
 
 ### Support Development
-- Added **Buy Me a Coffee** donate button in Settings > About
-- Link to https://buymeacoffee.com/shaeoj
+- Added **Donate** button in Settings > About
+- Link to https://whydonate.com/donate/asicpoolspace
 
 ---
 

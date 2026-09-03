@@ -440,7 +440,7 @@ Devices must fail **3 consecutive polls** before being marked offline, preventin
 - **Check for Updates** - Query GitHub for newer releases
 - **Platform** - Your operating system
 - **GitHub Link** - Project repository
-- **Buy Me a Coffee** - Support development
+- **Donate** - Support development
 
 ### Danger Zone
 
@@ -529,7 +529,7 @@ Choose from 6 Fallout-inspired themes:
 ## Support
 
 - **GitHub Issues**: Report bugs and request features
-- **Buy Me a Coffee**: Support development at https://buymeacoffee.com/shaeoj
+- **Donate**: Support asicpool.space at https://whydonate.com/donate/asicpoolspace
 
 ---
 
