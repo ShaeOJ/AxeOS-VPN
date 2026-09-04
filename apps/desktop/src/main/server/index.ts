@@ -190,6 +190,47 @@ export function startServer(): { port: number; addresses: string[] } {
     });
   });
 
+  // Bucketed fleet history for the summary-card graphs (hash/temp/power/eff over
+  // a 1/6/12h window). SQL-aggregated (no blobs), SHA-256 devices only for
+  // hash/power/eff so Scrypt miners don't pollute the fleet totals.
+  app.get('/api/fleet-history', requireAuth, (req, res) => {
+    try {
+      const hours = Math.min(Math.max(parseInt(String(req.query.hours || '12'), 10) || 12, 1), 48);
+      const bucketMs = 5 * 60 * 1000;
+      const now = Date.now();
+      const startTime = now - hours * 3600 * 1000;
+      const bucketCount = Math.round((hours * 3600 * 1000) / bucketMs);
+      const firstBucket = Math.floor(now / bucketMs) - (bucketCount - 1);
+      const hashSum = new Array(bucketCount).fill(0);
+      const tempSum = new Array(bucketCount).fill(0);
+      const tempCnt = new Array(bucketCount).fill(0);
+      const powerSum = new Array(bucketCount).fill(0);
+      for (const d of devices.getAllDevices()) {
+        const latest = poller.getLatestMetrics(d.id) as { algorithm?: string } | undefined;
+        const isScrypt = latest?.algorithm === 'scrypt';
+        const rows = metrics.getBucketedMetrics(d.id, { startTime, bucketMs });
+        for (const r of rows) {
+          const idx = Math.floor(r.timestamp / bucketMs) - firstBucket;
+          if (idx < 0 || idx >= bucketCount) continue;
+          if (r.hashrate != null && !isScrypt) hashSum[idx] += r.hashrate / 1e9; // H/s -> GH/s
+          if (r.temperature != null) { tempSum[idx] += r.temperature; tempCnt[idx] += 1; }
+          if (r.power != null && !isScrypt) powerSum[idx] += r.power;
+        }
+      }
+      const hash: (number | null)[] = [], temp: (number | null)[] = [], power: (number | null)[] = [], eff: (number | null)[] = [];
+      for (let i = 0; i < bucketCount; i++) {
+        const h = hashSum[i] > 0 ? hashSum[i] : null;
+        hash.push(h);
+        temp.push(tempCnt[i] > 0 ? tempSum[i] / tempCnt[i] : null);
+        power.push(powerSum[i] > 0 ? powerSum[i] : null);
+        eff.push(h && powerSum[i] > 0 ? powerSum[i] / (hashSum[i] / 1000) : null);
+      }
+      res.json({ hash, temp, power, eff });
+    } catch {
+      res.status(500).json({ error: 'fleet history failed' });
+    }
+  });
+
   // Get all devices with latest metrics
   app.get('/api/devices', requireAuth, (_req, res) => {
     const allDevices = devices.getAllDevices();
@@ -639,7 +680,7 @@ function getWebDashboardHtml(): string {
       0% { opacity: 0; transform: translateY(10px); }
       100% { opacity: 1; transform: translateY(0); }
     }
-    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .container { max-width: 1600px; width: 100%; margin: 0 auto; padding: 20px; }
     .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid #1a4a5c; animation: fade-in 0.4s ease-out forwards; position: relative; z-index: 10000; }
     .login-container .card { animation: fade-in 0.5s ease-out forwards; }
     .logo { font-size: 24px; font-weight: bold; color: #FFB000; text-transform: uppercase; letter-spacing: 2px; }
@@ -801,7 +842,44 @@ function getWebDashboardHtml(): string {
         inset 0 0 30px rgba(0, 0, 0, 0.3),
         inset 0 -14px 26px rgba(0, 0, 0, 0.28);
     }
-    .summary-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 24px; }
+    .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .histbtn { background: transparent; border: none; color: #8BA88B; font-family: 'Share Tech Mono', monospace; font-size: 11px; padding: 3px 11px; cursor: pointer; transition: all 0.15s; }
+    .histbtn:hover { color: var(--color-accent, #FFB000); }
+    .histbtn.active { background: color-mix(in srgb, var(--color-accent, #FFB000) 20%, transparent); color: var(--color-accent, #FFB000); }
+    /* Desktop two-column dashboard (mirrors the desktop app): left column = globe
+       + ticker + est. earnings, right = summary stat cards, devices full-width
+       below. Below 1024px it falls back to the normal stacked flow so mobile
+       stays clean. */
+    @media (min-width: 760px) {
+      /* Keep the desktop hero+cluster format down to tablet widths and just let
+         it shrink (fluid left column + fr stat columns) instead of reflowing to
+         the stacked mobile layout. Below 760px it stacks. */
+      /* Two independent-height columns (wrappers): dash-left = globe+ticker+
+         earnings, dash-main = the stat grid; devices span both below. */
+      #dashboard-section { display: grid; grid-template-columns: clamp(230px, 26%, 340px) minmax(0, 1fr); gap: clamp(10px, 1.5vw, 20px); align-items: start; }
+      .dash-left { grid-column: 1; }
+      .dash-main { grid-column: 2; min-width: 0; }
+      #devices-header, #devices-list { grid-column: 1 / -1; }
+      #devices-header { margin-top: 4px; }
+      /* Desktop "hero + cluster" (mirrors DashboardPage.tsx): big Total Hashrate
+         hero (2x2) + Temp/Power/Eff/Shares 2x2 cluster + secondary row. Rows 1-2
+         fixed so graph cards stay rectangular; row 3 auto so text-heavy cards
+         (Block Time) fit. Order: 1 hash 2 temp 3 power 4 eff 5 shares 6 best-diff
+         7 blocks 8 power-cost 9 block-time. */
+      .dash-main > .summary-grid { margin-bottom: 0; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: 164px 164px auto; }
+      .dash-main > .summary-grid > .summary-card { display: flex; flex-direction: column; overflow: hidden; }
+      .dash-main > .summary-grid > .summary-card > canvas { flex: 1 1 auto; height: auto !important; min-height: 0; margin-top: 8px; }
+      .dash-main > .summary-grid > .summary-card:nth-child(1) { grid-column: 1 / 3; grid-row: 1 / 3; }
+      .dash-main > .summary-grid > .summary-card:nth-child(1) #total-hashrate { font-size: clamp(26px, 3.4vw, 44px); }
+      .dash-main > .summary-grid > .summary-card:nth-child(2) { grid-column: 3; grid-row: 1; }
+      .dash-main > .summary-grid > .summary-card:nth-child(3) { grid-column: 4; grid-row: 1; }
+      .dash-main > .summary-grid > .summary-card:nth-child(4) { grid-column: 3; grid-row: 2; }
+      .dash-main > .summary-grid > .summary-card:nth-child(5) { grid-column: 4; grid-row: 2; }
+      .dash-main > .summary-grid > .summary-card:nth-child(6) { grid-column: 1; grid-row: 3; }
+      .dash-main > .summary-grid > .summary-card:nth-child(7) { grid-column: 2; grid-row: 3; }
+      .dash-main > .summary-grid > .summary-card:nth-child(8) { grid-column: 3; grid-row: 3; }
+      .dash-main > .summary-grid > .summary-card:nth-child(9) { grid-column: 4; grid-row: 3; }
+    }
     .summary-card {
       background: #0d2137;
       border: 2px solid #1a4a5c;
@@ -842,11 +920,29 @@ function getWebDashboardHtml(): string {
     }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
     .stat-label { font-size: 12px; color: #8BA88B; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; }
-    .stat-value { font-size: 32px; font-weight: bold; line-height: 1.1; }
+    .stat-value { font-size: clamp(17px, 2.1vw, 32px); font-weight: bold; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* Grid cards can shrink (min-width:0); values/labels stay on ONE line and
+       shrink/ellipsize instead of wrapping, so narrowing the window doesn't make
+       cards grow taller (preserves the rectangle). */
+    .summary-card { min-width: 0; }
+    .summary-card .stat-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* Smaller, responsive card icons + tighter icon chips. */
+    .summary-card svg { width: clamp(14px, 1.4vw, 22px) !important; height: auto !important; }
+    .summary-card div:has(> svg) { padding: clamp(5px, 0.6vw, 9px) !important; }
+    /* Dense secondary content shrinks/wraps to fit the card instead of spilling. */
+    #block-odds-grid { min-width: 0; }
+    #block-odds-grid > div { min-width: 0; overflow: hidden; }
+    #block-odds-grid [id^="odds-"] { font-size: clamp(8px, 0.85vw, 10px) !important; overflow-wrap: anywhere; }
+    #best-diff-breakdown, #best-diff-breakdown * { overflow-wrap: anywhere; min-width: 0; }
     .accent { color: #FFB000; }
     .success { color: #00FF41; text-shadow: 0 0 3px rgba(0,255,65,0.25); }
     .warning { color: #FF8C00; }
     .danger { color: #FF3131; }
+    /* Device cards as a responsive grid — smaller cards side-by-side instead of
+       big full-width cards stacked one per row. */
+    #devices-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 16px; align-items: start; }
+    #devices-list .card { margin-bottom: 0; }
+    @media (max-width: 560px) { #devices-list { grid-template-columns: 1fr; } }
     .device-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
     .device-name { font-size: 16px; font-weight: 600; color: #FFB000; }
     .device-ip { font-size: 12px; color: #8BA88B; }
@@ -925,9 +1021,12 @@ function getWebDashboardHtml(): string {
     }
     .modal-overlay.closing { animation: overlay-fade-out 0.25s ease-in forwards; }
     .modal {
-      background: #0d2137;
-      border: 2px solid #FFB000;
-      max-width: 600px;
+      background: color-mix(in srgb, var(--color-bg-secondary, #0d2137) 90%, transparent);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 2px solid var(--color-accent, #FFB000);
+      border-radius: 14px;
+      max-width: 620px;
       width: 90%;
       max-height: 90vh;
       overflow-y: auto;
@@ -946,18 +1045,21 @@ function getWebDashboardHtml(): string {
     .modal-header { padding: 20px; border-bottom: 2px solid #1a4a5c; display: flex; justify-content: space-between; align-items: center; }
     .modal-title { font-size: 20px; color: #FFB000; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 4px rgba(255,176,0,0.3); }
     .modal-body { padding: 20px; }
-    .detail-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
-    .detail-item { padding: 12px; background: #0a1929; border: 1px solid #1a4a5c; }
-    .detail-label { font-size: 10px; color: #8BA88B; text-transform: uppercase; margin-bottom: 4px; }
-    .detail-value { font-size: 18px; font-weight: bold; }
-    .section-title { font-size: 14px; color: #FFB000; text-transform: uppercase; letter-spacing: 1px; margin: 20px 0 12px; padding-bottom: 8px; border-bottom: 1px solid #1a4a5c; }
+    .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+    .detail-item { padding: 12px 14px; background: var(--color-bg-secondary, #0d2137); border: 1px solid var(--color-border, #1a4a5c); border-radius: 10px; transition: border-color 0.15s, box-shadow 0.15s; min-width: 0; }
+    .detail-item:hover { border-color: var(--color-accent, #FFB000); box-shadow: 0 0 10px color-mix(in srgb, var(--color-accent, #FFB000) 15%, transparent); }
+    .detail-label { font-size: 10px; color: #8BA88B; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .detail-value { font-size: 18px; font-weight: bold; overflow-wrap: anywhere; }
+    .section-title { font-size: 14px; color: var(--color-accent, #FFB000); text-transform: uppercase; letter-spacing: 1px; margin: 20px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--color-border, #1a4a5c); }
+    .section-title svg { stroke: var(--color-accent, #FFB000); }
+    #control-panel input[type="range"] { accent-color: var(--color-accent, #FFB000); }
 
     /* Mobile Responsive Styles */
     @media (max-width: 768px) {
       .container { padding: 12px; }
       .header { flex-direction: column; gap: 12px; text-align: center; }
       .header img { height: 50px; }
-      .summary-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+      .summary-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
       .summary-card { padding: 16px; border-radius: 10px; }
       .grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
       .card { padding: 16px; }
@@ -987,7 +1089,7 @@ function getWebDashboardHtml(): string {
 
     @media (max-width: 480px) {
       .container { padding: 8px; }
-      .summary-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+      .summary-grid { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
       .summary-card { padding: 14px; }
       .summary-card .stat-value { font-size: 20px; }
       .grid { grid-template-columns: 1fr; gap: 8px; }
@@ -1019,6 +1121,7 @@ function getWebDashboardHtml(): string {
       border: 2px solid #1a4a5c;
       padding: 12px 16px;
       margin-bottom: 24px;
+      border-radius: 12px;
       position: relative;
     }
     .crypto-ticker::before {
@@ -1146,6 +1249,7 @@ function getWebDashboardHtml(): string {
       border: 2px solid #1a4a5c;
       padding: 12px 16px;
       margin-bottom: 24px;
+      border-radius: 12px;
       position: relative;
     }
     .profitability-widget::before {
@@ -1503,12 +1607,6 @@ function getWebDashboardHtml(): string {
         </div>
       </div>
       <div style="display: flex; gap: 10px; align-items: center;">
-        <button id="bg-toggle" onclick="toggleBackground()" class="btn btn-secondary" title="Toggle animated background" style="padding: 8px 12px; display: flex; align-items: center; gap: 6px;">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
-          </svg>
-          <span id="bg-toggle-text">FX</span>
-        </button>
         <div class="theme-selector">
           <button onclick="toggleThemeDropdown()" class="btn btn-secondary theme-btn" title="Change theme">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1555,6 +1653,13 @@ function getWebDashboardHtml(): string {
 
     <!-- Dashboard Section -->
     <div class="dashboard-section" id="dashboard-section">
+
+    <div class="dash-left">
+    <!-- Fleet share-globe -->
+    <div class="summary-card" id="globe-card" style="margin-bottom: 20px; height: 300px; padding: 0; position: relative; overflow: hidden;">
+      <canvas id="share-globe" style="display: block; width: 100%; height: 100%; cursor: grab;"></canvas>
+      <div style="position: absolute; top: 10px; left: 0; right: 0; text-align: center; font-size: 10px; letter-spacing: 2px; color: #8BA88B; text-transform: uppercase; pointer-events: none;">Share Uplink</div>
+    </div>
 
     <!-- Crypto Ticker Widget -->
     <div class="crypto-ticker" id="crypto-ticker">
@@ -1647,9 +1752,20 @@ function getWebDashboardHtml(): string {
             <span style="margin-left:12px;">Block Reward: <span id="profit-block-reward" style="color:#FFB000;">--</span> <span id="profit-reward-symbol">BTC</span></span>
           </div>
         </div>
+        <div class="profit-section">
+          <div class="profit-section-title">Support Development</div>
+          <a href="https://whydonate.com/donate/asicpoolspace" target="_blank" rel="noopener noreferrer" title="Support asicpool.space — keep it free &amp; zero-fee"
+             style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:8px;background:var(--color-accent,#FFB000);color:var(--color-bg-primary,#0a0d0a);font-weight:600;font-size:12px;text-decoration:none;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+            Donate
+          </a>
+        </div>
       </div>
     </div>
 
+    </div><!-- /dash-left -->
+
+    <div class="dash-main">
     <div class="summary-grid">
       <!-- Hashrate Card -->
       <div class="summary-card">
@@ -1662,9 +1778,12 @@ function getWebDashboardHtml(): string {
           <div class="stat-label" style="margin: 0;">Total Hashrate</div>
         </div>
         <div id="total-hashrate" class="stat-value accent" style="text-shadow: 0 0 6px rgba(255,176,0,0.4);">--</div>
-        <div style="height: 6px; background: rgba(10,25,41,0.8); border: 1px solid rgba(26,74,92,0.6); border-radius: 3px; margin-top: 12px; overflow: hidden;">
-          <div id="hashrate-bar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #FFB000, #FFC940); transition: width 0.5s; border-radius: 3px;"></div>
+        <div class="hist-toggle" style="display: inline-flex; gap: 0; margin-top: 8px; border: 1px solid var(--color-border, #1a4a5c); border-radius: 6px; overflow: hidden;">
+          <button id="histbtn-1" class="histbtn" onclick="setHistWindow(1)">1H</button>
+          <button id="histbtn-6" class="histbtn" onclick="setHistWindow(6)">6H</button>
+          <button id="histbtn-12" class="histbtn active" onclick="setHistWindow(12)">12H</button>
         </div>
+        <canvas id="hash-graph" style="display: block; width: 100%; height: 64px; margin-top: 10px;"></canvas>
       </div>
       <!-- Temperature Card -->
       <div class="summary-card">
@@ -1677,10 +1796,8 @@ function getWebDashboardHtml(): string {
           <div class="stat-label" style="margin: 0;">Avg Temperature</div>
         </div>
         <div id="avg-temp" class="stat-value success">--</div>
-        <div style="height: 6px; background: rgba(10,25,41,0.8); border: 1px solid rgba(26,74,92,0.6); border-radius: 3px; margin-top: 12px; overflow: hidden;">
-          <div id="temp-bar" style="height: 100%; width: 0%; background: #00FF41; transition: width 0.5s; border-radius: 3px;"></div>
-        </div>
-        <div style="font-size: 11px; color: #8BA88B; margin-top: 8px; text-align: right; text-transform: uppercase; letter-spacing: 0.5px;"><span id="temp-status">OPTIMAL</span></div>
+        <canvas id="temp-graph" style="display: block; width: 100%; height: 40px; margin-top: 8px;"></canvas>
+        <div style="font-size: 11px; color: #8BA88B; margin-top: 4px; text-align: right; text-transform: uppercase; letter-spacing: 0.5px;"><span id="temp-status">OPTIMAL</span></div>
       </div>
       <!-- Power Card -->
       <div class="summary-card">
@@ -1693,9 +1810,7 @@ function getWebDashboardHtml(): string {
           <div class="stat-label" style="margin: 0;">Total Power</div>
         </div>
         <div id="total-power" class="stat-value" style="color: #00CED1; text-shadow: 0 0 4px rgba(0,206,209,0.3);">--</div>
-        <div style="height: 6px; background: rgba(10,25,41,0.8); border: 1px solid rgba(26,74,92,0.6); border-radius: 3px; margin-top: 12px; overflow: hidden;">
-          <div id="power-bar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #00CED1, #20B2AA); transition: width 0.5s; border-radius: 3px;"></div>
-        </div>
+        <canvas id="power-graph" style="display: block; width: 100%; height: 40px; margin-top: 10px;"></canvas>
       </div>
       <!-- Efficiency Card -->
       <div class="summary-card">
@@ -1708,9 +1823,7 @@ function getWebDashboardHtml(): string {
           <div class="stat-label" style="margin: 0;">Efficiency</div>
         </div>
         <div id="efficiency" class="stat-value" style="color: #00FF41; text-shadow: 0 0 4px rgba(0,255,65,0.3);">--</div>
-        <div style="height: 6px; background: rgba(10,25,41,0.8); border: 1px solid rgba(26,74,92,0.6); border-radius: 3px; margin-top: 12px; overflow: hidden;">
-          <div id="efficiency-bar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #00FF41, #00CC33); transition: width 0.5s; border-radius: 3px;"></div>
-        </div>
+        <canvas id="eff-graph" style="display: block; width: 100%; height: 40px; margin-top: 10px;"></canvas>
       </div>
       <!-- Shares Card -->
       <div class="summary-card">
@@ -1736,6 +1849,10 @@ function getWebDashboardHtml(): string {
           <div class="stat-label" style="margin: 0;">Best Difficulty</div>
         </div>
         <div id="best-difficulty" class="stat-value" style="color: #FF8C00; text-shadow: 0 0 4px rgba(255,140,0,0.3);">--</div>
+        <div id="best-diff-breakdown" style="margin-top: 6px; display: none;" title="Best share vs network difficulty — how close your luckiest share came to solving a block">
+          <div style="font-size: 9px; color: #8BA88B; text-transform: uppercase; letter-spacing: 0.5px;">Best share vs network</div>
+          <div style="font-size: 12px; font-family: monospace;"><span id="best-diff-ratio" style="color: var(--color-text-primary, #d7e4c9);">--</span> <span style="color: #8BA88B;">·</span> <span id="best-diff-pct" style="color: #FF8C00;">--</span></div>
+        </div>
       </div>
       <!-- Blocks Found Card -->
       <div class="summary-card" style="cursor: pointer;" onclick="openBlocksPanel()" title="View block history">
@@ -1774,12 +1891,17 @@ function getWebDashboardHtml(): string {
           <div class="stat-label" style="margin: 0;">Block Time</div>
         </div>
         <div id="block-time" class="stat-value accent" style="text-shadow: 0 0 4px rgba(255,176,0,0.3);">--</div>
-        <div id="daily-odds" style="font-size: 11px; color: #FF8C00; margin-top: 4px;">--</div>
-        <div id="network-difficulty" style="font-size: 11px; color: #8BA88B; margin-top: 4px;">Loading...</div>
+        <div id="block-odds-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-top: 8px; text-align: center;" title="Probability of solo-mining at least one block within this period">
+          <div><div style="font-size: 9px; color: #8BA88B; text-transform: uppercase; letter-spacing: 0.5px;">Day</div><div id="odds-day" style="font-size: 10px; color: #FF8C00; font-family: monospace;">--</div></div>
+          <div><div style="font-size: 9px; color: #8BA88B; text-transform: uppercase; letter-spacing: 0.5px;">Week</div><div id="odds-week" style="font-size: 10px; color: #FF8C00; font-family: monospace;">--</div></div>
+          <div><div style="font-size: 9px; color: #8BA88B; text-transform: uppercase; letter-spacing: 0.5px;">Year</div><div id="odds-year" style="font-size: 10px; color: #FF8C00; font-family: monospace;">--</div></div>
+        </div>
+        <div id="network-difficulty" style="font-size: 11px; color: #8BA88B; margin-top: 6px;">Loading...</div>
       </div>
     </div>
+    </div><!-- /dash-main -->
 
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+    <div id="devices-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
       <h3 style="color: #FFB000; text-transform: uppercase; letter-spacing: 1px;">Devices (<span id="device-count">0</span>)</h3>
       <button onclick="openAddDeviceModal()" class="btn btn-primary" style="padding: 8px 16px;">
         <span style="display: flex; align-items: center; gap: 6px;">
@@ -2105,6 +2227,7 @@ function getWebDashboardHtml(): string {
       document.getElementById('dashboard-view').classList.remove('hidden');
       await fetchDevices(); setInterval(fetchDevices, 5000);
       await fetchBlocks(true); setInterval(function(){ fetchBlocks(false); }, 15000);
+      setHistWindow(histWindow); setInterval(fetchFleetHistory, 60000);
     }
 
     async function fetchDevices() {
@@ -2279,30 +2402,30 @@ function getWebDashboardHtml(): string {
         html += '<div style="margin-bottom:16px;">';
         html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
         html += '<label style="color:#8BA88B;font-size:12px;">Fan Speed</label>';
-        html += '<span id="fan-value" style="color:#FFB000;font-size:12px;">' + (m.fanspeed || 0) + '%</span>';
+        html += '<span id="fan-value" style="color:var(--color-accent);font-size:12px;">' + (m.fanspeed || 0) + '%</span>';
         html += '</div>';
         html += '<input type="range" id="fan-slider" min="0" max="100" value="' + (m.fanspeed || 0) + '" style="width:100%;cursor:pointer;" oninput="document.getElementById(\\'fan-value\\').textContent=this.value+\\'%\\'">';
-        html += '<button onclick="applyFanSpeed()" style="margin-top:8px;padding:12px 16px;background:#1a4a5c;border:1px solid #00CED1;color:#00CED1;cursor:pointer;font-size:14px;min-height:44px;width:100%;touch-action:manipulation;">Apply Fan Speed</button>';
+        html += '<button onclick="applyFanSpeed()" style="margin-top:8px;padding:12px 16px;background:color-mix(in srgb, var(--color-accent) 14%, transparent);border:1px solid var(--color-accent);color:var(--color-accent);border-radius:8px;cursor:pointer;font-size:14px;min-height:44px;width:100%;touch-action:manipulation;">Apply Fan Speed</button>';
         html += '</div>';
 
         // Frequency
         html += '<div style="margin-bottom:16px;">';
         html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
         html += '<label style="color:#8BA88B;font-size:12px;">Frequency</label>';
-        html += '<span id="freq-value" style="color:#FFB000;font-size:12px;">' + Math.round(m.frequency || 485) + ' MHz</span>';
+        html += '<span id="freq-value" style="color:var(--color-accent);font-size:12px;">' + Math.round(m.frequency || 485) + ' MHz</span>';
         html += '</div>';
         html += '<input type="range" id="freq-slider" min="400" max="900" step="5" value="' + Math.round(m.frequency || 485) + '" style="width:100%;cursor:pointer;" oninput="document.getElementById(\\'freq-value\\').textContent=this.value+\\' MHz\\'">';
-        html += '<button onclick="applyFrequency()" style="margin-top:8px;padding:12px 16px;background:#1a4a5c;border:1px solid #00CED1;color:#00CED1;cursor:pointer;font-size:14px;min-height:44px;width:100%;touch-action:manipulation;">Apply Frequency</button>';
+        html += '<button onclick="applyFrequency()" style="margin-top:8px;padding:12px 16px;background:color-mix(in srgb, var(--color-accent) 14%, transparent);border:1px solid var(--color-accent);color:var(--color-accent);border-radius:8px;cursor:pointer;font-size:14px;min-height:44px;width:100%;touch-action:manipulation;">Apply Frequency</button>';
         html += '</div>';
 
         // Core Voltage
         html += '<div style="margin-bottom:16px;">';
         html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
         html += '<label style="color:#8BA88B;font-size:12px;">Core Voltage</label>';
-        html += '<span id="voltage-value" style="color:#FFB000;font-size:12px;">' + (m.coreVoltage || 1200) + ' mV</span>';
+        html += '<span id="voltage-value" style="color:var(--color-accent);font-size:12px;">' + (m.coreVoltage || 1200) + ' mV</span>';
         html += '</div>';
         html += '<input type="range" id="voltage-slider" min="1000" max="1300" step="10" value="' + (m.coreVoltage || 1200) + '" style="width:100%;cursor:pointer;" oninput="document.getElementById(\\'voltage-value\\').textContent=this.value+\\' mV\\'">';
-        html += '<button onclick="applyVoltage()" style="margin-top:8px;padding:12px 16px;background:#1a4a5c;border:1px solid #00CED1;color:#00CED1;cursor:pointer;font-size:14px;min-height:44px;width:100%;touch-action:manipulation;">Apply Voltage</button>';
+        html += '<button onclick="applyVoltage()" style="margin-top:8px;padding:12px 16px;background:color-mix(in srgb, var(--color-accent) 14%, transparent);border:1px solid var(--color-accent);color:var(--color-accent);border-radius:8px;cursor:pointer;font-size:14px;min-height:44px;width:100%;touch-action:manipulation;">Apply Voltage</button>';
         html += '</div>';
 
         html += '<div id="control-status" style="display:none;padding:8px;margin-top:8px;font-size:11px;"></div>';
@@ -2512,11 +2635,6 @@ function getWebDashboardHtml(): string {
       const efficiency = totalHashrate > 0 ? (totalPower / (totalHashrate / 1000)) : 0;
       document.getElementById('efficiency').textContent = efficiency > 0 ? efficiency.toFixed(1) + ' J/TH' : '--';
 
-      // Update gauge bars
-      const maxHashrate = Math.max(totalHashrate, 1000); // Assume at least 1 TH/s scale
-      document.getElementById('hashrate-bar').style.width = Math.min((totalHashrate / maxHashrate) * 100, 100) + '%';
-      document.getElementById('power-bar').style.width = Math.min((totalPower / 100) * 100, 100) + '%';
-      document.getElementById('efficiency-bar').style.width = Math.max(100 - (efficiency / 50 * 100), 10) + '%';
 
       // Temperature with dynamic coloring
       const avgTemp = onlineCount > 0 ? tempSum / onlineCount : 0;
@@ -2524,39 +2642,33 @@ function getWebDashboardHtml(): string {
       avgTempEl.textContent = avgTemp > 0 ? formatTemp(avgTemp) : '--';
       avgTempEl.className = 'stat-value ' + getTempClass(avgTemp);
 
-      // Update temp bar and status
-      const tempBar = document.getElementById('temp-bar');
+      // Update temp status + icon color (graph drawn below)
       const tempStatus = document.getElementById('temp-status');
       const tempIconBg = document.getElementById('temp-icon-bg');
       const tempIcon = document.getElementById('temp-icon');
+      let tempColor = '#00FF41', tempStatusText = 'OPTIMAL';
+      if (avgTemp > 80) { tempColor = '#FF3131'; tempStatusText = 'CRITICAL'; }
+      else if (avgTemp > 70) { tempColor = '#FF8C00'; tempStatusText = 'WARM'; }
+      tempStatus.textContent = tempStatusText;
+      tempStatus.style.color = tempColor;
+      tempIconBg.style.background = tempColor === '#FF3131' ? 'rgba(255,49,49,0.2)' : tempColor === '#FF8C00' ? 'rgba(255,140,0,0.2)' : 'rgba(0,255,65,0.2)';
+      tempIconBg.style.borderColor = tempColor === '#FF3131' ? 'rgba(255,49,49,0.4)' : tempColor === '#FF8C00' ? 'rgba(255,140,0,0.4)' : 'rgba(0,255,65,0.4)';
+      tempIcon.setAttribute('stroke', tempColor);
+      __lastTempColor = tempColor;
 
-      tempBar.style.width = Math.min((avgTemp / 100) * 100, 100) + '%';
+      // Redraw the card graphs (data comes from /api/fleet-history).
+      drawAllMetricGraphs();
 
-      if (avgTemp > 80) {
-        tempBar.style.background = '#FF3131';
-        tempStatus.textContent = 'CRITICAL';
-        tempStatus.style.color = '#FF3131';
-        tempIconBg.style.background = 'rgba(255,49,49,0.2)';
-        tempIconBg.style.borderColor = 'rgba(255,49,49,0.4)';
-        tempIcon.setAttribute('stroke', '#FF3131');
-      } else if (avgTemp > 70) {
-        tempBar.style.background = '#FF8C00';
-        tempStatus.textContent = 'WARM';
-        tempStatus.style.color = '#FF8C00';
-        tempIconBg.style.background = 'rgba(255,140,0,0.2)';
-        tempIconBg.style.borderColor = 'rgba(255,140,0,0.4)';
-        tempIcon.setAttribute('stroke', '#FF8C00');
-      } else {
-        tempBar.style.background = '#00FF41';
-        tempStatus.textContent = 'OPTIMAL';
-        tempStatus.style.color = '#00FF41';
-        tempIconBg.style.background = 'rgba(0,255,65,0.2)';
-        tempIconBg.style.borderColor = 'rgba(0,255,65,0.4)';
-        tempIcon.setAttribute('stroke', '#00FF41');
-      }
-
-      // Update Best Difficulty
+      // Update Best Difficulty (+ best-share-vs-network breakdown)
       document.getElementById('best-difficulty').textContent = bestDiff > 0 ? formatDifficulty(bestDiff) : '--';
+      const bdBreakdown = document.getElementById('best-diff-breakdown');
+      if (bestDiff > 0 && networkStats && networkStats.difficulty > bestDiff) {
+        document.getElementById('best-diff-ratio').textContent = '1 in ' + Math.round(networkStats.difficulty / bestDiff).toLocaleString();
+        document.getElementById('best-diff-pct').textContent = formatOdds(bestDiff / networkStats.difficulty);
+        bdBreakdown.style.display = 'block';
+      } else {
+        bdBreakdown.style.display = 'none';
+      }
 
       // Update Power Cost
       const electricityCost = parseFloat(document.getElementById('electricity-cost-input')?.value || '0.10');
@@ -2570,17 +2682,84 @@ function getWebDashboardHtml(): string {
         const blockChance = calculateBlockChance(totalHashrate, networkStats.difficulty);
         if (blockChance) {
           document.getElementById('block-time').textContent = formatTimeToBlock(blockChance.daysToBlock);
-          document.getElementById('daily-odds').textContent = formatOdds(blockChance.dailyOdds) + '/day';
+          document.getElementById('odds-day').textContent = formatOdds(blockChance.dailyOdds);
+          document.getElementById('odds-week').textContent = formatOdds(blockChance.weeklyOdds);
+          document.getElementById('odds-year').textContent = formatOdds(blockChance.yearlyOdds);
           document.getElementById('network-difficulty').textContent = 'Diff: ' + formatDifficulty(networkStats.difficulty);
         }
       } else {
         document.getElementById('block-time').textContent = '--';
-        document.getElementById('daily-odds').textContent = '--';
+        document.getElementById('odds-day').textContent = '--';
+        document.getElementById('odds-week').textContent = '--';
+        document.getElementById('odds-year').textContent = '--';
         document.getElementById('network-difficulty').textContent = totalHashrate > 0 ? 'Loading network stats...' : 'No active miners';
       }
     }
 
     function formatHashrate(h) { if (!h) return '--'; if (h >= 1000) return (h / 1000).toFixed(2) + ' TH/s'; if (h < 1) return (h * 1000).toFixed(2) + ' MH/s'; return h.toFixed(2) + ' GH/s'; }
+
+    // Rolling per-metric history + gradient graphs on the summary cards (mirrors
+    // the desktop app; replaces the old progress bars). Persisted so graphs
+    // aren't empty after a reload; fills to a ~10-15min window as it samples.
+    var histWindow = parseInt(localStorage.getItem('histWindow') || '12', 10) || 12;
+    var fleetSeries = { hash: [], temp: [], power: [], eff: [] };
+    function fetchFleetHistory() {
+      if (typeof token === 'undefined' || !token) return;
+      fetch('/api/fleet-history?hours=' + histWindow, { headers: { 'Authorization': 'Bearer ' + token } })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) { if (d && d.hash) { fleetSeries = d; drawAllMetricGraphs(); } })
+        .catch(function () {});
+    }
+    function setHistWindow(h) {
+      histWindow = h;
+      try { localStorage.setItem('histWindow', String(h)); } catch (e) {}
+      ['1', '6', '12'].forEach(function (w) { var b = document.getElementById('histbtn-' + w); if (b) b.className = 'histbtn' + (String(histWindow) === w ? ' active' : ''); });
+      fetchFleetHistory();
+    }
+    function drawMetricGraph(canvasId, arr, colorHex, opts) {
+      var cv = document.getElementById(canvasId); if (!cv) return;
+      var w = cv.clientWidth, h = cv.clientHeight; if (!w || !h) return;
+      var dpr = window.devicePixelRatio || 1;
+      if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+      var g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+      var data = arr.filter(function (v) { return v != null && isFinite(v); });
+      if (data.length < 2) { g.fillStyle = 'rgba(139,168,139,0.5)'; g.font = '10px monospace'; g.fillText('collecting…', 4, h / 2 + 3); return; }
+      var min = Math.min.apply(null, data), max = Math.max.apply(null, data); var range = (max - min) || (max || 1); var pad = h * 0.18;
+      var rgb = hexToRgb(colorHex); var rgbStr = rgb.r + ',' + rgb.g + ',' + rgb.b; var n = data.length;
+      var X = function (i) { return (i / (n - 1)) * w; }; var Y = function (v) { return h - pad - ((v - min) / range) * (h - 2 * pad); };
+      var grad = g.createLinearGradient(0, 0, 0, h); grad.addColorStop(0, 'rgba(' + rgbStr + ',0.38)'); grad.addColorStop(1, 'rgba(' + rgbStr + ',0)');
+      // Smooth curve via clamped Catmull-Rom -> bezier (same as the desktop
+      // MetricGraph): control-point Y is clamped to each segment so it can't
+      // overshoot into "squiggles" on sharp start/stop transitions.
+      var pts = []; for (var i = 0; i < n; i++) pts.push({ x: X(i), y: Y(data[i]) });
+      var clampV = function (v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); };
+      var trace = function (ctx) { for (var k = 0; k < pts.length - 1; k++) { var p0 = pts[k - 1] || pts[k], p1 = pts[k], p2 = pts[k + 1], p3 = pts[k + 2] || p2; var loY = Math.min(p1.y, p2.y), hiY = Math.max(p1.y, p2.y); var c1x = p1.x + (p2.x - p0.x) / 6, c1y = clampV(p1.y + (p2.y - p0.y) / 6, loY, hiY); var c2x = p2.x - (p3.x - p1.x) / 6, c2y = clampV(p2.y - (p3.y - p1.y) / 6, loY, hiY); ctx.bezierCurveTo(c1x, c1y, c2x, c2y, p2.x, p2.y); } };
+      g.beginPath(); g.moveTo(pts[0].x, h); g.lineTo(pts[0].x, pts[0].y); trace(g); g.lineTo(pts[n - 1].x, h); g.closePath(); g.fillStyle = grad; g.fill();
+      g.beginPath(); g.moveTo(pts[0].x, pts[0].y); trace(g); g.strokeStyle = 'rgb(' + rgbStr + ')'; g.lineWidth = 1.6; g.lineJoin = 'round'; g.lineCap = 'round'; g.stroke();
+      g.beginPath(); g.arc(X(n - 1), Y(data[n - 1]), 2, 0, Math.PI * 2); g.fillStyle = 'rgb(' + rgbStr + ')'; g.fill();
+      // Optional X (time) / Y (value) axis labels — only on the big hero graph.
+      if (opts && opts.axis) {
+        var fmt = opts.unit === 'hash'
+          ? function (v) { return v >= 1000 ? (v / 1000).toFixed(1) + 'T' : Math.round(v) + 'G'; }
+          : function (v) { return Math.round(v).toString(); };
+        g.fillStyle = 'rgba(139,168,139,0.8)'; g.font = '9px monospace';
+        g.textAlign = 'left'; g.textBaseline = 'top'; g.fillText(fmt(max), 3, 2);
+        g.textBaseline = 'bottom'; g.fillText(fmt(min), 3, h - 2);
+        var mid = Math.round(w / 2);
+        g.textBaseline = 'bottom';
+        g.textAlign = 'left'; g.fillText('-' + (opts.windowHours || 12) + 'h', 3, h - 12);
+        g.textAlign = 'center'; g.fillText('-' + Math.round((opts.windowHours || 12) / 2) + 'h', mid, h - 2);
+        g.textAlign = 'right'; g.fillText('now', w - 3, h - 2);
+      }
+    }
+    var __lastTempColor = '#00FF41';
+    function drawAllMetricGraphs() {
+      drawMetricGraph('hash-graph', fleetSeries.hash || [], getAccentColor(), { axis: true, unit: 'hash', windowHours: histWindow });
+      drawMetricGraph('temp-graph', fleetSeries.temp || [], __lastTempColor);
+      drawMetricGraph('power-graph', fleetSeries.power || [], '#00CED1');
+      drawMetricGraph('eff-graph', fleetSeries.eff || [], '#00FF41');
+    }
+    window.addEventListener('resize', drawAllMetricGraphs);
     function formatTemp(t) { return t ? t.toFixed(1) + '°C' : '--'; }
     function formatPower(p) { return p ? p.toFixed(1) + ' W' : '--'; }
     function formatAmps(currentMa, power, voltage) {
@@ -2621,8 +2800,11 @@ function getWebDashboardHtml(): string {
       const probPerBlock = ourHashrateHs / networkHashrateHs;
       const blocksPerDay = 144;
       const daysToBlock = 1 / (probPerBlock * blocksPerDay);
-      const dailyOdds = 1 - Math.pow(1 - probPerBlock, blocksPerDay);
-      return { daysToBlock, dailyOdds };
+      const chanceOver = (blocks) => 1 - Math.pow(1 - probPerBlock, blocks);
+      const dailyOdds = chanceOver(blocksPerDay);
+      const weeklyOdds = chanceOver(blocksPerDay * 7);
+      const yearlyOdds = chanceOver(blocksPerDay * 365);
+      return { daysToBlock, dailyOdds, weeklyOdds, yearlyOdds };
     }
 
     function formatTimeToBlock(days) {
@@ -2631,8 +2813,10 @@ function getWebDashboardHtml(): string {
       if (days < 365) return (days / 30).toFixed(1) + ' mos';
       if (days < 3650) return (days / 365).toFixed(1) + ' yrs';
       var years = days / 365;
-      if (years < 1e6) return (years / 1000).toFixed(0) + 'k yrs';
-      return (years / 1e6).toFixed(1) + 'M yrs';
+      if (years < 1000) return Math.round(years) + ' yrs';
+      if (years < 1e6) return (years / 1000).toFixed(1) + 'k yrs';
+      if (years < 1e9) return (years / 1e6).toFixed(1) + 'M yrs';
+      return (years / 1e9).toFixed(1) + 'B yrs';
     }
 
     function formatOdds(prob) {
@@ -3024,6 +3208,80 @@ function getWebDashboardHtml(): string {
       } : { r: 255, g: 176, b: 0 };
     }
 
+    // ── Fleet share-globe (ported from the desktop MiniGlobe) ──
+    (function initShareGlobe() {
+      var gcanvas = document.getElementById('share-globe');
+      if (!gcanvas) return;
+      var gctx = gcanvas.getContext('2d');
+      var HUB_LAT = 45, HUB_LNG = -100;
+      var beamRgb = [90, 255, 130], greyRgb = [120, 132, 120];
+      function readAccent() { var rgb = hexToRgb(getAccentColor()); return rgb.r + ',' + rgb.g + ',' + rgb.b; }
+      var accent = readAccent();
+      try { new MutationObserver(function(){ accent = readAccent(); }).observe(document.body, { attributes: true, attributeFilter: ['class'] }); } catch (e) {}
+      var rotY = 2.4, rotX = 0.42, dragging = false, lastX = 0;
+      var particles = [], landRings = [], hubFlash = 0, lastShares = -1, pendingEmit = 0, nodes = [];
+      var W = 0, H = 0, R = 0, CX = 0, CY = 0;
+      function seeded(id) { var h = 2166136261; for (var i = 0; i < id.length; i++) { h ^= id.charCodeAt(i); h = Math.imul(h, 16777619); } var a = (h >>> 0) / 4294967295; h = Math.imul(h ^ (h >>> 13), 16777619); var b = (h >>> 0) / 4294967295; return { lat: -55 + a * 110, lng: -180 + b * 360 }; }
+      function syncNodes() {
+        var list = (typeof devices !== 'undefined' && devices) ? devices : [];
+        nodes = list.map(function (d) { var p = seeded(d.id); return { id: d.id, name: d.name || '', online: !!d.isOnline, lat: p.lat, lng: p.lng }; });
+        var total = 0; list.forEach(function (d) { if (d.isOnline && d.latestMetrics) total += Number(d.latestMetrics.sharesAccepted) || 0; });
+        if (lastShares >= 0 && total > lastShares) pendingEmit = Math.min(40, pendingEmit + (total - lastShares));
+        lastShares = total;
+      }
+      function resize() { W = gcanvas.clientWidth; H = gcanvas.clientHeight; gcanvas.width = W; gcanvas.height = H; R = Math.min(W, H) * 0.4; CX = W / 2; CY = H / 2; }
+      function proj(lat, lng) { var la = lat * Math.PI / 180, lo = lng * Math.PI / 180; var x = Math.cos(la) * Math.cos(lo), y = Math.sin(la), z = Math.cos(la) * Math.sin(lo); var cy = Math.cos(rotY), sy = Math.sin(rotY); var x1 = x * cy + z * sy, z1 = -x * sy + z * cy; var cx = Math.cos(rotX), sx = Math.sin(rotX); var y1 = y * cx - z1 * sx, z2 = y * sx + z1 * cx; return { px: CX - x1 * R, py: CY - y1 * R, z: z2, depth: (z2 + 1) * 0.5 }; }
+      function drawRings(rings, rgb, ba, fa, lw) { for (var f = 0; f < 2; f++) { var front = f === 1; gctx.strokeStyle = 'rgba(' + rgb + ',' + (front ? fa : ba) + ')'; gctx.lineWidth = lw; for (var r = 0; r < rings.length; r++) { var ring = rings[r]; gctx.beginPath(); var first = true, prev = null; for (var i = 0; i < ring.length; i++) { var p = proj(ring[i].lat, ring[i].lng); var isF = p.z >= 0; if (prev !== null && prev !== isF) { gctx.stroke(); gctx.beginPath(); first = true; } if (isF !== front) { prev = isF; first = true; continue; } if (first) gctx.moveTo(p.px, p.py); else gctx.lineTo(p.px, p.py); first = false; prev = isF; } gctx.stroke(); } } }
+      function slerp(la1, lo1, la2, lo2, t) { var rad = function (d) { return d * Math.PI / 180; }; var a = [Math.cos(rad(la1)) * Math.cos(rad(lo1)), Math.sin(rad(la1)), Math.cos(rad(la1)) * Math.sin(rad(lo1))]; var b = [Math.cos(rad(la2)) * Math.cos(rad(lo2)), Math.sin(rad(la2)), Math.cos(rad(la2)) * Math.sin(rad(lo2))]; var dot = Math.max(-1, Math.min(1, a[0] * b[0] + a[1] * b[1] + a[2] * b[2])); var ang = Math.acos(dot); if (ang < 1e-6) return { lat: la1, lng: lo1 }; var s = Math.sin(ang); var fa = Math.sin((1 - t) * ang) / s, fb = Math.sin(t * ang) / s; var px = fa * a[0] + fb * b[0], py = fa * a[1] + fb * b[1], pz = fa * a[2] + fb * b[2]; return { lat: Math.atan2(py, Math.sqrt(px * px + pz * pz)) * 180 / Math.PI, lng: Math.atan2(pz, px) * 180 / Math.PI }; }
+      function mixBeam(t) { var k = Math.max(0, Math.min(1, t)); function c(i) { return Math.round(greyRgb[i] + (beamRgb[i] - greyRgb[i]) * k); } return c(0) + ',' + c(1) + ',' + c(2); }
+      var latLines = [], lngLines = [];
+      for (var la0 = -60; la0 <= 60; la0 += 30) { var rr = []; for (var lo0 = -180; lo0 <= 180; lo0 += 6) rr.push({ lat: la0, lng: lo0 }); latLines.push(rr); }
+      for (var lo1 = -180; lo1 < 180; lo1 += 30) { var rr2 = []; for (var la1 = -85; la1 <= 85; la1 += 6) rr2.push({ lat: la1, lng: lo1 }); lngLines.push(rr2); }
+      function draw(now) {
+        gctx.clearRect(0, 0, W, H);
+        var g = gctx.createRadialGradient(CX - R * 0.2, CY - R * 0.2, 0, CX, CY, R); g.addColorStop(0, 'rgba(' + accent + ',0.10)'); g.addColorStop(1, 'rgba(4,10,6,0.55)'); gctx.beginPath(); gctx.arc(CX, CY, R, 0, Math.PI * 2); gctx.fillStyle = g; gctx.fill();
+        var ag = gctx.createRadialGradient(CX, CY, R * 0.92, CX, CY, R * 1.14); ag.addColorStop(0, 'rgba(' + accent + ',0.12)'); ag.addColorStop(1, 'transparent'); gctx.beginPath(); gctx.arc(CX, CY, R * 1.14, 0, Math.PI * 2); gctx.fillStyle = ag; gctx.fill();
+        gctx.beginPath(); gctx.arc(CX, CY, R, 0, Math.PI * 2); gctx.strokeStyle = 'rgba(' + accent + ',0.28)'; gctx.lineWidth = 1; gctx.stroke();
+        drawRings(latLines, accent, 0.03, 0.07, 0.3); drawRings(lngLines, accent, 0.03, 0.07, 0.3);
+        if (landRings.length) drawRings(landRings, accent, 0.08, 0.24, 0.5);
+        var TRAIL = 0.55, STEPS = 20;
+        gctx.save(); gctx.lineCap = 'round';
+        for (var pidx = 0; pidx < particles.length; pidx++) { var pt = particles[pidx]; var nd = nodes[pt.ni]; if (!nd) continue; var pts = []; for (var s = 0; s <= STEPS; s++) { var tt = pt.t - TRAIL * (1 - s / STEPS); if (tt < 0) continue; var sp = slerp(nd.lat, nd.lng, HUB_LAT, HUB_LNG, tt); var pp = proj(sp.lat, sp.lng); pts.push({ px: pp.px, py: pp.py, depth: pp.depth, frac: s / STEPS }); } if (pts.length < 2) continue; for (var i2 = 1; i2 < pts.length; i2++) { var aa = pts[i2]; var df = 0.35 + 0.65 * aa.depth; var al = aa.frac * aa.frac * df; gctx.beginPath(); gctx.moveTo(pts[i2 - 1].px, pts[i2 - 1].py); gctx.lineTo(aa.px, aa.py); gctx.strokeStyle = 'rgba(' + mixBeam(aa.depth) + ',' + al.toFixed(2) + ')'; gctx.lineWidth = 0.25 + aa.frac * 0.75; gctx.stroke(); } var head = pts[pts.length - 1]; var hd = 0.25 + 0.75 * head.depth; var hc = mixBeam(head.depth); gctx.beginPath(); gctx.arc(head.px, head.py, 1.4 * hd, 0, Math.PI * 2); gctx.fillStyle = 'rgba(' + hc + ',' + hd.toFixed(2) + ')'; gctx.shadowColor = 'rgb(' + hc + ')'; gctx.shadowBlur = head.depth > 0.5 ? 9 * hd : 2; gctx.fill(); }
+        gctx.restore(); gctx.shadowBlur = 0;
+        for (var nidx = 0; nidx < nodes.length; nidx++) { var n2 = nodes[nidx]; var p2 = proj(n2.lat, n2.lng); var rgb2 = n2.online ? accent : '255,68,85'; var label = n2.name.length > 12 ? n2.name.slice(0, 11) + '…' : n2.name; if (p2.depth >= 0.5) { var pulse = n2.online ? 0.7 + 0.3 * Math.sin(now / 900) : 1; gctx.beginPath(); gctx.arc(p2.px, p2.py, 6 * pulse, 0, Math.PI * 2); gctx.fillStyle = 'rgba(' + rgb2 + ',0.1)'; gctx.fill(); gctx.beginPath(); gctx.arc(p2.px, p2.py, 2.6, 0, Math.PI * 2); gctx.fillStyle = 'rgb(' + rgb2 + ')'; gctx.shadowColor = 'rgb(' + rgb2 + ')'; gctx.shadowBlur = 10; gctx.fill(); gctx.shadowBlur = 0; gctx.font = '9px monospace'; gctx.fillStyle = 'rgba(' + rgb2 + ',0.9)'; gctx.fillText(label, p2.px + 6, p2.py + 3); } else { gctx.beginPath(); gctx.arc(p2.px, p2.py, 1.6, 0, Math.PI * 2); gctx.fillStyle = 'rgba(' + rgb2 + ',0.22)'; gctx.fill(); } }
+        var flash = hubFlash; var fp = proj(HUB_LAT, HUB_LNG); var fpD = 0.15 + 0.85 * fp.depth; var fpP = 0.7 + 0.3 * Math.sin(now / 600);
+        if (flash > 0.01) { gctx.beginPath(); gctx.arc(fp.px, fp.py, (8 + (1 - flash) * 22) * fpD, 0, Math.PI * 2); gctx.strokeStyle = 'rgba(' + beamRgb.join(',') + ',' + (flash * 0.5 * fp.depth).toFixed(2) + ')'; gctx.lineWidth = 1.5; gctx.stroke(); }
+        gctx.beginPath(); gctx.arc(fp.px, fp.py, (10 + flash * 14) * fpP * fpD, 0, Math.PI * 2); gctx.fillStyle = 'rgba(255,215,0,' + ((0.08 + flash * 0.22) * fp.depth).toFixed(2) + ')'; gctx.fill();
+        gctx.beginPath(); gctx.arc(fp.px, fp.py, (4 + flash * 2.5) * fpD, 0, Math.PI * 2); gctx.fillStyle = flash > 0.6 ? '#ffffff' : 'rgb(255,215,0)'; gctx.shadowColor = flash > 0.4 ? 'rgb(' + beamRgb.join(',') + ')' : 'rgb(255,215,0)'; gctx.shadowBlur = (16 + flash * 22) * fp.depth; gctx.fill(); gctx.shadowBlur = 0;
+      }
+      function tick(dt) {
+        if (!dragging) rotY += 0.02 * dt;
+        for (var i = 0; i < particles.length; i++) particles[i].t += particles[i].spd * dt;
+        var landed = false; for (var j = 0; j < particles.length; j++) { if (particles[j].t >= 1) { landed = true; break; } } if (landed) hubFlash = 1;
+        hubFlash = Math.max(0, hubFlash - dt * 2.2);
+        particles = particles.filter(function (p) { return p.t > 0 && p.t < 1; });
+        var online = []; for (var k = 0; k < nodes.length; k++) { if (nodes[k].online) online.push(k); }
+        if (online.length) { var emit = 0; if (pendingEmit > 0) { emit = Math.min(3, Math.ceil(pendingEmit)); pendingEmit -= emit; } else if (Math.random() < 0.08) { emit = 1; } for (var e = 0; e < emit && particles.length < 120; e++) { var ni2 = online[Math.floor(Math.random() * online.length)]; particles.push({ ni: ni2, t: 0.01, spd: 0.35 + Math.random() * 0.25 }); } }
+      }
+      var last = 0;
+      function loop(now) {
+        // The canvas may be 0-sized at init (dashboard hidden behind the login
+        // screen / inactive tab); re-measure whenever its box changes so the
+        // globe starts drawing the moment it becomes visible.
+        if (gcanvas.clientWidth !== W || gcanvas.clientHeight !== H) resize();
+        var dt = Math.min((now - last) / 1000, 0.1); last = now;
+        if (W > 0 && H > 0) { tick(dt); draw(now); }
+        requestAnimationFrame(loop);
+      }
+      gcanvas.addEventListener('mousedown', function (e) { dragging = true; lastX = e.clientX; });
+      window.addEventListener('mouseup', function () { dragging = false; });
+      window.addEventListener('mousemove', function (e) { if (!dragging) return; rotY -= (e.clientX - lastX) * 0.006; lastX = e.clientX; });
+      window.addEventListener('resize', resize);
+      function topoRings(topo, obj) { var tf = topo.transform, sx = tf.scale[0], sy = tf.scale[1], tx = tf.translate[0], ty = tf.translate[1]; var arcs = topo.arcs.map(function (arc) { var x = 0, y = 0; return arc.map(function (d) { x += d[0]; y += d[1]; return [x * sx + tx, y * sy + ty]; }); }); var rings = []; function ap(ref) { return ref >= 0 ? arcs[ref] : arcs[~ref].slice().reverse(); } function addPoly(refs) { for (var r = 0; r < refs.length; r++) { var ring = []; var one = refs[r]; for (var a = 0; a < one.length; a++) { var ptsA = ap(one[a]); ring = ring.concat(ring.length ? ptsA.slice(1) : ptsA); } rings.push(ring.map(function (p) { return { lat: p[1], lng: p[0] }; })); } } function walk(gg) { if (!gg) return; if (gg.type === 'Polygon') addPoly(gg.arcs); else if (gg.type === 'MultiPolygon') { for (var p = 0; p < gg.arcs.length; p++) addPoly(gg.arcs[p]); } else if (gg.type === 'GeometryCollection') { gg.geometries.forEach(walk); } } walk(topo.objects[obj]); return rings; }
+      fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/land-110m.json').then(function (r) { return r.json(); }).then(function (topo) { landRings = topoRings(topo, 'land'); }).catch(function () {});
+      resize(); syncNodes(); setInterval(syncNodes, 5000); requestAnimationFrame(loop);
+    })();
+
     function resizeCanvas() {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
@@ -3151,24 +3409,18 @@ function getWebDashboardHtml(): string {
       }
     }
 
-    // Initialize background preference
+    // Background matrix animation removed — the share-globe provides the ambient
+    // motion now. Force it off (and clear any saved preference) so users who had
+    // it enabled don't keep the rain.
     function initBackground() {
-      const saved = localStorage.getItem('animatedBg');
-      if (saved === '1') {
-        document.body.classList.add('animated-bg');
-        const btn = document.getElementById('bg-toggle');
-        if (btn) {
-          btn.classList.remove('btn-secondary');
-          btn.classList.add('btn-primary');
-        }
-        startNetwork();
-      }
+      document.body.classList.remove('animated-bg');
+      try { localStorage.removeItem('animatedBg'); } catch (e) {}
+      stopNetwork();
     }
 
     window.addEventListener('resize', () => {
       if (document.body.classList.contains('animated-bg')) {
-        resizeCanvas();
-        createNodes();
+        resizeCanvas(); // already re-inits the rain columns; createNodes() never existed
       }
     });
 

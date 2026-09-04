@@ -480,41 +480,41 @@ export function DeviceCard({ device, groups, onGroupChange, networkStats, isNewR
       {device.isOnline && metrics ? (
         <div className="space-y-3">
           {/* Model & Last Seen */}
-          <div className="flex items-center justify-between text-xs text-text-secondary">
-            <div className="flex items-center gap-2">
-              <span>{metrics.ASICModel || 'BitAxe'}</span>
+          <div className="flex items-center justify-between gap-2 text-xs text-text-secondary">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="truncate">{metrics.ASICModel || 'BitAxe'}</span>
               {device.deviceType === 'bitmain' && (
-                <span className="px-1.5 py-0.5 text-[10px] bg-warning/20 border border-warning/40 text-warning uppercase font-bold">
+                <span className="px-1.5 py-0.5 text-[10px] flex-shrink-0 whitespace-nowrap bg-warning/20 border border-warning/40 text-warning uppercase font-bold">
                   BETA
                 </span>
               )}
               {device.deviceType === 'canaan' && (
-                <span className="px-1.5 py-0.5 text-[10px] bg-success/20 border border-success/40 text-success uppercase font-bold">
+                <span className="px-1.5 py-0.5 text-[10px] flex-shrink-0 whitespace-nowrap bg-success/20 border border-success/40 text-success uppercase font-bold">
                   BETA
                 </span>
               )}
               {device.deviceType === 'braiins' && (
-                <span className="px-1.5 py-0.5 text-[10px] bg-accent/20 border border-accent/40 text-accent uppercase font-bold">
+                <span className="px-1.5 py-0.5 text-[10px] flex-shrink-0 whitespace-nowrap bg-accent/20 border border-accent/40 text-accent uppercase font-bold">
                   BRAIINS
                 </span>
               )}
               {device.deviceType === 'luxos' && (
-                <span className="px-1.5 py-0.5 text-[10px] bg-accent/20 border border-accent/40 text-accent uppercase font-bold">
+                <span className="px-1.5 py-0.5 text-[10px] flex-shrink-0 whitespace-nowrap bg-accent/20 border border-accent/40 text-accent uppercase font-bold">
                   LUXOS
                 </span>
               )}
               {metrics.algorithm === 'scrypt' && (
-                <span className="px-1.5 py-0.5 text-[10px] bg-accent/20 border border-accent/40 text-accent uppercase font-bold">
+                <span className="px-1.5 py-0.5 text-[10px] flex-shrink-0 whitespace-nowrap bg-accent/20 border border-accent/40 text-accent uppercase font-bold">
                   SCRYPT
                 </span>
               )}
               {metrics.isClusterMaster && metrics.clusterInfo && (
-                <span className="px-1.5 py-0.5 text-[10px] bg-accent/20 border border-accent/40 text-accent uppercase font-bold">
+                <span className="px-1.5 py-0.5 text-[10px] flex-shrink-0 whitespace-nowrap bg-accent/20 border border-accent/40 text-accent uppercase font-bold">
                   Cluster ({metrics.clusterInfo.activeSlaves})
                 </span>
               )}
             </div>
-            <span>{formatRelativeTime(device.lastSeen)}</span>
+            <span className="flex-shrink-0 whitespace-nowrap">{formatRelativeTime(device.lastSeen)}</span>
           </div>
 
           {/* Main Metrics */}

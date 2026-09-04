@@ -2,21 +2,27 @@ import { Tray, Menu, nativeImage, BrowserWindow, app } from 'electron';
 import { join } from 'path';
 import { readdirSync } from 'fs';
 import * as devices from './database/devices';
+import { TRAY_ICON_DATA_URL } from './tray-icon-data';
 
 let tray: Tray | null = null;
 let statsInterval: NodeJS.Timeout | null = null;
 
-// Find logo file (handles vite's hashed filenames like logo-Bpla9I2K.png)
+// Find the tray icon (handles vite's hashed filenames like tray-icon-Bpla9I2K.png).
+// Prefer the SQUARE app icon (tray-icon*.png) over the wide wordmark logo — the
+// wordmark is unreadable when downscaled to a 16px tray slot; a square icon reads
+// cleanly at tray size.
 function findLogoFile(): string | null {
   const assetsDir = join(__dirname, '..', 'renderer', 'assets');
   try {
     const files = readdirSync(assetsDir);
-    const logoFile = files.find(f => f.startsWith('logo') && f.endsWith('.png'));
-    if (logoFile) {
-      return join(assetsDir, logoFile);
+    const trayFile =
+      files.find(f => f.startsWith('tray-icon') && f.endsWith('.png')) ||
+      files.find(f => f.startsWith('logo') && f.endsWith('.png'));
+    if (trayFile) {
+      return join(assetsDir, trayFile);
     }
   } catch (e) {
-    console.error('Failed to find logo file:', e);
+    console.error('Failed to find tray icon file:', e);
   }
   return null;
 }
@@ -43,18 +49,21 @@ let currentStats: DeviceStats = {
 export function createTray(window: BrowserWindow): Tray {
   mainWindow = window;
 
-  // Create tray icon - dynamically find the logo file
-  const iconPath = findLogoFile();
-  if (!iconPath) {
-    console.error('Could not find logo file for system tray');
+  // Build the tray icon from an EMBEDDED data URL, not a file path. In packaged
+  // builds the renderer assets land in a different dist dir and the icon isn't
+  // bundled, so the old findLogoFile() lookup returned null → createEmpty() → a
+  // blank tray icon. The embedded PNG always loads. (findLogoFile kept for the
+  // menu/other uses.)
+  let icon = nativeImage.createFromDataURL(TRAY_ICON_DATA_URL);
+  if (icon.isEmpty()) {
+    const iconPath = findLogoFile();
+    if (iconPath) icon = nativeImage.createFromPath(iconPath);
   }
 
-  // Create a smaller icon for the tray
-  let icon = iconPath ? nativeImage.createFromPath(iconPath) : nativeImage.createEmpty();
-
-  // Resize icon for tray (Windows uses 16x16, macOS uses 22x22)
-  const size = process.platform === 'darwin' ? 22 : 16;
-  icon = icon.resize({ width: size, height: size });
+  // Resize for the tray (Windows 16, but 32 is HiDPI-friendly and Windows scales
+  // it down cleanly; macOS uses 22). 'best' quality keeps the downscale crisp.
+  const size = process.platform === 'darwin' ? 22 : 32;
+  icon = icon.resize({ width: size, height: size, quality: 'best' });
 
   // Set as template on macOS for proper dark/light mode support
   if (process.platform === 'darwin') {

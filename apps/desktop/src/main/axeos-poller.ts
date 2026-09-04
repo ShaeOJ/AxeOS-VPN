@@ -1420,7 +1420,7 @@ export async function checkLuxOSDevice(ipAddress: string): Promise<boolean> {
 // Fetch metrics from a LuxOS miner via the cgminer API on 4028
 export async function fetchLuxOSMetrics(ipAddress: string): Promise<AxeOSSystemInfo | null> {
   try {
-    const raw = await cgminerCommand(ipAddress, 'summary+config+power+fans+temps+devs+pools', 4028, 8000);
+    const raw = await cgminerCommand(ipAddress, 'summary+config+power+fans+temps+devs+pools+stats', 4028, 8000);
     const cleaned = raw.replace(/\0/g, '');
     let parsed: Record<string, unknown>;
     try {
@@ -1446,9 +1446,13 @@ function transformLuxOSToAxeOS(parsed: Record<string, unknown>, ipAddress: strin
   const config = boserSection(parsed, 'config', 'CONFIG')[0] || {};
   const power = boserSection(parsed, 'power', 'POWER')[0] || {};
   const fans = boserSection(parsed, 'fans', 'FANCTRL')[0] || {};
+  const fansArr = boserSection(parsed, 'fans', 'FANS'); // live per-fan RPM + Speed%
   const temps = boserSection(parsed, 'temps', 'TEMPS');
   const devs = boserSection(parsed, 'devs', 'DEVS');
   const pools = boserSection(parsed, 'pools', 'POOLS');
+  const statsArr = boserSection(parsed, 'stats', 'STATS');
+  // STATS[0] is version metadata; the data row carries `frequency`/chain_acn*/fanN.
+  const stats = statsArr.find((s) => s['frequency'] !== undefined) || statsArr[1] || {};
 
   const num = (v: unknown): number => Number(v) || 0;
 
@@ -1467,18 +1471,32 @@ function transformLuxOSToAxeOS(parsed: Record<string, unknown>, ipAddress: strin
   const powerLimit = num(config['PowerLimit']);
   const efficiency = hashRateTH > 0 ? realPower / hashRateTH : 0;
 
-  // TODO(hashboards): per-board temps + per-ASC chip freq/voltage. Shapes below
-  // are best-effort against the standard cgminer keys and were NOT verifiable
-  // without boards (temps -> 426, devs empty). Confirm on live hardware.
+  // Board-level fields — verified against a live S19j Pro (amlogic) 2026-09-03.
   const chainCount = devs.length;
-  const maxChip = temps.reduce((m, t) => Math.max(m, num(t['Chip']), num(t['Temp'])), 0);
-  const maxBoard = temps.reduce((m, t) => Math.max(m, num(t['Board'])), 0);
-  const avgFreq = chainCount ? devs.reduce((s, d) => s + num(d['Frequency']), 0) / chainCount : 0;
-  const avgDomainV = chainCount ? devs.reduce((s, d) => s + num(d['Voltage']), 0) / chainCount : 0;
+  // TEMPS keys are corner sensors: Top/Bottom × Left(exhaust,hot)/Right(intake).
+  // Take the hottest corner as the chip/hot temp; DEVS.Temperature is the board.
+  const cornerMax = (t: Record<string, unknown>) =>
+    Math.max(num(t['TopLeft']), num(t['TopRight']), num(t['BottomLeft']), num(t['BottomRight']), num(t['TEMP']), num(t['Chip']), num(t['Temp']));
+  const boardTemp = devs.reduce((m, d) => Math.max(m, num(d['Temperature'])), 0);
+  const maxChip = Math.max(temps.reduce((m, t) => Math.max(m, cornerMax(t)), 0), boardTemp);
+  const maxBoard = boardTemp || maxChip;
+  // Frequency comes from `stats` (or the DEVS "220MHz" Profile string); LuxOS
+  // does not report per-domain voltage in these commands (single-voltage board),
+  // so coreVoltage stays 0 until a voltageget/profiles probe is wired in.
+  const profileFreq = parseFloat(String((devs[0] || {})['Profile'] || '')) || 0;
+  const avgFreq = num(stats['frequency']) || num(stats['freq']) || profileFreq;
+  const avgDomainV = 0;
 
-  // Fan data is live per-board; the top-level `fans`/FANCTRL is config only
-  // (max/min %, MinFans) so without boards there is no RPM to report yet.
-  const fanMaxPct = num(fans['FanMaxSpeed']);
+  // Live fan data: FANS[] has per-fan RPM + Speed%. Average the speed %, take the
+  // peak RPM. Falls back to the FANCTRL config max only if the array is absent.
+  const fanSpeeds = fansArr.map((f) => num(f['Speed'])).filter((v) => v > 0);
+  const fanRpms = fansArr.map((f) => num(f['RPM'])).filter((v) => v > 0);
+  const fanMaxPct = fanSpeeds.length ? Math.round(fanSpeeds.reduce((a, b) => a + b, 0) / fanSpeeds.length) : num(fans['FanMaxSpeed']);
+  const fanRpm = fanRpms.length ? Math.max(...fanRpms) : 0;
+
+  // Total chip count from stats chain_acn* (active chains).
+  let chipCount = 0;
+  for (let i = 1; i <= 8; i++) chipCount += num(stats['chain_acn' + i]);
 
   // Active pool (standard cgminer pool shape)
   const activePool = pools.find((p) => p['Status'] === 'Alive' && p['Stratum Active'] === true)
@@ -1518,10 +1536,10 @@ function transformLuxOSToAxeOS(parsed: Record<string, unknown>, ipAddress: strin
     ASICModel: `${model} (LuxOS)`,
     version: 'LuxOS (BETA)',
 
-    fanspeed: fanMaxPct, // TODO(hashboards): replace with live fan % once available
-    fanrpm: 0,           // TODO(hashboards): live RPM from per-board fan data
+    fanspeed: fanMaxPct, // live avg fan %
+    fanrpm: fanRpm,      // live peak RPM
     frequency: avgFreq,
-    coreVoltage: avgDomainV * 1000,
+    coreVoltage: avgDomainV * 1000, // 0 — LuxOS single-voltage board, not reported here
 
     poolDifficulty: num(activePool['Stratum Difficulty'] || activePool['Work Difficulty']),
     stratumURL,
@@ -1530,7 +1548,7 @@ function transformLuxOSToAxeOS(parsed: Record<string, unknown>, ipAddress: strin
 
     wifiStatus: 'Ethernet',
     freeHeap: 0,
-    smallCoreCount: 0, // TODO(hashboards): total chips once devs populate
+    smallCoreCount: chipCount, // total chips from stats chain_acn*
 
     algorithm: 'sha256',
     isLuxos: true,
