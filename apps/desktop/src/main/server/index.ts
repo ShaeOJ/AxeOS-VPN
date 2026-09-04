@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import { gzipSync } from 'zlib';
 import { createServer } from 'http';
 import { networkInterfaces } from 'os';
 import { readFileSync, readdirSync } from 'fs';
@@ -416,6 +417,30 @@ export function startServer(): { port: number; addresses: string[] } {
     res.json(result);
   });
 
+  // Update device pool (stratum) settings
+  app.post('/api/devices/:id/pool', requireAuth, async (req, res) => {
+    const device = devices.getDeviceById(req.params.id);
+    if (!device) {
+      res.status(404).json({ success: false, error: 'Device not found' });
+      return;
+    }
+    const b = req.body || {};
+    const url = typeof b.stratumURL === 'string' ? b.stratumURL.trim() : '';
+    const user = typeof b.stratumUser === 'string' ? b.stratumUser.trim() : '';
+    const port = parseInt(String(b.stratumPort), 10);
+    const pass = typeof b.stratumPassword === 'string' ? b.stratumPassword : undefined;
+    if (!url || !user) {
+      res.status(400).json({ success: false, error: 'Pool URL and worker are required' });
+      return;
+    }
+    if (!Number.isFinite(port) || port < 1 || port > 65535) {
+      res.status(400).json({ success: false, error: 'Invalid port (1-65535)' });
+      return;
+    }
+    const result = await deviceControl.updatePoolSettings(device.ip_address, url, port, user, pass);
+    res.json(result);
+  });
+
   // Get device metrics
   app.get('/api/devices/:id/metrics', requireAuth, (req, res) => {
     const { startTime, endTime, limit } = req.query;
@@ -555,19 +580,8 @@ export function startServer(): { port: number; addresses: string[] } {
   });
 
   // ============ WEB DASHBOARD ============
-  app.get('/', (_req, res) => {
-    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    res.set('Pragma', 'no-cache');
-    res.set('Expires', '0');
-    res.send(getWebDashboardHtml());
-  });
-
-  app.get('/dashboard', (_req, res) => {
-    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    res.set('Pragma', 'no-cache');
-    res.set('Expires', '0');
-    res.send(getWebDashboardHtml());
-  });
+  app.get('/', (req, res) => sendDashboard(req, res));
+  app.get('/dashboard', (req, res) => sendDashboard(req, res));
 
   // Create HTTP server
   httpServer = createServer(app);
@@ -625,6 +639,28 @@ function getLocalAddresses(): string[] {
 }
 
 // Web dashboard HTML - Re-Tek themed
+// The dashboard HTML is static (all data is fetched client-side via /api), so we
+// build it and its gzip once and reuse — serving ~50KB gzipped instead of ~310KB
+// raw. Browsers still don't cache (no-store) so edits during dev show on reload
+// after a server restart, which regenerates the cache.
+let _dashHtmlCache: string | null = null;
+let _dashGzCache: Buffer | null = null;
+function sendDashboard(req: express.Request, res: express.Response): void {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  res.type('html');
+  if (_dashHtmlCache === null) _dashHtmlCache = getWebDashboardHtml();
+  if (/\bgzip\b/.test(String(req.headers['accept-encoding'] || ''))) {
+    if (_dashGzCache === null) _dashGzCache = gzipSync(_dashHtmlCache);
+    res.set('Content-Encoding', 'gzip');
+    res.set('Vary', 'Accept-Encoding');
+    res.send(_dashGzCache);
+  } else {
+    res.send(_dashHtmlCache);
+  }
+}
+
 function getWebDashboardHtml(): string {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -2429,6 +2465,19 @@ function getWebDashboardHtml(): string {
         html += '<button onclick="applyVoltage()" style="margin-top:8px;padding:12px 16px;background:color-mix(in srgb, var(--color-accent) 14%, transparent);border:1px solid var(--color-accent);color:var(--color-accent);border-radius:8px;cursor:pointer;font-size:14px;min-height:44px;width:100%;touch-action:manipulation;">Apply Voltage</button>';
         html += '</div>';
 
+        // Pool (stratum) edit — only for firmware that accepts a remote pool change.
+        if (device.deviceType !== 'bitmain' && device.deviceType !== 'canaan' && device.deviceType !== 'luxos') {
+          var poolInput = 'width:100%;padding:8px 10px;margin-bottom:6px;background:var(--color-bg-primary, #0a1929);border:1px solid var(--color-border, #1a4a5c);border-radius:6px;color:var(--color-text-primary, #d7e4c9);font-family:monospace;font-size:12px;box-sizing:border-box;';
+          html += '<div style="margin-bottom:16px;border-top:1px solid var(--color-border, #1a4a5c);padding-top:12px;">';
+          html += '<div style="color:#8BA88B;font-size:12px;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Pool</div>';
+          html += '<input id="pool-url-input" placeholder="stratum URL (host, no port)" value="' + (m.stratumURL || '').replace(/"/g, '&quot;') + '" style="' + poolInput + '">';
+          html += '<input id="pool-port-input" placeholder="port" inputmode="numeric" value="' + (m.stratumPort || 3333) + '" style="' + poolInput + '">';
+          html += '<input id="pool-worker-input" placeholder="worker (wallet.worker)" value="' + (m.stratumUser || '').replace(/"/g, '&quot;') + '" style="' + poolInput + '">';
+          html += '<input id="pool-pass-input" placeholder="password (usually x)" value="" style="' + poolInput + '">';
+          html += '<button onclick="applyPoolSettings()" style="margin-top:4px;padding:12px 16px;background:color-mix(in srgb, var(--color-accent) 14%, transparent);border:1px solid var(--color-accent);color:var(--color-accent);border-radius:8px;cursor:pointer;font-size:14px;min-height:44px;width:100%;touch-action:manipulation;">Apply Pool (restarts device)</button>';
+          html += '</div>';
+        }
+
         html += '<div id="control-status" style="display:none;padding:8px;margin-top:8px;font-size:11px;"></div>';
         html += '</div>';
 
@@ -2981,6 +3030,30 @@ function getWebDashboardHtml(): string {
         const data = await res.json();
         if (data.success) {
           showControlStatus('Core voltage updated to ' + voltage + ' mV', false);
+        } else {
+          showControlStatus('Failed: ' + (data.error || 'Unknown error'), true);
+        }
+      } catch (err) {
+        showControlStatus('Error: ' + err.message, true);
+      }
+    }
+
+    async function applyPoolSettings() {
+      var url = (document.getElementById('pool-url-input').value || '').trim();
+      var port = parseInt(document.getElementById('pool-port-input').value, 10);
+      var worker = (document.getElementById('pool-worker-input').value || '').trim();
+      var pass = document.getElementById('pool-pass-input').value;
+      if (!url || !worker) { showControlStatus('Pool URL and worker are required', true); return; }
+      if (!(port >= 1 && port <= 65535)) { showControlStatus('Invalid port (1-65535)', true); return; }
+      try {
+        const res = await fetch('/api/devices/' + currentDeviceId + '/pool', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ stratumURL: url, stratumPort: port, stratumUser: worker, stratumPassword: pass })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showControlStatus('Pool updated — device restarting to apply', false);
         } else {
           showControlStatus('Failed: ' + (data.error || 'Unknown error'), true);
         }
