@@ -686,9 +686,9 @@ function getWebDashboardHtml(): string {
     .logo { font-size: 24px; font-weight: bold; color: #FFB000; text-transform: uppercase; letter-spacing: 2px; }
     /* Navigation tabs */
     .nav-tabs { display: flex; gap: 4px; margin-left: 24px; }
-    .nav-tab { padding: 8px 16px; background: transparent; border: 2px solid #1a4a5c; color: #8BA88B; cursor: pointer; font-family: 'Share Tech Mono', monospace; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; transition: all 0.2s; }
-    .nav-tab:hover { border-color: #FFB000; color: #FFB000; }
-    .nav-tab.active { background: rgba(255,176,0,0.15); border-color: #FFB000; color: #FFB000; }
+    .nav-tab { padding: 8px 16px; background: transparent; border: 2px solid var(--color-border, #1a4a5c); border-radius: 8px; color: #8BA88B; cursor: pointer; font-family: 'Share Tech Mono', monospace; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; transition: all 0.2s; }
+    .nav-tab:hover { border-color: var(--color-accent, #FFB000); color: var(--color-accent, #FFB000); }
+    .nav-tab.active { background: color-mix(in srgb, var(--color-accent, #FFB000) 15%, transparent); border-color: var(--color-accent, #FFB000); color: var(--color-accent, #FFB000); }
     /* ===== Touch / tablet enhancements ===== */
     /* Remove the 300ms tap delay and double-tap-to-zoom on interactive controls,
        while leaving page pinch-zoom intact for accessibility. */
@@ -776,6 +776,7 @@ function getWebDashboardHtml(): string {
     .btn {
       padding: 10px 20px;
       border: 2px solid;
+      border-radius: 8px;
       cursor: pointer;
       font-size: 14px;
       font-weight: bold;
@@ -784,10 +785,10 @@ function getWebDashboardHtml(): string {
       letter-spacing: 1px;
       transition: all 0.2s;
     }
-    .btn-primary { background: linear-gradient(180deg, #FFB000, #CC8C00); color: #0a1929; border-color: #FFB000; }
-    .btn-primary:hover { box-shadow: 0 0 20px rgba(255,176,0,0.5); }
-    .btn-secondary { background: transparent; color: #8BA88B; border-color: #1a4a5c; }
-    .btn-secondary:hover { border-color: #FFB000; color: #FFB000; }
+    .btn-primary { background: linear-gradient(180deg, var(--color-accent, #FFB000), color-mix(in srgb, var(--color-accent, #FFB000) 78%, #000)); color: var(--color-bg-primary, #0a1929); border-color: var(--color-accent, #FFB000); }
+    .btn-primary:hover { box-shadow: 0 0 20px color-mix(in srgb, var(--color-accent, #FFB000) 50%, transparent); }
+    .btn-secondary { background: transparent; color: #8BA88B; border-color: var(--color-border, #1a4a5c); }
+    .btn-secondary:hover { border-color: var(--color-accent, #FFB000); color: var(--color-accent, #FFB000); }
     .btn-danger { background: transparent; color: #FF3131; border-color: #FF3131; }
     .btn-danger:hover { background: #FF3131; color: #0a1929; }
     .card {
@@ -969,14 +970,14 @@ function getWebDashboardHtml(): string {
     .error { color: #FF3131; margin-bottom: 16px; font-size: 14px; }
     .hidden { display: none !important; }
     .device-model { font-size: 11px; color: #00CED1; margin-top: 2px; }
-    .secondary-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #1a4a5c; }
+    .secondary-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; padding-top: 12px; padding-bottom: 14px; border-top: 1px solid #1a4a5c; }
     .secondary-stat { text-align: center; }
     .secondary-stat-label { font-size: 10px; color: #8BA88B; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 4px; }
     .secondary-stat-value { font-size: 13px; font-weight: 600; }
     /* Device control bar */
     .device-control-bar { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; padding-top: 8px; border-top: 1px solid #1a4a5c; }
-    .restart-btn { display: flex; align-items: center; gap: 4px; padding: 8px 12px; font-size: 12px; background: #1a3a4a; color: #8BA88B; border: 1px solid #2a5a6a; border-radius: 4px; cursor: pointer; transition: all 0.2s; min-height: 44px; }
-    .restart-btn:hover, .restart-btn:active { color: #FFB000; background: rgba(255,176,0,0.1); border-color: rgba(255,176,0,0.4); }
+    .restart-btn { display: flex; align-items: center; gap: 4px; padding: 8px 12px; font-size: 12px; background: var(--color-bg-secondary, #1a3a4a); color: #8BA88B; border: 1px solid var(--color-border, #2a5a6a); border-radius: 6px; cursor: pointer; transition: all 0.2s; min-height: 44px; }
+    .restart-btn:hover, .restart-btn:active { color: var(--color-accent, #FFB000); background: color-mix(in srgb, var(--color-accent, #FFB000) 10%, transparent); border-color: color-mix(in srgb, var(--color-accent, #FFB000) 40%, transparent); }
     .restart-btn.confirm { background: #FF3131; color: white; border-color: #FF3131; }
     .restart-btn.restarting { opacity: 0.6; cursor: not-allowed; }
     .restart-btn svg { flex-shrink: 0; }
@@ -984,9 +985,9 @@ function getWebDashboardHtml(): string {
     @keyframes spin { 100% { transform: rotate(360deg); } }
     @keyframes blockPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.04); box-shadow: 0 0 30px rgba(0,255,65,0.8); } }
     /* Touch-friendly styles */
-    input[type="range"] { -webkit-appearance: none; appearance: none; height: 8px; background: #1a4a5c; border-radius: 4px; outline: none; }
-    input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 24px; height: 24px; background: #FFB000; border-radius: 50%; cursor: pointer; border: 2px solid #0d2137; }
-    input[type="range"]::-moz-range-thumb { width: 24px; height: 24px; background: #FFB000; border-radius: 50%; cursor: pointer; border: 2px solid #0d2137; }
+    input[type="range"] { -webkit-appearance: none; appearance: none; height: 8px; background: var(--color-border, #1a4a5c); border-radius: 4px; outline: none; }
+    input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 24px; height: 24px; background: var(--color-accent, #FFB000); border-radius: 50%; cursor: pointer; border: 2px solid var(--color-bg-secondary, #0d2137); box-shadow: 0 0 6px color-mix(in srgb, var(--color-accent, #FFB000) 40%, transparent); }
+    input[type="range"]::-moz-range-thumb { width: 24px; height: 24px; background: var(--color-accent, #FFB000); border-radius: 50%; cursor: pointer; border: 2px solid var(--color-bg-secondary, #0d2137); }
     .control-btn { min-height: 44px; min-width: 44px; padding: 10px 16px; font-size: 14px; touch-action: manipulation; }
     /* Modal animations */
     @keyframes modal-fade-in {
@@ -2584,12 +2585,12 @@ function getWebDashboardHtml(): string {
             '<div class="secondary-stats"><div class="secondary-stat"><div class="secondary-stat-label success"><svg width="10" height="10" viewBox="0 0 20 20" fill="currentColor"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zm6-4a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm6-3a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>Efficiency</div><div class="secondary-stat-value">' + (m.efficiency ? m.efficiency.toFixed(1) + ' J/TH' : '--') + '</div></div>' +
             '<div class="secondary-stat"><div class="secondary-stat-label success"><svg width="10" height="10" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>Shares</div><div class="secondary-stat-value success">' + (m.sharesAccepted || 0).toLocaleString() + '</div></div>' +
             '<div class="secondary-stat"><div class="secondary-stat-label"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Fan</div><div class="secondary-stat-value">' + (m.fanspeed ? m.fanspeed + '%' : '--') + '</div></div></div>' +
-            (blockChance ? '<div style="padding:8px 12px;border-top:1px solid rgba(58,90,110,0.3);display:flex;align-items:center;justify-content:space-between;">' +
+            (blockChance ? '<div style="padding:8px 12px;border-top:1px solid var(--color-border, rgba(58,90,110,0.3));display:flex;align-items:center;justify-content:space-between;">' +
               '<div style="display:flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 20 20" fill="#FF8C00"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>' +
               '<span style="font-size:10px;color:#8BA88B;">Solo Block</span></div>' +
               '<div style="text-align:right;"><span style="font-size:11px;font-family:monospace;color:#FF8C00;">' + formatTimeToBlock(blockChance.daysToBlock) + '</span>' +
               '<span style="font-size:9px;color:#8BA88B;margin-left:4px;">(' + formatOdds(blockChance.dailyOdds) + '/day)</span></div></div>' : '') +
-            (displayBestDiff > 0 ? '<div style="padding:8px 12px;border-top:1px solid rgba(58,90,110,0.3);display:flex;align-items:center;justify-content:space-between;">' +
+            (displayBestDiff > 0 ? '<div style="padding:8px 12px;border-top:1px solid var(--color-border, rgba(58,90,110,0.3));display:flex;align-items:center;justify-content:space-between;">' +
               '<div style="display:flex;align-items:center;gap:4px;">' +
               '<svg width="12" height="12" viewBox="0 0 20 20" fill="' + (isNewRecord ? '#FBBF24' : '#FFB000') + '"><path fill-rule="evenodd" d="M10 1l2.928 6.856 6.072.514-4.928 4.286 1.5 6.344L10 15.572 4.428 19l1.5-6.344L1 8.37l6.072-.514L10 1z" clip-rule="evenodd"/></svg>' +
               '<span style="font-size:10px;color:#8BA88B;">Best Diff</span>' +
