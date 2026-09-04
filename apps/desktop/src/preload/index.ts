@@ -105,6 +105,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updatePoolSettings: (ipAddress: string, stratumURL: string, stratumPort: number, stratumUser: string, stratumPassword?: string) =>
     ipcRenderer.invoke('update-pool-settings', ipAddress, stratumURL, stratumPort, stratumUser, stratumPassword),
 
+  // LuxOS-specific controls (Antminer S19/S21 on LuxOS)
+  luxGetControlState: (ipAddress: string) => ipcRenderer.invoke('lux-get-control-state', ipAddress),
+  luxSetTempControl: (ipAddress: string, target: number, hot?: number, dangerous?: number) =>
+    ipcRenderer.invoke('lux-set-temp-control', ipAddress, target, hot, dangerous),
+  luxSetProfile: (ipAddress: string, profileName: string) => ipcRenderer.invoke('lux-set-profile', ipAddress, profileName),
+  luxSetFanSpeed: (ipAddress: string, speed: number) => ipcRenderer.invoke('lux-set-fan-speed', ipAddress, speed),
+  luxCurtail: (ipAddress: string, mode: 'sleep' | 'wakeup') => ipcRenderer.invoke('lux-curtail', ipAddress, mode),
+  luxSetAtm: (ipAddress: string, enabled: boolean, maxProfile?: string) =>
+    ipcRenderer.invoke('lux-set-atm', ipAddress, enabled, maxProfile),
+  luxReboot: (ipAddress: string, boardId?: number) => ipcRenderer.invoke('lux-reboot', ipAddress, boardId),
+
   // Events
   onDeviceMetrics: (callback: (data: { deviceId: string; data: AxeOSSystemInfo; isOnline: boolean }) => void) => {
     ipcRenderer.on('device-metrics', (_, data) => callback(data));
@@ -539,6 +550,14 @@ export interface ElectronAPI {
       setDeviceVoltage: (ipAddress: string, voltage: number) => Promise<DeviceControlResult>;
       updateDeviceSettings: (ipAddress: string, settings: DeviceSettings) => Promise<DeviceControlResult>;
       updatePoolSettings: (ipAddress: string, stratumURL: string, stratumPort: number, stratumUser: string, stratumPassword?: string) => Promise<DeviceControlResult>;
+
+      luxGetControlState: (ipAddress: string) => Promise<DeviceControlResult>;
+      luxSetTempControl: (ipAddress: string, target: number, hot?: number, dangerous?: number) => Promise<DeviceControlResult>;
+      luxSetProfile: (ipAddress: string, profileName: string) => Promise<DeviceControlResult>;
+      luxSetFanSpeed: (ipAddress: string, speed: number) => Promise<DeviceControlResult>;
+      luxCurtail: (ipAddress: string, mode: 'sleep' | 'wakeup') => Promise<DeviceControlResult>;
+      luxSetAtm: (ipAddress: string, enabled: boolean, maxProfile?: string) => Promise<DeviceControlResult>;
+      luxReboot: (ipAddress: string, boardId?: number) => Promise<DeviceControlResult>;
 
       onDeviceMetrics: (callback: (data: { deviceId: string; data: AxeOSSystemInfo; isOnline: boolean }) => void) => void;
       onNewBestDiff: (callback: (data: { deviceId: string; deviceName: string; newBestDiff: number; previousBest: number }) => void) => void;

@@ -1,7 +1,32 @@
 /**
  * Device Control Module
- * Provides remote control capabilities for BitAxe devices
+ * Provides remote control capabilities for BitAxe (AxeOS HTTP API) devices and,
+ * by routing on device type, Antminer S19/S21 on LuxOS (cgminer API on 4028).
  */
+import { getDeviceByIp } from './database/devices';
+import * as lux from './luxos-control';
+
+/** True when the device at this IP is registered as a LuxOS miner. */
+function isLuxOS(ipAddress: string): boolean {
+  return getDeviceByIp(ipAddress)?.device_type === 'luxos';
+}
+
+/**
+ * Map a raw ASIC frequency (MHz) to the nearest standard LuxOS dynamic profile
+ * name. LuxOS tunes by named profiles (e.g. "270MHz") in ~25MHz steps, not by
+ * arbitrary frequency, so we snap to the closest one.
+ */
+function freqToLuxProfile(frequency: number): string {
+  const steps = [
+    145, 170, 195, 220, 245, 270, 295, 320, 345, 370, 395, 420, 445, 470, 495,
+    520, 545, 570, 595, 620, 645
+  ];
+  let nearest = steps[0];
+  for (const s of steps) {
+    if (Math.abs(s - frequency) < Math.abs(nearest - frequency)) nearest = s;
+  }
+  return `${nearest}MHz`;
+}
 
 export interface DeviceSettings {
   frequency?: number;      // ASIC frequency in MHz
@@ -25,6 +50,9 @@ const TIMEOUT_MS = 10000;
  * Restart a BitAxe device
  */
 export async function restartDevice(ipAddress: string): Promise<ApiResponse> {
+  // LuxOS: reboot the (single) hashboard via the cgminer session API.
+  if (isLuxOS(ipAddress)) return lux.luxReboot(ipAddress, 0);
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
@@ -67,6 +95,41 @@ export async function updateDeviceSettings(
   ipAddress: string,
   settings: DeviceSettings
 ): Promise<ApiResponse> {
+  // LuxOS devices don't speak the AxeOS HTTP API — dispatch each supported
+  // field to its cgminer-API equivalent (each opens its own logon session).
+  if (isLuxOS(ipAddress)) {
+    const errors: string[] = [];
+    let applied = 0;
+
+    if (settings.fanSpeed !== undefined) {
+      const r = await lux.luxSetFanSpeed(ipAddress, settings.fanSpeed);
+      r.success ? applied++ : errors.push(`fan: ${r.error}`);
+    }
+    if (settings.frequency !== undefined) {
+      const r = await lux.luxSetProfile(ipAddress, freqToLuxProfile(settings.frequency));
+      r.success ? applied++ : errors.push(`profile: ${r.error}`);
+    }
+    if (settings.coreVoltage !== undefined) {
+      // Single-voltage board: voltage is bound to the tuning profile, not set directly.
+      errors.push('voltage: on LuxOS, voltage is set by the tuning profile, not directly');
+    }
+    if (settings.stratumURL !== undefined && settings.stratumPort !== undefined) {
+      const host = settings.stratumURL.replace(/^stratum\+tcp:\/\//i, '');
+      const url = `stratum+tcp://${host}:${settings.stratumPort}`;
+      const r = await lux.luxSetPool(
+        ipAddress,
+        url,
+        settings.stratumUser ?? '',
+        settings.stratumPassword ?? 'x'
+      );
+      r.success ? applied++ : errors.push(`pool: ${r.error}`);
+    }
+
+    if (errors.length && applied === 0) return { success: false, error: errors.join('; ') };
+    if (errors.length) return { success: true, data: { partial: true, warnings: errors } };
+    return { success: true };
+  }
+
   // Transform settings to AxeOS API field names
   const apiSettings: Record<string, unknown> = {};
   if (settings.fanSpeed !== undefined) apiSettings.fanspeed = settings.fanSpeed;
@@ -203,6 +266,9 @@ export async function updatePoolSettings(
  * Get device info (for displaying current settings)
  */
 export async function getDeviceInfo(ipAddress: string): Promise<ApiResponse> {
+  // LuxOS: return temp-control setpoints, fan state and profile list.
+  if (isLuxOS(ipAddress)) return lux.getLuxControlState(ipAddress);
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 

@@ -18,6 +18,7 @@ import * as discovery from './device-discovery';
 import * as systemTray from './system-tray';
 import * as alertSystem from './alert-system';
 import * as deviceControl from './device-control';
+import * as luxControl from './luxos-control';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -406,6 +407,35 @@ ipcMain.handle('update-device-settings', async (_, ipAddress: string, settings: 
 
 ipcMain.handle('update-pool-settings', async (_, ipAddress: string, stratumURL: string, stratumPort: number, stratumUser: string, stratumPassword?: string) => {
   return deviceControl.updatePoolSettings(ipAddress, stratumURL, stratumPort, stratumUser, stratumPassword);
+});
+
+// IPC Handlers - LuxOS-specific Control (Antminer S19/S21 on LuxOS)
+ipcMain.handle('lux-get-control-state', async (_, ipAddress: string) => {
+  return luxControl.getLuxControlState(ipAddress);
+});
+
+ipcMain.handle('lux-set-temp-control', async (_, ipAddress: string, target: number, hot?: number, dangerous?: number) => {
+  return luxControl.luxSetTempControl(ipAddress, target, hot, dangerous);
+});
+
+ipcMain.handle('lux-set-profile', async (_, ipAddress: string, profileName: string) => {
+  return luxControl.luxSetProfile(ipAddress, profileName);
+});
+
+ipcMain.handle('lux-set-fan-speed', async (_, ipAddress: string, speed: number) => {
+  return luxControl.luxSetFanSpeed(ipAddress, speed);
+});
+
+ipcMain.handle('lux-curtail', async (_, ipAddress: string, mode: 'sleep' | 'wakeup') => {
+  return luxControl.luxCurtail(ipAddress, mode);
+});
+
+ipcMain.handle('lux-set-atm', async (_, ipAddress: string, enabled: boolean, maxProfile?: string) => {
+  return luxControl.luxSetAtm(ipAddress, enabled, maxProfile);
+});
+
+ipcMain.handle('lux-reboot', async (_, ipAddress: string, boardId?: number) => {
+  return luxControl.luxReboot(ipAddress, boardId ?? 0);
 });
 
 // IPC Handlers - Device Groups

@@ -15,6 +15,7 @@ import * as poller from '../axeos-poller';
 import * as bitcoin from '../bitcoin-price';
 import * as profitability from '../profitability';
 import * as deviceControl from '../device-control';
+import * as luxControl from '../luxos-control';
 import { isValidDeviceHost, HARDWARE_LIMITS, validateInRange, RateLimiter } from '../security';
 
 // Throttle password attempts: 8 tries per 15 minutes per client IP.
@@ -439,6 +440,60 @@ export function startServer(): { port: number; addresses: string[] } {
     }
     const result = await deviceControl.updatePoolSettings(device.ip_address, url, port, user, pass);
     res.json(result);
+  });
+
+  // ---- LuxOS control (Antminer S19/S21 on LuxOS, cgminer API 4028) ----
+  // Resolve a LuxOS device or send the error response; returns the ip or null.
+  const luxDevice = (req: express.Request, res: express.Response): string | null => {
+    const device = devices.getDeviceById(req.params.id);
+    if (!device) { res.status(404).json({ success: false, error: 'Device not found' }); return null; }
+    if (device.device_type !== 'luxos') {
+      res.status(400).json({ success: false, error: 'Not a LuxOS device' });
+      return null;
+    }
+    return device.ip_address;
+  };
+
+  app.get('/api/devices/:id/lux/state', requireAuth, async (req, res) => {
+    const ip = luxDevice(req, res); if (!ip) return;
+    res.json(await luxControl.getLuxControlSummary(ip));
+  });
+
+  app.post('/api/devices/:id/lux/temp', requireAuth, async (req, res) => {
+    const ip = luxDevice(req, res); if (!ip) return;
+    const b = req.body || {};
+    const target = Number(b.target);
+    if (!Number.isFinite(target) || target < 40 || target > 85) {
+      res.status(400).json({ success: false, error: 'Target must be 40-85 C' }); return;
+    }
+    const hot = Number.isFinite(Number(b.hot)) ? Number(b.hot) : undefined;
+    const dangerous = Number.isFinite(Number(b.dangerous)) ? Number(b.dangerous) : undefined;
+    res.json(await luxControl.luxSetTempControl(ip, target, hot, dangerous));
+  });
+
+  app.post('/api/devices/:id/lux/profile', requireAuth, async (req, res) => {
+    const ip = luxDevice(req, res); if (!ip) return;
+    const profile = typeof (req.body || {}).profile === 'string' ? req.body.profile.trim() : '';
+    if (!profile) { res.status(400).json({ success: false, error: 'Profile name required' }); return; }
+    res.json(await luxControl.luxSetProfile(ip, profile));
+  });
+
+  app.post('/api/devices/:id/lux/fan', requireAuth, async (req, res) => {
+    const ip = luxDevice(req, res); if (!ip) return;
+    const speed = Number((req.body || {}).speed);
+    if (!Number.isFinite(speed)) { res.status(400).json({ success: false, error: 'Invalid fan speed' }); return; }
+    res.json(await luxControl.luxSetFanSpeed(ip, speed)); // negative = automatic
+  });
+
+  app.post('/api/devices/:id/lux/curtail', requireAuth, async (req, res) => {
+    const ip = luxDevice(req, res); if (!ip) return;
+    const mode = (req.body || {}).mode === 'sleep' ? 'sleep' : 'wakeup';
+    res.json(await luxControl.luxCurtail(ip, mode));
+  });
+
+  app.post('/api/devices/:id/lux/reboot', requireAuth, async (req, res) => {
+    const ip = luxDevice(req, res); if (!ip) return;
+    res.json(await luxControl.luxReboot(ip, 0));
   });
 
   // Get device metrics
@@ -2435,6 +2490,32 @@ function getWebDashboardHtml(): string {
         html += '<strong>⚠️ Warning:</strong> Changing these settings may affect device stability. Use with caution.';
         html += '</div>';
 
+        // LuxOS (Antminer S19/S21): profile/temp/fan/power controls, populated by loadLuxControls().
+        if (device.deviceType === 'luxos') {
+          html += '<div id="lux-controls" style="margin-bottom:16px;">';
+          html += '<div id="lux-loading" style="color:#8BA88B;font-size:12px;padding:6px 0;">Loading LuxOS controls…</div>';
+          html += '<div style="margin-bottom:14px;">';
+          html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><label style="color:#8BA88B;font-size:12px;">Target Temp (°C)</label><span id="lux-temp-meta" style="color:#8BA88B;font-size:11px;"></span></div>';
+          html += '<div style="display:flex;gap:8px;"><input type="number" id="lux-target" min="45" max="75" style="flex:1;padding:10px;background:var(--color-bg-primary,#0a1929);border:1px solid var(--color-border,#1a4a5c);border-radius:8px;color:var(--color-text-primary,#d7e4c9);font-size:14px;box-sizing:border-box;"><button onclick="applyLuxTemp()" style="padding:10px 16px;background:color-mix(in srgb, var(--color-accent) 14%, transparent);border:1px solid var(--color-accent);color:var(--color-accent);border-radius:8px;cursor:pointer;font-size:14px;min-height:44px;">Apply</button></div>';
+          html += '</div>';
+          html += '<div style="margin-bottom:14px;">';
+          html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><label style="color:#8BA88B;font-size:12px;">Fan Speed (%)</label><span id="lux-fan-meta" style="color:#8BA88B;font-size:11px;"></span></div>';
+          html += '<div style="display:flex;gap:8px;"><input type="number" id="lux-fan" min="0" max="100" style="flex:1;padding:10px;background:var(--color-bg-primary,#0a1929);border:1px solid var(--color-border,#1a4a5c);border-radius:8px;color:var(--color-text-primary,#d7e4c9);font-size:14px;box-sizing:border-box;"><button onclick="applyLuxFanAuto()" style="padding:10px 12px;background:var(--color-bg-primary,#0a1929);border:1px solid var(--color-border,#1a4a5c);color:#8BA88B;border-radius:8px;cursor:pointer;font-size:13px;min-height:44px;">Auto</button><button onclick="applyLuxFan()" style="padding:10px 16px;background:color-mix(in srgb, var(--color-accent) 14%, transparent);border:1px solid var(--color-accent);color:var(--color-accent);border-radius:8px;cursor:pointer;font-size:14px;min-height:44px;">Apply</button></div>';
+          html += '</div>';
+          html += '<div style="margin-bottom:14px;">';
+          html += '<label style="color:#8BA88B;font-size:12px;display:block;margin-bottom:6px;">Tuning Profile</label>';
+          html += '<div style="display:flex;gap:8px;"><select id="lux-profile" style="flex:1;padding:10px;background:var(--color-bg-primary,#0a1929);border:1px solid var(--color-border,#1a4a5c);border-radius:8px;color:var(--color-text-primary,#d7e4c9);font-size:13px;box-sizing:border-box;"></select><button onclick="applyLuxProfile()" style="padding:10px 16px;background:color-mix(in srgb, var(--color-accent) 14%, transparent);border:1px solid var(--color-accent);color:var(--color-accent);border-radius:8px;cursor:pointer;font-size:14px;min-height:44px;">Apply</button></div>';
+          html += '</div>';
+          html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
+          html += '<button onclick="luxCurtail(\\'wakeup\\')" style="flex:1;padding:10px;background:rgba(0,255,65,0.1);border:1px solid rgba(0,255,65,0.3);color:#00FF41;border-radius:8px;cursor:pointer;font-size:13px;min-height:44px;">Wake</button>';
+          html += '<button onclick="luxCurtail(\\'sleep\\')" style="flex:1;padding:10px;background:var(--color-bg-primary,#0a1929);border:1px solid var(--color-border,#1a4a5c);color:#8BA88B;border-radius:8px;cursor:pointer;font-size:13px;min-height:44px;">Sleep</button>';
+          html += '<button onclick="luxReboot()" style="flex:1;padding:10px;background:rgba(255,49,49,0.1);border:1px solid rgba(255,49,49,0.3);color:#FF3131;border-radius:8px;cursor:pointer;font-size:13px;min-height:44px;">Reboot</button>';
+          html += '</div>';
+          html += '</div>';
+        }
+
+        // BitAxe-style fan/frequency/voltage sliders (not applicable to LuxOS profiles)
+        if (device.deviceType !== 'luxos') {
         // Fan Speed
         html += '<div style="margin-bottom:16px;">';
         html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
@@ -2464,6 +2545,7 @@ function getWebDashboardHtml(): string {
         html += '<input type="range" id="voltage-slider" min="1000" max="1300" step="10" value="' + (m.coreVoltage || 1200) + '" style="width:100%;cursor:pointer;" oninput="document.getElementById(\\'voltage-value\\').textContent=this.value+\\' mV\\'">';
         html += '<button onclick="applyVoltage()" style="margin-top:8px;padding:12px 16px;background:color-mix(in srgb, var(--color-accent) 14%, transparent);border:1px solid var(--color-accent);color:var(--color-accent);border-radius:8px;cursor:pointer;font-size:14px;min-height:44px;width:100%;touch-action:manipulation;">Apply Voltage</button>';
         html += '</div>';
+        } // end BitAxe-style sliders (non-LuxOS)
 
         // Pool (stratum) edit — only for firmware that accepts a remote pool change.
         if (device.deviceType !== 'bitmain' && device.deviceType !== 'canaan' && device.deviceType !== 'luxos') {
@@ -2565,6 +2647,9 @@ function getWebDashboardHtml(): string {
       document.getElementById('modal-body').innerHTML = html;
       const modal = document.getElementById('device-modal');
       modal.classList.remove('hidden', 'closing');
+
+      // LuxOS: fetch live control state (temp/fan/profiles) to fill the controls.
+      if (device.deviceType === 'luxos') loadLuxControls(deviceId);
     }
 
     function closeModal() {
@@ -3060,6 +3145,81 @@ function getWebDashboardHtml(): string {
       } catch (err) {
         showControlStatus('Error: ' + err.message, true);
       }
+    }
+
+    // ============ LUXOS CONTROLS (Antminer S19/S21) ============
+    async function loadLuxControls(deviceId) {
+      var loading = document.getElementById('lux-loading');
+      try {
+        const res = await fetch('/api/devices/' + deviceId + '/lux/state', { headers: { 'Authorization': 'Bearer ' + token } });
+        const data = await res.json();
+        if (!data.success) { if (loading) { loading.textContent = 'LuxOS read failed: ' + (data.error || 'error'); } return; }
+        var s = data.data;
+        if (loading) loading.style.display = 'none';
+        var tEl = document.getElementById('lux-target'); if (tEl) tEl.value = Math.round(s.target);
+        var fEl = document.getElementById('lux-fan'); if (fEl) fEl.value = Math.round(s.fanSpeed);
+        var tm = document.getElementById('lux-temp-meta'); if (tm) tm.textContent = s.mode + ' · hot ' + s.hot + ' / trip ' + s.dangerous;
+        var fm = document.getElementById('lux-fan-meta'); if (fm) fm.textContent = s.fanCount + ' fans · ' + s.fanRpm + ' RPM';
+        var sel = document.getElementById('lux-profile');
+        if (sel && s.profiles) {
+          var opts = '';
+          for (var i = 0; i < s.profiles.length; i++) {
+            var p = s.profiles[i];
+            var scel = (p.name === s.currentProfile) ? ' selected' : '';
+            var label = p.name + ' — ' + p.frequency + 'MHz · ' + p.hashrate + 'TH · ' + p.watts + 'W' + (p.isDynamic ? '' : ' (custom)');
+            opts += '<option value="' + p.name.replace(/"/g, '&quot;') + '"' + scel + '>' + label + '</option>';
+          }
+          sel.innerHTML = opts;
+          if (s.atmEnabled) { showControlStatus('ATM auto-tuning is ON (cap: ' + (s.currentProfile || 'n/a') + ') — a manual profile applies but ATM may re-adjust', false); }
+        }
+      } catch (err) {
+        if (loading) loading.textContent = 'LuxOS read error: ' + err.message;
+      }
+    }
+
+    async function luxPost(path, bodyObj, okMsg) {
+      try {
+        const res = await fetch('/api/devices/' + currentDeviceId + '/lux/' + path, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify(bodyObj || {})
+        });
+        const data = await res.json();
+        if (data.success) {
+          showControlStatus(okMsg, false);
+          setTimeout(function () { loadLuxControls(currentDeviceId); }, 1500);
+        } else {
+          showControlStatus('Failed: ' + (data.error || 'Unknown error'), true);
+        }
+      } catch (err) {
+        showControlStatus('Error: ' + err.message, true);
+      }
+    }
+
+    function applyLuxTemp() {
+      var target = parseInt(document.getElementById('lux-target').value, 10);
+      if (!(target >= 45 && target <= 75)) { showControlStatus('Target must be 45-75 °C', true); return; }
+      luxPost('temp', { target: target }, 'Target temperature set to ' + target + ' °C');
+    }
+    function applyLuxFan() {
+      var speed = parseInt(document.getElementById('lux-fan').value, 10);
+      if (!(speed >= 0 && speed <= 100)) { showControlStatus('Fan speed must be 0-100 %', true); return; }
+      luxPost('fan', { speed: speed }, 'Fan speed set to ' + speed + '% (manual)');
+    }
+    function applyLuxFanAuto() {
+      luxPost('fan', { speed: -1 }, 'Fans set to automatic');
+    }
+    function applyLuxProfile() {
+      var profile = document.getElementById('lux-profile').value;
+      if (!profile) { showControlStatus('Select a profile', true); return; }
+      luxPost('profile', { profile: profile }, 'Profile set to ' + profile);
+    }
+    function luxCurtail(mode) {
+      luxPost('curtail', { mode: mode }, mode === 'sleep' ? 'Sleep (curtail) sent' : 'Wake sent');
+    }
+    function luxReboot() {
+      if (!confirm('Reboot this hashboard? Mining will pause for ~1 minute.')) return;
+      luxPost('reboot', {}, 'Reboot sent');
     }
 
     // ============ DEVICE MANAGEMENT ============

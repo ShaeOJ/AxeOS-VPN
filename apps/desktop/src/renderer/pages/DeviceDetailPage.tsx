@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useDeviceStore } from '../stores/deviceStore';
+import LuxOSControlPanel from '../components/LuxOSControlPanel';
 
 interface MetricData {
   timestamp: number;
@@ -805,6 +806,11 @@ export function DeviceDetailPage() {
               </div>
             )}
           </div>
+
+          {/* LuxOS Control Panel (Antminer S19/S21 on LuxOS — cgminer API on 4028) */}
+          {device.deviceType === 'luxos' && (
+            <LuxOSControlPanel ipAddress={device.ipAddress} />
+          )}
 
           {/* Device Control Panel - Hidden for Bitmain, Canaan and LuxOS (monitoring only) */}
           {device.deviceType !== 'canaan' && device.deviceType !== 'bitmain' && device.deviceType !== 'luxos' && (
