@@ -218,10 +218,14 @@ export interface ClusterStatus {
 // Store for latest metrics by device ID
 const latestMetrics = new Map<string, { data: AxeOSSystemInfo; timestamp: number }>();
 const pollIntervals = new Map<string, ReturnType<typeof setInterval>>();
+// Devices with a poll currently in-flight. Prevents the 5s interval from firing
+// overlapping polls onto a slow device (ESP32 web servers can take 10s+), which
+// used to pile up requests and cause a burst of timeouts → false "offline".
+const pollInFlight = new Set<string>();
 
 // Track consecutive failures per device - only go offline after multiple failures
 const consecutiveFailures = new Map<string, number>();
-const OFFLINE_THRESHOLD = 3; // Require 3 consecutive failures before marking offline
+const OFFLINE_THRESHOLD = 5; // Require 5 consecutive failures before marking offline (ESP32 miners drop the odd poll under load)
 
 // Event callback for UI updates
 type MetricsCallback = (deviceId: string, data: AxeOSSystemInfo, isOnline: boolean) => void;
@@ -363,7 +367,7 @@ export async function fetchClusterStatus(ipAddress: string): Promise<ClusterStat
 export async function fetchDeviceMetrics(ipAddress: string): Promise<AxeOSSystemInfo | null> {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout for slower devices like NerdMiner
+    const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s — ESP32 web servers (NerdAxe/NerdMiner) can stall under mining load
 
     const response = await fetch(`http://${ipAddress}/api/system/info`, {
       signal: controller.signal,
@@ -430,6 +434,11 @@ export async function fetchDeviceMetrics(ipAddress: string): Promise<AxeOSSystem
 const redetectedDevices = new Set<string>();
 
 async function pollDevice(device: devices.Device): Promise<void> {
+  // Skip if a previous poll for this device is still running (slow/stalled device),
+  // so we don't stack concurrent requests onto it.
+  if (pollInFlight.has(device.id)) return;
+  pollInFlight.add(device.id);
+  try {
   // Fetch metrics based on device type
   let data = device.device_type === 'bitmain'
     ? await fetchBitmainMetrics(device.ip_address, device.auth_user || undefined, device.auth_pass || undefined)
@@ -550,6 +559,9 @@ async function pollDevice(device: devices.Device): Promise<void> {
       console.log(`[Poller] ${device.name}: poll failed (${failures}/${OFFLINE_THRESHOLD}), keeping online`);
       // Keep the device online but don't send new metrics
     }
+  }
+  } finally {
+    pollInFlight.delete(device.id);
   }
 }
 
