@@ -100,7 +100,7 @@ interface Device {
   id: string;
   name: string;
   ipAddress: string;
-  deviceType?: 'bitaxe' | 'bitmain' | 'canaan' | 'braiins' | 'luxos';
+  deviceType?: 'bitaxe' | 'bitmain' | 'canaan' | 'braiins' | 'luxos' | 'primo';
   isOnline: boolean;
   lastSeen: number | null;
   createdAt: number;

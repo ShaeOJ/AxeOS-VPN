@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useDeviceStore } from '../stores/deviceStore';
 import LuxOSControlPanel from '../components/LuxOSControlPanel';
+import AvalonNanoControlPanel from '../components/AvalonNanoControlPanel';
 
 interface MetricData {
   timestamp: number;
@@ -318,6 +319,9 @@ export function DeviceDetailPage() {
                   {device.deviceType === 'canaan' && (
                     <span className="px-1.5 py-0.5 text-[10px] bg-success/20 border border-success/40 text-success uppercase font-bold">BETA</span>
                   )}
+                  {device.deviceType === 'primo' && (
+                    <span className="px-1.5 py-0.5 text-[10px] bg-success/20 border border-success/40 text-success uppercase font-bold">PRIMO</span>
+                  )}
                   {device.deviceType === 'braiins' && (
                     <span className="px-1.5 py-0.5 text-[10px] bg-accent/20 border border-accent/40 text-accent uppercase font-bold">BRAIINS</span>
                   )}
@@ -619,7 +623,7 @@ export function DeviceDetailPage() {
                 </svg>
                 <h3 className="text-sm font-bold text-accent uppercase tracking-wider">Pool Connection</h3>
               </div>
-              {device.deviceType !== 'bitmain' && device.deviceType !== 'canaan' && device.deviceType !== 'luxos' && (
+              {device.deviceType !== 'bitmain' && device.deviceType !== 'canaan' && device.deviceType !== 'luxos' && device.deviceType !== 'primo' && (
                 <button
                   onClick={() => setShowPoolEdit(!showPoolEdit)}
                   className="text-xs px-3 py-1 rounded bg-accent/20 text-accent border border-accent/30 hover:bg-accent/30 transition-colors"
@@ -812,8 +816,13 @@ export function DeviceDetailPage() {
             <LuxOSControlPanel ipAddress={device.ipAddress} />
           )}
 
+          {/* Avalon Nano Control Panel (Canaan Nano S/3S — pipe protocol on 4028) [BETA] */}
+          {device.deviceType === 'canaan' && (
+            <AvalonNanoControlPanel ipAddress={device.ipAddress} />
+          )}
+
           {/* Device Control Panel - Hidden for Bitmain, Canaan and LuxOS (monitoring only) */}
-          {device.deviceType !== 'canaan' && device.deviceType !== 'bitmain' && device.deviceType !== 'luxos' && (
+          {device.deviceType !== 'canaan' && device.deviceType !== 'bitmain' && device.deviceType !== 'luxos' && device.deviceType !== 'primo' && (
           <div className="vault-card p-4">
             <div className="flex items-center justify-between mb-4 pb-2 border-b border-border">
               <div className="flex items-center gap-2">

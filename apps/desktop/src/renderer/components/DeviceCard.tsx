@@ -245,7 +245,7 @@ interface DeviceGroup {
   createdAt: number;
 }
 
-type DeviceType = 'bitaxe' | 'bitmain' | 'canaan' | 'braiins' | 'luxos';
+type DeviceType = 'bitaxe' | 'bitmain' | 'canaan' | 'braiins' | 'luxos' | 'primo';
 
 interface Device {
   id: string;
@@ -491,6 +491,11 @@ export function DeviceCard({ device, groups, onGroupChange, networkStats, isNewR
               {device.deviceType === 'canaan' && (
                 <span className="px-1.5 py-0.5 text-[10px] flex-shrink-0 whitespace-nowrap bg-success/20 border border-success/40 text-success uppercase font-bold">
                   BETA
+                </span>
+              )}
+              {device.deviceType === 'primo' && (
+                <span className="px-1.5 py-0.5 text-[10px] flex-shrink-0 whitespace-nowrap bg-success/20 border border-success/40 text-success uppercase font-bold">
+                  PRIMO
                 </span>
               )}
               {device.deviceType === 'braiins' && (

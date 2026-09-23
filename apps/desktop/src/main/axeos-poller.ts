@@ -6,6 +6,7 @@ import * as blocks from './database/blocks';
 import * as profitability from './profitability';
 import { DeviceType } from './database/devices';
 import type { MiningCoin } from './profitability';
+import { fetchPrimoMetrics, checkPrimoDevice } from './primo';
 
 // Digest Authentication Helper
 interface DigestAuthParams {
@@ -159,6 +160,8 @@ export interface AxeOSSystemInfo {
   algorithm?: 'sha256' | 'scrypt';
   // Canaan-specific
   isCanaan?: boolean;
+  // Primo ARM Miner (CPU) specific
+  isPrimo?: boolean;
   // ClusterAxe fields - added when cluster is detected
   isClusterMaster?: boolean;
   clusterInfo?: ClusterStatus;
@@ -448,7 +451,17 @@ async function pollDevice(device: devices.Device): Promise<void> {
     ? await fetchLuxOSMetrics(device.ip_address)
     : device.device_type === 'canaan'
     ? await fetchCanaanMetrics(device.ip_address)
+    : device.device_type === 'primo'
+    ? await fetchPrimoMetrics(device.ip_address)
     : await fetchDeviceMetrics(device.ip_address);
+
+  // Canaan/Avalon Nano: if the cgminer JSON path returned nothing, the unit may
+  // only speak the Avalon pipe protocol (Nano S / 3S) — fall back to that. [BETA]
+  // Dynamic import avoids a static circular dependency with avalon-nano.ts.
+  if (data === null && device.device_type === 'canaan') {
+    const { fetchNanoMetrics } = await import('./avalon-nano');
+    data = await fetchNanoMetrics(device.ip_address);
+  }
 
   // Check if device was deleted while HTTP request was in-flight
   if (!pollIntervals.has(device.id)) {
@@ -1100,7 +1113,9 @@ export async function fetchCanaanMetrics(ipAddress: string): Promise<AxeOSSystem
 }
 
 // Transform CGMiner API data to unified AxeOSSystemInfo format
-function transformCanaanToAxeOS(
+// Exported so the Avalon Nano pipe-protocol path (avalon-nano.ts) can reuse it
+// by synthesizing cgminer-style summary/stats/pools objects from estats output.
+export function transformCanaanToAxeOS(
   summary: Record<string, unknown>,
   pools: Array<Record<string, unknown>>,
   stats: Array<Record<string, unknown>>,
@@ -1599,6 +1614,18 @@ export async function detectDeviceType(ipAddress: string, username?: string, pas
   if (axeosData && axeosData.ASICModel) {
     console.log(`[Detection] ${ipAddress} is BitAxe: ${axeosData.ASICModel}`);
     return { type: 'bitaxe', data: axeosData };
+  }
+
+  // Try Primo ARM Miner (ccminer TEXT API, port 4068) early — a distinct port, so
+  // a Primo answers in a few ms. Checked before the bitmain/4028 probes so Primo
+  // devices resolve fast instead of stalling through every other probe first
+  // (some SBCs refuse closed ports slowly, which otherwise makes the add feel hung).
+  if (await checkPrimoDevice(ipAddress)) {
+    const primoData = await fetchPrimoMetrics(ipAddress);
+    if (primoData) {
+      console.log(`[Detection] ${ipAddress} is Primo: ${primoData.ASICModel}`);
+      return { type: 'primo', data: primoData };
+    }
   }
 
   // Try Bitmain/CGMiner HTTP

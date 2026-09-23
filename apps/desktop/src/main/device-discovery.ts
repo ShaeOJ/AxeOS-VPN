@@ -395,7 +395,41 @@ export async function discoverDevices(
         if (bitaxe) return bitaxe;
         const bitmain = await probeBitmainDevice(ip);
         if (bitmain) return bitmain;
-        return await probeCanaanDevice(ip);
+        const canaan = await probeCanaanDevice(ip);
+        if (canaan) return canaan;
+        // Primo ARM Miner — ccminer TEXT API on its own port (4068). Dynamic
+        // import avoids a static cycle with axeos-poller/primo. [BETA]
+        {
+          const { checkPrimoDevice, fetchPrimoMetrics } = await import('./primo');
+          if (await checkPrimoDevice(ip)) {
+            const info = await fetchPrimoMetrics(ip).catch(() => null);
+            return {
+              ip,
+              hostname: info?.hostname || `Primo-${ip.split('.').pop()}`,
+              model: info?.ASICModel || 'Primo ARM CPU',
+              hashRate: info?.hashRate || 0,
+              version: info?.version || 'Primo (BETA)',
+              alreadyAdded: false,
+              deviceType: 'primo' as DeviceType,
+            };
+          }
+        }
+        // Fallback: Avalon Nano S/3S that speak only the pipe protocol (no JSON
+        // reply to the probe above). Dynamic import avoids a static cycle. [BETA]
+        const { checkNanoDevice, fetchNanoMetrics } = await import('./avalon-nano');
+        if (await checkNanoDevice(ip)) {
+          const info = await fetchNanoMetrics(ip).catch(() => null);
+          return {
+            ip,
+            hostname: `Nano-${ip.split('.').pop()}`,
+            model: info?.ASICModel || 'Avalon Nano',
+            hashRate: info?.hashRate || 0,
+            version: 'Avalon Nano (BETA)',
+            alreadyAdded: false,
+            deviceType: 'canaan' as DeviceType,
+          };
+        }
+        return null;
       })
     );
 
